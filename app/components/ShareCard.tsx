@@ -32,6 +32,8 @@ export function ShareCard({
   onFormatChange,
 }: ShareCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [usedMainThreadFallback, setUsedMainThreadFallback] = useState(false);
   const { address, network } = useWrapStore();
   const { playSound } = useSound();
   const isOnline = useOnlineStatus();

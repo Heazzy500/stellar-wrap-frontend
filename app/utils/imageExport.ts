@@ -9,44 +9,6 @@
  * @returns Promise that resolves when download is triggered
  * @throws Error if canvas generation or download fails
  */
-export async function downloadShareImage(element: HTMLElement): Promise<void> {
-  // Dynamic import: html2canvas is only loaded when this function is called.
-  const html2canvas = (await import("html2canvas")).default;
-
-  try {
-    // Step 1: Clone the element
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.style.position = "absolute";
-    clone.style.left = "-9999px";
-    clone.style.top = "0";
-    document.body.appendChild(clone);
-
-    // Step 2: Get all elements and force computed styles
-    const processElement = (original: Element, cloned: Element) => {
-      if (original instanceof HTMLElement && cloned instanceof HTMLElement) {
-        const computed = window.getComputedStyle(original);
-        
-        // List of all color-related properties to override
-        const colorProperties = [
-          'backgroundColor',
-          'color',
-          'borderColor',
-          'borderTopColor',
-          'borderRightColor',
-          'borderBottomColor',
-          'borderLeftColor',
-          'outlineColor',
-        ];
-
-        // Apply computed RGB values to override any oklab/oklch
-        colorProperties.forEach(prop => {
-          const kebabProp = prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`);
-          const value = computed.getPropertyValue(kebabProp);
-          
-          if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent') {
-            cloned.style.setProperty(kebabProp, value, 'important');
-          }
-        });
 import html2canvas from "html2canvas";
 
 const GENERATION_TIMEOUT_MS = 10_000;
