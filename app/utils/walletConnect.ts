@@ -109,6 +109,28 @@ export const connectAlbedo = async (_network: Network): Promise<string> => {
   }
 
   try {
+    const result = await window.albedo.publicKey();
+
+    if (!result?.publicKey) {
+      throw new Error(
+        "Connection rejected. Please approve the connection in Albedo.",
+      );
+    }
+
+    return result.publicKey;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      if (message.includes("popup") || message.includes("blocked")) {
+        throw new Error(
+          "Albedo popup was blocked by your browser. Please allow popups for this site.",
+        );
+      }
+      if (
+        message.includes("cancel") ||
+        message.includes("declined") ||
+        message.includes("rejected")
+      ) {
         throw new Error("Connection rejected by user.");
       }
       throw error;
@@ -131,6 +153,7 @@ export const isValidStellarAddress = (address: string): boolean => {
   const base32Regex = /^[A-Z2-7]{56}$/;
   return base32Regex.test(trimmedAddress);
 };
+
 interface XBullPublicKeyResult {
   publicKey?: string;
 }

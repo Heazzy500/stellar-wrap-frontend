@@ -1,7 +1,42 @@
 "use client";
 
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import {
+  useState,
+  useRef,
+  useEffect,
+  type ChangeEvent,
+  type FormEvent,
+  type KeyboardEvent,
+} from "react";
 import { useRouter } from "next/navigation";
+import {
+  ArrowLeft,
+  Wallet,
+  Copy,
+  CheckCircle,
+  XCircle,
+  QrCode,
+  ChevronRight,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Horizon } from "stellar-sdk";
+import {
+  connectFreighter,
+  connectAlbedo,
+  connectXBull,
+  isXBullInstalled,
+} from "@/app/utils/walletConnect";
+import { connectWalletConnect } from "@/app/utils/walletConnectManager";
+import { SOUND_NAMES } from "@/app/utils/soundManager";
+import { useWrapStore } from "@/app/store/wrapStore";
+import { useTransactionStore } from "@/app/store/transactionStore";
+import { useMultiTimeframeStore } from "@/app/store/multiTimeframeStore";
+import { useSound } from "@/app/hooks/useSound";
+import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
+import { useStellarAddressValidation } from "@/src/hooks/useStellarAddressValidation";
+import { ProgressIndicator } from "@/app/components/ProgressIndicator";
+import { MuteToggle } from "@/app/components/MuteToggle";
+import { RPC_ENDPOINTS } from "@/src/config";
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -21,6 +56,11 @@ export default function ConnectPage() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [lastUsedAddress, setLastUsedAddress] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewBalance, setPreviewBalance] = useState<string | null>(null);
+  const [previewTxCount, setPreviewTxCount] = useState<number | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   // Refs for focus management
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -42,6 +82,47 @@ export default function ConnectPage() {
     }
   }, []);
 
+  const saveAddressToLocalStorage = (address: string) => {
+    localStorage.setItem("lastUsedStellarAddress", address);
+    setLastUsedAddress(address);
+  };
+
+  const clearSavedAddress = () => {
+    localStorage.removeItem("lastUsedStellarAddress");
+    setLastUsedAddress(null);
+  };
+
+  const fetchAccountPreview = async (address: string) => {
+    setPreviewLoading(true);
+    try {
+      const horizon = new Horizon.Server(RPC_ENDPOINTS[network]);
+      const account = await horizon.loadAccount(address);
+      const nativeBalance = account.balances.find(
+        (balance) => balance.asset_type === "native",
+      );
+
+      setPreviewBalance(
+        nativeBalance
+          ? Number.parseFloat(nativeBalance.balance).toFixed(2)
+          : "0.00",
+      );
+
+      const operations = await horizon
+        .operations()
+        .forAccount(address)
+        .limit(1)
+        .call();
+
+      setPreviewTxCount(operations.records.length);
+      setShowPreview(true);
+    } catch (error) {
+      console.error("Failed to fetch account preview:", error);
+      setPreviewBalance(null);
+      setPreviewTxCount(null);
+      setShowPreview(true);
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleFreighterConnect = async () => {
@@ -107,7 +188,6 @@ export default function ConnectPage() {
       setIsConnecting(false);
     }
   };
-
 
   const handleXBullConnect = async () => {
     if (!isOnline) {
@@ -180,7 +260,7 @@ export default function ConnectPage() {
     }
   };
 
-  const handleManualSubmit = (e?: React.FormEvent) => {
+  const handleManualSubmit = (e?: FormEvent) => {
     if (e) e.preventDefault();
 
     if (!isOnline) {
@@ -216,7 +296,7 @@ export default function ConnectPage() {
     router.push("/loading");
   };
 
-  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
     handleRawAddressChange(e.target.value);
     setLocalError(null);
     setError(null);
@@ -747,8 +827,8 @@ export default function ConnectPage() {
               )}
             </AnimatePresence>
 
-            <AnimatePresence mode="wait">
-              {showPreview && (
+            <AnimatePresence mode="wait" initial={false}>
+              {showPreview ? (
                 <motion.div
                   key="preview"
                   initial={{ opacity: 0, y: 10 }}
@@ -756,11 +836,15 @@ export default function ConnectPage() {
                   exit={{ opacity: 0, y: -10 }}
                   className="mb-6 p-6 bg-theme-primary/10 border-2 border-theme-primary/50 rounded-xl"
                 >
-                  <h3 className="text-sm font-bold text-white/80 mb-4 tracking-wide">ACCOUNT SUMMARY</h3>
+                  <h3 className="text-sm font-bold text-white/80 mb-4 tracking-wide">
+                    ACCOUNT SUMMARY
+                  </h3>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-white/60 text-sm">Network</span>
-                      <span className="text-white font-bold">{network === "testnet" ? "Testnet" : "Mainnet"}</span>
+                      <span className="text-white font-bold">
+                        {network === "testnet" ? "Testnet" : "Mainnet"}
+                      </span>
                     </div>
                     {previewLoading ? (
                       <>
@@ -796,73 +880,81 @@ export default function ConnectPage() {
                     <ChevronRight className="w-4 h-4" />
                   </motion.button>
                 </motion.div>
-              )}
-            </AnimatePresence>
-
-            {!showPreview && (
-              <motion.button
-                ref={connectButtonRef}
-                onClick={handleConnect}
-              onKeyDown={handleConnectKeyDown}
-              disabled={!isOnline || !walletAddress.trim() || isConnecting || !isValid}
-              className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
-              whileHover={{
-                scale: !isOnline || !walletAddress.trim() || isConnecting || !isValid ? 1 : 1.02,
-              }}
-              whileTap={{
-                scale: !isOnline || !walletAddress.trim() || isConnecting || !isValid ? 1 : 0.98,
-              }}
-              tabIndex={0}
-              aria-label={
-                !isOnline
-                  ? "Indexing unavailable offline"
-                  : isConnecting
-                    ? "Connecting wallet"
-                    : "Start wrapping process"
-              }
-              aria-disabled={!isOnline || !walletAddress.trim() || isConnecting || !isValid}
-              role="button"
-            >
-              <motion.div
-                className="absolute -inset-1 rounded-xl blur-lg"
-                style={{
-                  backgroundColor: "rgba(var(--color-theme-primary-rgb), 0.4)",
-                }}
-                animate={{
-                  opacity: [0.5, 0.8, 0.5],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                }}
-              />
-
-              <div
-                className="relative px-8 py-5 rounded-xl font-black text-lg sm:text-xl tracking-tight transition-all duration-200 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
-                style={{
-                  backgroundColor: isConnecting
-                    ? "rgba(var(--color-theme-primary-rgb), 0.5)"
-                    : "var(--color-theme-primary)",
-                  color: "#000000",
-                  cursor:
+              ) : (
+                <motion.button
+                  key="manual-connect"
+                  ref={connectButtonRef}
+                  onClick={handleConnect}
+                  onKeyDown={handleConnectKeyDown}
+                  disabled={
                     !isOnline || !walletAddress.trim() || isConnecting || !isValid
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                {!isOnline ? (
-                  "OFFLINE"
-                ) : isConnecting ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    <span>CONNECTING...</span>
-                  </>
-                ) : (
-                  "START WRAPPING"
-                )}
-              </div>
-            </motion.button>
-            )}
+                  }
+                  className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+                  whileHover={{
+                    scale:
+                      !isOnline || !walletAddress.trim() || isConnecting || !isValid
+                        ? 1
+                        : 1.02,
+                  }}
+                  whileTap={{
+                    scale:
+                      !isOnline || !walletAddress.trim() || isConnecting || !isValid
+                        ? 1
+                        : 0.98,
+                  }}
+                  tabIndex={0}
+                  aria-label={
+                    !isOnline
+                      ? "Indexing unavailable offline"
+                      : isConnecting
+                        ? "Connecting wallet"
+                        : "Start wrapping process"
+                  }
+                  aria-disabled={
+                    !isOnline || !walletAddress.trim() || isConnecting || !isValid
+                  }
+                  role="button"
+                >
+                  <motion.div
+                    className="absolute -inset-1 rounded-xl blur-lg"
+                    style={{
+                      backgroundColor: "rgba(var(--color-theme-primary-rgb), 0.4)",
+                    }}
+                    animate={{
+                      opacity: [0.5, 0.8, 0.5],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                    }}
+                  />
+
+                  <div
+                    className="relative px-8 py-5 rounded-xl font-black text-lg sm:text-xl tracking-tight transition-all duration-200 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
+                    style={{
+                      backgroundColor: isConnecting
+                        ? "rgba(var(--color-theme-primary-rgb), 0.5)"
+                        : "var(--color-theme-primary)",
+                      color: "#000000",
+                      cursor:
+                        !isOnline || !walletAddress.trim() || isConnecting || !isValid
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    {!isOnline ? (
+                      "OFFLINE"
+                    ) : isConnecting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        <span>CONNECTING...</span>
+                      </>
+                    ) : (
+                      "START WRAPPING"
+                    )}
+                  </div>
+                </motion.button>
+              )}
             </AnimatePresence>
 
             {/* Wallet Connect Options */}
