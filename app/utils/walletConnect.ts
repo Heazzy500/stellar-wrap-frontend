@@ -109,6 +109,14 @@ export const connectAlbedo = async (_network: Network): Promise<string> => {
   }
 
   try {
+    const result = await window.albedo.publicKey();
+    if (!result?.publicKey) {
+      throw new Error("Connection rejected by user.");
+    }
+    return result.publicKey;
+  } catch (error: unknown) {
+    if (error instanceof Error) {
+      if (error.message?.includes("User declined")) {
         throw new Error("Connection rejected by user.");
       }
       throw error;

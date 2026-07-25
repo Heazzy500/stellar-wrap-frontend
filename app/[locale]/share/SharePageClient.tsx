@@ -6,20 +6,20 @@ import { ExternalLink, Share2 } from "lucide-react";
 import { mockData } from "@/app/data/mockData";
 import { GOLDEN_USER } from "@/src/data/mockData";
 import { ProgressIndicator } from "@/app/components/ProgressIndicator";
-import { MuteToggle } from "../components/MuteToggle";
-import { ShareCard } from "../components/ShareCard";
-import { ShareImageCard } from "../components/ShareImageCard";
-import { ShareImageCardStories } from "../components/ShareImageCardStories";
-import { useTheme, themeColors } from "../context/ThemeContext";
-import { useWrapStore } from "../store/wrapStore";
+import { MuteToggle } from "@/app/components/MuteToggle";
+import { ShareCard } from "@/app/components/ShareCard";
+import { ShareImageCard } from "@/app/components/ShareImageCard";
+import { ShareImageCardStories } from "@/app/components/ShareImageCardStories";
+import { useTheme, themeColors } from "@/app/context/ThemeContext";
+import { useWrapStore } from "@/app/store/wrapStore";
 import {
   XIcon,
   WhatsAppIcon,
   FacebookIcon,
   LinkedInIcon,
   TelegramIcon,
-} from "../components/SocialIcons";
-import { trackEvent } from "../../utils/plausible";
+} from "@/app/components/SocialIcons";
+import { trackEvent } from "@/app/utils/plausible";
 
 const SocialIcons = {
   X: XIcon,

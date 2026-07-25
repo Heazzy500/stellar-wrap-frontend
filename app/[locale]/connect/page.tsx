@@ -2,6 +2,40 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  ArrowLeft,
+  CheckCircle,
+  ChevronRight,
+  Copy,
+  QrCode,
+  Wallet,
+  XCircle,
+} from "lucide-react";
+import { ProgressIndicator } from "@/app/components/ProgressIndicator";
+import { MuteToggle } from "@/app/components/MuteToggle";
+import { useWrapStore } from "@/app/store/wrapStore";
+import { useTransactionStore } from "@/app/store/transactionStore";
+import { useMultiTimeframeStore } from "@/app/store/multiTimeframeStore";
+import { useSound } from "@/app/hooks/useSound";
+import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
+import { useStellarAddressValidation } from "@/src/hooks/useStellarAddressValidation";
+import {
+  connectAlbedo,
+  connectFreighter,
+  connectXBull,
+} from "@/app/utils/walletConnect";
+import { connectWalletConnect } from "@/app/utils/walletConnectManager";
+import { SOUND_NAMES } from "@/app/utils/soundManager";
+import { getHorizonServer } from "@/app/utils/stellarClient";
+
+function saveAddressToLocalStorage(address: string) {
+  try {
+    localStorage.setItem("lastUsedStellarAddress", address);
+  } catch {
+    // ignore storage errors in private mode
+  }
+}
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -21,6 +55,11 @@ export default function ConnectPage() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [lastUsedAddress, setLastUsedAddress] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewBalance, setPreviewBalance] = useState("0");
+  const [previewTxCount, setPreviewTxCount] = useState("0");
 
   // Refs for focus management
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -42,6 +81,32 @@ export default function ConnectPage() {
     }
   }, []);
 
+  const fetchAccountPreview = async (accountId: string) => {
+    setShowPreview(true);
+    setPreviewLoading(true);
+    setStatus("loading");
+    setLocalError(null);
+
+    try {
+      const server = getHorizonServer(network);
+      const account = await server.loadAccount(accountId);
+      const nativeBalance = account.balances.find(
+        (balance) => balance.asset_type === "native",
+      );
+      setPreviewBalance(nativeBalance?.balance ?? "0");
+
+      const transactions = await server
+        .transactions()
+        .forAccount(accountId)
+        .limit(1)
+        .call();
+      setPreviewTxCount(String(transactions.records.length));
+    } catch {
+      setPreviewBalance("—");
+      setPreviewTxCount("—");
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleFreighterConnect = async () => {
