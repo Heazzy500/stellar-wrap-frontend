@@ -16,7 +16,8 @@
     "vitest": "vitest",
     "test:ui": "vitest --ui",
     "test": "jest",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "validate:env": "node scripts/validate-env.js"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.54",
