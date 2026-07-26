@@ -11,6 +11,7 @@
     "dev": "next dev",
     "start": "next start",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "vitest": "vitest",
