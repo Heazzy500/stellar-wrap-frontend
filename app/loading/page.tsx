@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "motion/react";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { Home, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
@@ -15,6 +15,11 @@ import { useSound } from "../hooks/useSound";
 import { SOUND_NAMES } from "../utils/soundManager";
 import { indexAccount } from "../services/indexerService";
 import { IndexerEventEmitter } from "../utils/indexerEventEmitter";
+import { isDemoMode } from "../data/demoAccount";
+import {
+  shouldNavigateToPersona,
+  toIndexerErrorMessage,
+} from "../utils/indexerFailure";
 
 export default function LoadingScreen() {
   const router = useRouter();
@@ -27,6 +32,11 @@ export default function LoadingScreen() {
     playSound(SOUND_NAMES.SLIDE_WHOOSH);
     router.push("/persona");
   }, [router, playSound]);
+
+  // Held in a ref so the indexing effect below depends only on the inputs that
+  // should actually re-trigger indexing, not on callback identity.
+  const handleCompleteRef = useRef(handleComplete);
+  handleCompleteRef.current = handleComplete;
 
   const handleCancel = useCallback(() => {
     abortIndexingRequests();
@@ -122,13 +132,22 @@ export default function LoadingScreen() {
         setError(null);
         setCacheMeta(null);
 
-        // NOTE: Do NOT call loadIndexingState() here - it will overwrite isLoading: true
-        // The startIndexing() call above already set isLoading, which is what matters
+        // NOTE: loadIndexingState() is deliberately neither called nor listed as a
+        // dependency of this effect - it would overwrite the isLoading: true that
+        // startIndexing() just set above, which is the state this screen renders from.
 
         // Call real indexer service - will emit step progress events
         let result: WrapResult | null = null;
 
-        if (address) {
+        if (isDemoMode()) {
+          // Demo mode is mock-only: never hit Horizon for the demo fixture address.
+          await emitProgressThroughSteps();
+          result = mapIndexerResultToWrapResult({
+            totalTransactions: 42,
+            dapps: [],
+            largestTransaction: { amount: 1000, assetCode: "XLM" },
+          });
+        } else if (address) {
           if (!navigator.onLine) {
             const cached = await getMostRecentCachedData();
             if (cached) {
@@ -162,7 +181,7 @@ export default function LoadingScreen() {
 
         if (!isMounted || abortSignal.aborted || useWrapStore.getState().isCancelled) return;
 
-        if (!result) {
+        if (!shouldNavigateToPersona(result)) {
           throw new Error("No wrap data available.");
         }
 
@@ -175,26 +194,24 @@ export default function LoadingScreen() {
         // Give progress display time to be visible (minimum 1.5 seconds)
         setTimeout(() => {
           if (isMounted) {
-            handleComplete();
+            handleCompleteRef.current();
           }
         }, 1500);
       } catch (error: unknown) {
         if (isAbortError(error) || !isMounted) return;
+
+        const message = toIndexerErrorMessage(error);
+
         setStatus("error");
-        if (error instanceof Error) {
-          setError(error.message);
-        } else {
-          setError("Failed to load wrap data");
-        }
-        if (!navigator.onLine) {
-          return;
-        }
-        // Fallback: still navigate so user isn’t stuck
-        setTimeout(() => {
-          if (isMounted) {
-            handleComplete();
-          }
-        }, 1200);
+        setError(message);
+
+        // Keep the user on the actionable error/retry UI. We reach this branch only
+        // when neither real result data nor the mock fallback produced a result, so
+        // navigating to /persona would render an empty wrap and hide the real
+        // indexer failure. StepProgressDisplay renders the retry affordance from
+        // indexingError, so surface the failure there too.
+        const { currentStep, setIndexingError } = useWrapStore.getState();
+        setIndexingError(currentStep ?? "initializing", message, true);
       }
     };
 
@@ -206,18 +223,10 @@ export default function LoadingScreen() {
       clearIndexingAbortScope();
       IndexerEventEmitter.getInstance().reset();
     };
-  }, [
-    address,
-    period,
-    network,
-    setError,
-    setResult,
-    setStatus,
-    setCacheMeta,
-    handleComplete,
-    startIndexing,
-    completeIndexing,
-  ]);
+    // Only the indexing inputs belong here. Zustand actions are stable, and
+    // handleComplete is read through a ref, so this effect runs once per
+    // address/period/network rather than restarting on every render.
+  }, [address, period, network]);
 
   const starConfigs = useMemo(
     () =>

@@ -3,14 +3,27 @@
 import Image from "next/image";
 import { mockData } from "../data/mockData";
 
+interface ShareImageCardStoriesVibe {
+  percentage: number;
+  label: string;
+}
+
+interface ShareImageCardStoriesData {
+  username: string;
+  transactions: number;
+  persona: string;
+  vibes?: ShareImageCardStoriesVibe[];
+}
+
 interface ShareImageCardStoriesProps {
   themeColor: string;
   archetypeImage?: string;
+  data?: ShareImageCardStoriesData;
   shareUrl?: string;
 }
 
-export function ShareImageCardStories({ themeColor, archetypeImage, shareUrl }: ShareImageCardStoriesProps) {
-  const { persona, transactions, username, vibes } = mockData;
+export function ShareImageCardStories({ themeColor, archetypeImage, data, shareUrl }: ShareImageCardStoriesProps) {
+  const { persona, transactions, username, vibes = [] } = data ?? mockData;
   const topVibe = vibes[0];
   const topThreeVibes = vibes.slice(0, 3);
   const resolvedArchetypeImage =

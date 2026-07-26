@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, Share2 } from "lucide-react";
 import { mockData } from "@/app/data/mockData";
-import { GOLDEN_USER } from "@/src/data/mockData";
 import { ProgressIndicator } from "@/app/components/ProgressIndicator";
 import { MuteToggle } from "../components/MuteToggle";
 import { ShareCard } from "../components/ShareCard";
@@ -44,6 +43,16 @@ export default function SharePageClient() {
   const persona = result?.persona ?? mockData.persona;
   const topVibe = result?.vibes[0]?.label ?? mockData.vibes[0].label;
   const vibePercentage = result?.vibes[0]?.percentage ?? mockData.vibes[0].percentage;
+
+  // The off-screen export card must render the same data as the on-screen card.
+  // archetypeImage is left undefined so the card keeps its deterministic
+  // persona-derived fallback (e.g. "The Wizard" -> /archetypes/wizard.png).
+  const shareImageData = {
+    username,
+    transactions,
+    persona,
+    vibes: result?.vibes ?? mockData.vibes,
+  };
 
   const stellarExpertUrl = walletAddress
     ? network === "testnet"
@@ -124,9 +133,9 @@ export default function SharePageClient() {
         style={{ left: "-9999px", top: 0 }}
       >
         {cardFormat === "stories" ? (
-          <ShareImageCardStories themeColor={themeColor} archetypeImage={GOLDEN_USER.archetype.image} shareUrl={shareUrl} />
+          <ShareImageCardStories themeColor={themeColor} data={shareImageData} shareUrl={shareUrl} />
         ) : (
-          <ShareImageCard themeColor={themeColor} archetypeImage={GOLDEN_USER.archetype.image} shareUrl={shareUrl} />
+          <ShareImageCard themeColor={themeColor} data={shareImageData} shareUrl={shareUrl} />
         )}
       </div>
 
