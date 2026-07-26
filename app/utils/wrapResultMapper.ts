@@ -21,19 +21,25 @@ function mapMockDapps() {
 export function mapIndexerResultToWrapResult(
   indexerResult: IndexerResult,
 ): WrapResult {
+  const isZeroActivity = indexerResult.totalTransactions === 0;
   // Prefer the computed persona from the indexer; fall back to mockData only if absent.
-  const persona = indexerResult.persona ?? mockData.persona;
+  const persona = indexerResult.persona ?? (isZeroActivity ? "Quiet Wallet" : mockData.persona);
 
   return {
     username: mockData.username,
-    totalTransactions: indexerResult.totalTransactions || mockData.transactions,
-    percentile: mockData.percentile,
-    dapps: indexerResult.dapps?.length
-      ? mapIndexerDapps(indexerResult.dapps)
-      : mapMockDapps(),
-    vibes: mockData.vibes,
+    // Preserve legitimate zeros — do not coerce to mock transaction counts.
+    totalTransactions: indexerResult.totalTransactions ?? 0,
+    percentile: isZeroActivity ? 0 : mockData.percentile,
+    dapps: isZeroActivity
+      ? []
+      : indexerResult.dapps?.length
+        ? mapIndexerDapps(indexerResult.dapps)
+        : mapMockDapps(),
+    vibes: isZeroActivity ? [] : mockData.vibes,
     persona,
-    personaDescription: mockData.personaDescription,
+    personaDescription: isZeroActivity
+      ? "No on-chain activity showed up for this period. Try a wider window or another network."
+      : mockData.personaDescription,
     portfolioDiversitySummary: indexerResult.portfolioDiversitySummary,
     biggestDaySummary: indexerResult.biggestDaySummary,
     dexTradingSummary: indexerResult.dexTradingSummary,
