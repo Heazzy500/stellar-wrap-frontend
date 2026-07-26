@@ -245,14 +245,18 @@ export default function SharePageClient() {
 
           <button
             ref={shareBtnRef}
+            type="button"
             onClick={() => setShareOpen(!shareOpen)}
             className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
+            aria-label={shareOpen ? "Close share menu" : "Open share menu"}
+            aria-expanded={shareOpen}
+            aria-haspopup="menu"
           >
             <motion.div
               animate={{ rotate: shareOpen ? 50 : 0 }}
               transition={{ type: "spring", stiffness: 260, damping: 20 }}
             >
-              <Share2 className="h-5 w-5 sm:h-7 sm:w-7 cursor-pointer" />
+              <Share2 className="h-5 w-5 sm:h-7 sm:w-7 cursor-pointer" aria-hidden="true" />
             </motion.div>
           </button>
         </div>

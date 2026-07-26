@@ -12,6 +12,7 @@ import { signTransaction } from '@stellar/freighter-api';
 import { Network, NETWORK_PASSPHRASES, SOROBAN_RPC_URLS, RPC_ENDPOINTS } from '../config';
 import { getContractAddress } from '../../config/contracts';
 import { buildContractArgs, type ContractStatsInput } from '../utils/contractArgsBuilder';
+import { mapContractError } from '../../app/utils/contractErrors';
 
 export type TransactionState =
   | 'pending'
@@ -172,20 +173,36 @@ async function waitForConfirmation(
   );
 }
 
+/**
+ * Map SDK / host errors to concise user-facing copy.
+ * Raw details stay available via `mapContractError(...).raw` for logs.
+ */
 function parseContractError(error: unknown): string {
+  const mapped = mapContractError(error);
+  // Always keep raw details in diagnostics/logs
+  if (mapped.code !== 'Unknown') {
+    console.warn('[contractBridge] contract error', {
+      code: mapped.code,
+      numericCode: mapped.numericCode,
+      raw: mapped.raw,
+    });
+    return mapped.userMessage;
+  }
+
   if (error instanceof Error) {
     const message = error.message;
     if (message.includes('insufficient_fee') || message.includes('fee')) {
       return 'Insufficient transaction fee. Please try again.';
-    }
-    if (message.includes('HostError') || message.includes('ContractError')) {
-      return `Contract error: ${message}`;
     }
     if (message.includes('User declined') || message.includes('rejected')) {
       return 'Transaction was rejected by user';
     }
     if (message.includes('network') || message.includes('timeout')) {
       return 'Network error. Please check your connection and try again.';
+    }
+    if (message.includes('HostError') || message.includes('ContractError') || message.includes('Error(Contract')) {
+      console.warn('[contractBridge] unmapped host error', mapped.raw);
+      return mapped.userMessage;
     }
     return message;
   }
