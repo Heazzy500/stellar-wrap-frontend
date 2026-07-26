@@ -15,6 +15,8 @@ import { useSound } from "../hooks/useSound";
 import { SOUND_NAMES } from "../utils/soundManager";
 import { indexAccount } from "../services/indexerService";
 import { IndexerEventEmitter } from "../utils/indexerEventEmitter";
+// Sensitive logs: use indexerDebug — never log wallet addresses in production
+// (see docs/sensitive-logging.md)
 
 export default function LoadingScreen() {
   const router = useRouter();
@@ -267,7 +269,6 @@ export default function LoadingScreen() {
         transition={{ delay: 0.2 }}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
-        aria-label="Go home"
       >
         <div
           className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-xl backdrop-blur-xl border border-white/20"
@@ -311,7 +312,6 @@ export default function LoadingScreen() {
         transition={{ delay: 1 }}
         whileHover={{ scale: 1.1 }}
         whileTap={{ scale: 0.95 }}
-        aria-label="Skip"
       >
         <div className="flex flex-col items-center gap-2">
           <div className="relative">

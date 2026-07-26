@@ -241,11 +241,21 @@ export const useWrapStore = create<WrapStoreState>()(
       },
 
       setStepProgress: (step, progress) => {
-        const clamped = Math.max(0, Math.min(100, progress));
-        set((state) => ({
+        const state = get();
+        // Ignore stale updates after the step is already complete
+        if (state.completedStepRecord[step]) {
+          return;
+        }
+        const next = Math.max(0, Math.min(100, progress));
+        const current = state.stepProgress[step] ?? 0;
+        // Monotonic: never allow progress to regress within a run
+        if (next < current) {
+          return;
+        }
+        set((s) => ({
           stepProgress: {
-            ...state.stepProgress,
-            [step]: clamped,
+            ...s.stepProgress,
+            [step]: next,
           },
         }));
         get().updateOverallProgress();

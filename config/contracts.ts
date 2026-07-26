@@ -14,7 +14,49 @@ export interface ContractNetworkConfig {
 export type ContractConfig = Record<Network, ContractNetworkConfig>;
 
 /** Placeholder when no contract is configured (56-char Soroban format: C + 55 base32 chars) */
-const PLACEHOLDER_ADDRESS = "C" + "A".repeat(55);
+export const PLACEHOLDER_CONTRACT_ADDRESS = "C" + "A".repeat(55);
+
+/** @deprecated Use PLACEHOLDER_CONTRACT_ADDRESS */
+const PLACEHOLDER_ADDRESS = PLACEHOLDER_CONTRACT_ADDRESS;
+
+/**
+ * True when address is the all-A placeholder (or starts with enough A's to match legacy checks).
+ * Format-valid but not a real deployed contract — must never reach wallet signing.
+ */
+export function isPlaceholderContractAddress(address: string): boolean {
+  if (typeof address !== "string" || !address) return true;
+  if (address === PLACEHOLDER_CONTRACT_ADDRESS) return true;
+  // Legacy / partial placeholders used in older bridges
+  return address.startsWith("CAAAAAAAA");
+}
+
+/**
+ * Env var name developers must set for a given network.
+ */
+export function getContractAddressEnvHint(network: Network): string {
+  return `NEXT_PUBLIC_CONTRACT_ADDRESS_${network.toUpperCase()}`;
+}
+
+/**
+ * User-safe + developer-facing error for missing/placeholder contract config.
+ */
+export class PlaceholderContractAddressError extends Error {
+  readonly userMessage: string;
+  readonly developerHint: string;
+  readonly network: Network;
+
+  constructor(network: Network) {
+    const envVar = getContractAddressEnvHint(network);
+    const userMessage =
+      "This network is not ready for minting yet. Contract configuration is missing.";
+    const developerHint = `Set ${envVar} (or NEXT_PUBLIC_CONTRACT_ADDRESS) to a real Soroban contract ID before invoking mint. Placeholder CAAAAA… addresses are rejected.`;
+    super(`${userMessage} ${developerHint}`);
+    this.name = "PlaceholderContractAddressError";
+    this.userMessage = userMessage;
+    this.developerHint = developerHint;
+    this.network = network;
+  }
+}
 
 /** Default contract addresses (fallback when env vars are not set) */
 const DEFAULT_CONTRACT_CONFIG: ContractConfig = {
@@ -70,6 +112,9 @@ export function getContractAddress(network: Network): string {
     throw new Error(
       `Invalid contract address for ${network}: address must be 56 characters, C-prefix, base32. Got: ${address?.slice(0, 20)}...`
     );
+  }
+  if (isPlaceholderContractAddress(address)) {
+    throw new PlaceholderContractAddressError(network);
   }
   return address;
 }

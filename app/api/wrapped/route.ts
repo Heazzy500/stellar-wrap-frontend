@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { indexAccount } from "@/app/services/indexerService";
+import { indexAccount } from "@/app/services/indexerServer";
 import { WrapPeriod, PERIODS } from "@/app/utils/indexer";
 
 export async function GET(request: NextRequest) {
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid period" }, { status: 400 });
     }
 
-    // indexAccount uses IndexedDB cache internally and returns result + fromCache
+    // Server-safe indexer (no IndexedDB) — returns live Horizon data
     const response = await indexAccount(accountId, network, period);
 
     return NextResponse.json({
