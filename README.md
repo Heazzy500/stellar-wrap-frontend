@@ -350,6 +350,13 @@ This project is designed to support the growth of the Stellar network by:
 
 ```bash
 npm install -g pnpm@9
+````
+
+Or, since this repo pins `packageManager: "pnpm@9.0.0"` in `package.json`, you can use Corepack (bundled with Node.js >= 16.9) instead, which installs the exact pinned version automatically:
+
+```bash
+corepack enable
+corepack prepare pnpm@9.0.0 --activate
 ```
 
 ### Environment variables

@@ -1,6 +1,26 @@
 "use client";
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Wallet, CheckCircle, XCircle, Copy, ChevronRight, QrCode } from "lucide-react";
+import { Horizon } from "stellar-sdk";
+import { useWrapStore } from "../../store/wrapStore";
+import { useTransactionStore } from "../../store/transactionStore";
+import { useMultiTimeframeStore } from "../../store/multiTimeframeStore";
+import { useSound } from "../../hooks/useSound";
+import { useOnlineStatus } from "../../hooks/useOnlineStatus";
+import { useStellarAddressValidation } from "../../../src/hooks/useStellarAddressValidation";
+import { ProgressIndicator } from "../../components/ProgressIndicator";
+import { MuteToggle } from "../../components/MuteToggle";
+import {
+  connectFreighter,
+  connectAlbedo,
+  connectXBull,
+  isXBullInstalled,
+} from "../../utils/walletConnect";
+import { connectWalletConnect } from "../../utils/walletConnectManager";
+import { getHorizonServer } from "../../utils/stellarClient";
+import { SOUND_NAMES } from "../../utils/soundManager";
 import { useRouter } from "next/navigation";
 
 export default function ConnectPage() {
@@ -22,6 +42,17 @@ export default function ConnectPage() {
   const [isConnecting, setIsConnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
 
+  // Last-used address (remembered across sessions so returning users can
+  // reconnect in one tap instead of re-typing their address).
+  const [lastUsedAddress, setLastUsedAddress] = useState<string | null>(null);
+
+  // Account preview shown after a manual address is entered and validated,
+  // before the user commits to continuing into the wrap flow.
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewBalance, setPreviewBalance] = useState<string>("0");
+  const [previewTxCount, setPreviewTxCount] = useState<number>(0);
+
   // Refs for focus management
   const mainContentRef = useRef<HTMLDivElement>(null);
   const backButtonRef = useRef<HTMLButtonElement>(null);
@@ -42,6 +73,68 @@ export default function ConnectPage() {
     }
   }, []);
 
+
+  /**
+   * Persist the most recently used wallet address to localStorage so it can
+   * be offered as a one-tap reconnect option on a future visit.
+   */
+  const saveAddressToLocalStorage = (address: string) => {
+    try {
+      localStorage.setItem("lastUsedStellarAddress", address);
+      setLastUsedAddress(address);
+    } catch {
+      // localStorage can throw in private-browsing / storage-full states;
+      // failing to remember the address is non-fatal, so we swallow it.
+    }
+  };
+
+  /**
+   * Clear the remembered last-used address (e.g. when the user explicitly
+   * chooses "Use a different wallet").
+   */
+  const clearSavedAddress = () => {
+    try {
+      localStorage.removeItem("lastUsedStellarAddress");
+    } catch {
+      // Non-fatal, see saveAddressToLocalStorage.
+    }
+    setLastUsedAddress(null);
+  };
+
+  /**
+   * Fetch a lightweight account preview (native XLM balance and a recent
+   * transaction count) for the given address, to show the user what they're
+   * about to wrap before they commit to continuing.
+   *
+   * Transaction count is derived from a single bounded page (most recent
+   * 200 transactions) rather than the true lifetime total, since Horizon
+   * does not expose a cheap total-count endpoint. This is an approximation
+   * ("recent activity"), not the account's full history size.
+   */
+  const fetchAccountPreview = async (address: string) => {
+    setShowPreview(true);
+    setPreviewLoading(true);
+    try {
+      const server = getHorizonServer(network === "testnet" ? "testnet" : "mainnet");
+      const account = await server.loadAccount(address);
+      const nativeBalance = account.balances.find(
+        (b): b is Horizon.HorizonApi.BalanceLineNative => b.asset_type === "native",
+      );
+      setPreviewBalance(nativeBalance ? nativeBalance.balance : "0");
+
+      const txPage = await server
+        .transactions()
+        .forAccount(address)
+        .limit(200)
+        .call();
+      setPreviewTxCount(txPage.records.length);
+    } catch (error) {
+      console.error("Failed to fetch account preview:", error);
+      setPreviewBalance("0");
+      setPreviewTxCount(0);
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleFreighterConnect = async () => {
@@ -863,7 +956,6 @@ export default function ConnectPage() {
               </div>
             </motion.button>
             )}
-            </AnimatePresence>
 
             {/* Wallet Connect Options */}
             <div className="mt-6 pt-6 border-t border-white/10 space-y-3">
