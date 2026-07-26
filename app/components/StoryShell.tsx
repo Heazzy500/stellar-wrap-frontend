@@ -1,27 +1,25 @@
 "use client";
 
-import { lazy, Suspense } from 'react';
+import { ReactNode, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Home, Share2, ChevronRight, Palette } from "lucide-react";
+import { MuteToggle } from "./MuteToggle";
+import {
+  STORY_SEGMENT_COUNT,
+  getStorySegmentClassName,
+  getStorySegmentLabel,
+  getStorySegmentVisualState,
+} from "./storyShellProgress";
 
 interface StoryShellProps {
   children: ReactNode;
   activeSegment?: number;
 }
 
-const SEGMENT_LABELS = [
-  "Connect wallet",
-  "Top dapps",
-  "Transactions of Fury",
-  "Vibe check",
-  "Persona reveal",
-  "Share wrap",
-  "Complete",
-];
-
 export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
   const router = useRouter();
-  const segmentLabel =
-    SEGMENT_LABELS[activeSegment] ?? `Story segment ${activeSegment + 1}`;
+  const segmentLabel = getStorySegmentLabel(activeSegment);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -122,68 +120,49 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
       />
 
       {/* Top Controls */}
-      <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 overflow-x-auto">
+      <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 overflow-x-auto gap-3">
         {/* Home Button */}
         <motion.button
+          type="button"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
           onClick={() => router.push("/")}
+          className="group flex items-center gap-2 px-3 py-2 rounded-xl bg-black/50 border border-[#1DB954]/30 backdrop-blur-xl shrink-0"
+          aria-label="Go to home page"
         >
           <Home
             className="w-4 h-4 group-hover:scale-110 transition-transform"
             aria-hidden="true"
           />
           <span>Home</span>
-          <AnimatePresence mode="wait">
-            {cards.map((card, index) => (
-              <motion.div 
-                key={card.id}
-                initial={{ opacity: 0, x: 100 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -100 }}
-                className="absolute inset-0"
-              >
-                <LazyStoryCard>
-                  <Suspense fallback={<StorySkeleton />}>
-                    {/* Render your specific lazy component based on the flow */}
-                    {index === 0 && <TopDapps />}
-                    {index === 1 && <TransactionsOfFury />}
-                  </Suspense>
-                </LazyStoryCard>
-              </motion.div>
-            ))}
-        </AnimatePresence>
         </motion.button>
 
         {/* Segmented Progress Bar */}
         <motion.div
+          className="flex items-center gap-1.5 sm:gap-2"
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
+          role="group"
+          aria-label="Story progress"
         >
-          {[...Array(7)].map((_, i) => (
+          {[...Array(STORY_SEGMENT_COUNT)].map((_, i) => (
             <motion.div
               key={i}
               aria-hidden="true"
+              data-segment-index={i}
+              data-segment-state={getStorySegmentVisualState(i, activeSegment)}
               initial={{ scaleX: 0 }}
               animate={{ scaleX: 1 }}
               transition={{ delay: 0.4 + i * 0.05 }}
-              className={`h-1.5 rounded-full transition-all duration-500 ${
-                i === activeSegment
-                  ? "w-10 bg-[#1DB954] shadow-[0_0_12px_rgba(29,185,84,0.8)]"
-                  : i < activeSegment
-                    ? "w-6 bg-[#1DB954]/50"
-                    : "w-6 bg-white/15"
-              }`}
+              className={getStorySegmentClassName(i, activeSegment)}
             />
           ))}
         </motion.div>
 
-
         <div className="flex items-center gap-2 shrink-0">
-
-            <MuteToggle />
+          <MuteToggle />
           {/* Palette Button */}
           <motion.button
             type="button"
@@ -196,8 +175,6 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
             <Palette className="w-5 h-5 text-[#1DB954]" aria-hidden="true" />
           </motion.button>
         </div>
-
-
       </div>
 
       {/* Main Content */}
@@ -212,6 +189,7 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
       {/* Bottom Controls */}
       <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 gap-4">
         <motion.button
+          type="button"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
