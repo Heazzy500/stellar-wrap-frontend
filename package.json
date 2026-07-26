@@ -14,6 +14,7 @@
     "test:visual": "playwright test",
     "test:visual:update": "playwright test --update-snapshots",
     "vitest": "vitest",
+    "test:coverage": "jest --coverage",
     "test:ui": "vitest --ui",
     "test": "jest",
     "prepare": "husky install"

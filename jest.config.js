@@ -16,6 +16,9 @@ const customJestConfig = {
     '**/__tests__/**/*.[jt]s?(x)',
     '**/?(*.)+(spec|test).[jt]s?(x)',
   ],
+  collectCoverage: true,
+  coverageReporters: ['text', 'html'],
+  coverageDirectory: './coverage',
   collectCoverageFrom: [
     'src/services/**/*.{js,jsx,ts,tsx}',
     '!src/services/**/__tests__/**',
