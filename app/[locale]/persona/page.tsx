@@ -7,6 +7,15 @@ import { Home, Share2, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import { readStreamableValue } from "ai/rsc";
 import { getArchetypeDescription } from "@/data/archetypeConfig";
+import { ProgressIndicator } from "@/app/components/ProgressIndicator";
+import { MuteToggle } from "@/app/components/MuteToggle";
+import { NotificationPrompt } from "@/app/components/NotificationPrompt";
+import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimeline";
+import { useWrapStore } from "@/app/store/wrapStore";
+import { useNotificationStore } from "@/app/store/notificationStore";
+import { generatePersonaDescription } from "@/app/actions/generate-persona";
+import { useSound } from "@/app/hooks/useSound";
+import { SOUND_NAMES } from "@/app/utils/soundManager";
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string) => {
