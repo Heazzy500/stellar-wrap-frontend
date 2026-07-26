@@ -7,6 +7,10 @@ import { GET } from '../route';
 import { indexAccount } from '@/app/services/indexerService';
 import { NextRequest } from 'next/server';
 
+interface MockError extends Error {
+  statusCode?: number;
+}
+
 jest.mock('@/app/services/indexerService', () => ({
   indexAccount: jest.fn(),
 }));
@@ -21,6 +25,10 @@ jest.mock('@/app/utils/indexer', () => ({
 }));
 
 const mockIndexAccount = indexAccount as jest.Mock;
+
+interface MockError extends Error {
+  statusCode?: number;
+}
 
 function createRequest(params: Record<string, string>) {
   const url = new URL('http://localhost/api/wrapped');
@@ -38,7 +46,7 @@ describe('GET /api/wrapped - Rate Limiting', () => {
 
   it('should return 429 with retry-friendly message when indexAccount throws 429 error', async () => {
     const rateLimitError = new Error('Rate limit exceeded (429). Please try again later.');
-    (rateLimitError as any).statusCode = 429;
+    (rateLimitError as MockError).statusCode = 429;
     mockIndexAccount.mockRejectedValue(rateLimitError);
 
     const request = createRequest({
@@ -56,7 +64,7 @@ describe('GET /api/wrapped - Rate Limiting', () => {
 
   it('should return 429 when error message contains "Rate limit"', async () => {
     const rateLimitError = new Error('Rate limit exceeded. Try again later.');
-    (rateLimitError as any).statusCode = 429;
+    (rateLimitError as MockError).statusCode = 429;
     mockIndexAccount.mockRejectedValue(rateLimitError);
 
     const request = createRequest({
@@ -74,7 +82,7 @@ describe('GET /api/wrapped - Rate Limiting', () => {
 
   it('should return 429 when error has statusCode 429 property', async () => {
     const error = new Error('Too Many Requests');
-    (error as any).statusCode = 429;
+    (error as MockError).statusCode = 429;
     mockIndexAccount.mockRejectedValue(error);
 
     const request = createRequest({
@@ -92,7 +100,7 @@ describe('GET /api/wrapped - Rate Limiting', () => {
 
   it('should return 404 for account not found', async () => {
     const notFoundError = new Error('Not Found');
-    (notFoundError as any).statusCode = 404;
+    (notFoundError as MockError).statusCode = 404;
     mockIndexAccount.mockRejectedValue(notFoundError);
 
     const request = createRequest({
@@ -110,7 +118,7 @@ describe('GET /api/wrapped - Rate Limiting', () => {
 
   it('should return 500 for Horizon server errors', async () => {
     const serverError = new Error('Internal Server Error');
-    (serverError as any).statusCode = 500;
+    (serverError as MockError).statusCode = 500;
     mockIndexAccount.mockRejectedValue(serverError);
 
     const request = createRequest({
@@ -128,7 +136,7 @@ describe('GET /api/wrapped - Rate Limiting', () => {
 
   it('should return 400 for bad request errors', async () => {
     const badRequestError = new Error('Bad Request');
-    (badRequestError as any).statusCode = 400;
+    (badRequestError as MockError).statusCode = 400;
     mockIndexAccount.mockRejectedValue(badRequestError);
 
     const request = createRequest({
