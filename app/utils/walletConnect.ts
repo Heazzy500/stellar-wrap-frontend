@@ -1,6 +1,17 @@
 import { isConnected, getAddress, requestAccess } from "@stellar/freighter-api";
 import { Network } from "../../src/config";
 
+export const FREIGHTER_INSTALL_URL = "https://www.freighter.app/";
+
+export class FreighterNotInstalledError extends Error {
+  readonly installUrl = FREIGHTER_INSTALL_URL;
+
+  constructor() {
+    super("Freighter is not installed. Install Freighter, then retry connection.");
+    this.name = "FreighterNotInstalledError";
+  }
+}
+
 interface AlbedoPublicKeyResult {
   publicKey: string;
 }
@@ -44,9 +55,7 @@ export const connectFreighter = async (_network: Network): Promise<string> => {
   const installed = await isFreighterInstalled();
 
   if (!installed) {
-    throw new Error(
-      "Freighter wallet not found. Please install the Freighter browser extension.",
-    );
+    throw new FreighterNotInstalledError();
   }
 
   try {

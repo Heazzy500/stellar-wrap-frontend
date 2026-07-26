@@ -16,6 +16,8 @@ import { SOUND_NAMES } from "../utils/soundManager";
 import { indexAccount } from "../services/indexerService";
 import { IndexerEventEmitter } from "../utils/indexerEventEmitter";
 
+const DEMO_ADDRESS = "GDEMOADDRESSFORSTELLARWRAPDEMOPURPOSES12345678";
+
 export default function LoadingScreen() {
   const router = useRouter();
   const { address, period, network, setStatus, setResult, setError, setCacheMeta, startIndexing, cancelIndexing, completeIndexing, syncIndexingProgress } =
@@ -128,7 +130,14 @@ export default function LoadingScreen() {
         // Call real indexer service - will emit step progress events
         let result: WrapResult | null = null;
 
-        if (address) {
+        if (address === DEMO_ADDRESS) {
+          await emitProgressThroughSteps();
+          result = mapIndexerResultToWrapResult({
+            totalTransactions: 42,
+            dapps: [],
+            largestTransaction: { amount: 1000, assetCode: "XLM" },
+          });
+        } else if (address) {
           if (!navigator.onLine) {
             const cached = await getMostRecentCachedData();
             if (cached) {
@@ -150,13 +159,7 @@ export default function LoadingScreen() {
               result = await buildCachedWrapResult(cached);
             }
           } else {
-            // No address provided - emit progress through steps for demo/fallback mode
-            await emitProgressThroughSteps();
-            result = mapIndexerResultToWrapResult({
-              totalTransactions: 42,
-              dapps: [],
-              largestTransaction: { amount: 1000, assetCode: "XLM" },
-            });
+            throw new Error("No account selected. Return to connect and choose an account.");
           }
         }
 
@@ -190,11 +193,7 @@ export default function LoadingScreen() {
           return;
         }
         // Fallback: still navigate so user isn’t stuck
-        setTimeout(() => {
-          if (isMounted) {
-            handleComplete();
-          }
-        }, 1200);
+        // Keep the error visible; only explicit demo mode may use mock data.
       }
     };
 
