@@ -279,3 +279,84 @@ export function getAssetShortName(metadata: AssetMetadata): string {
 export function isNativeAsset(code: string): boolean {
   return assetResolver.isNativeAsset(code);
 }
+
+// ---------------------------------------------------------------------------
+// dApp icon / fallback visuals (deterministic initials for unknown contracts)
+// ---------------------------------------------------------------------------
+
+const STELLAR_CONTRACT_PATTERN = /^[GCM][A-Z2-7]{55}$/;
+
+/** Known dApp labels mapped to their indexer emoji icons — unchanged when present. */
+export const KNOWN_DAPP_ICONS: Record<string, string> = {
+  "Stellar Expert": "📊",
+  StellarX: "📈",
+  Aqua: "💧",
+  LOBSTR: "🦞",
+  Soroban: "⚡",
+  DEX: "🔄",
+  "Liquidity Pool": "💧",
+  Bridge: "🌉",
+  Payments: "💳",
+};
+
+export type DappVisual =
+  | { type: "logo"; logoUrl: string }
+  | { type: "emoji"; emoji: string }
+  | { type: "initials"; initials: string; backgroundColor: string };
+
+function hashDappKey(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function buildDappInitials(name: string): string {
+  const trimmed = name.trim();
+  if (STELLAR_CONTRACT_PATTERN.test(trimmed)) {
+    return trimmed.slice(0, 2).toUpperCase();
+  }
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
+  }
+  const alnum = trimmed.replace(/[^a-zA-Z0-9]/g, "");
+  return (alnum.slice(0, 2) || "??").toUpperCase();
+}
+
+function initialsBackground(name: string): string {
+  const hue = hashDappKey(name.trim().toLowerCase()) % 360;
+  return `hsl(${hue} 52% 32%)`;
+}
+
+/**
+ * Resolve how a dApp should be rendered: logo URL, known emoji, or initials fallback.
+ */
+export function resolveDappVisual(
+  name: string,
+  options?: { icon?: string; logo?: string },
+): DappVisual {
+  const trimmed = name.trim();
+  if (options?.logo) {
+    return { type: "logo", logoUrl: options.logo };
+  }
+  if (options?.icon) {
+    return { type: "emoji", emoji: options.icon };
+  }
+  const known =
+    KNOWN_DAPP_ICONS[trimmed] ??
+    KNOWN_DAPP_ICONS[
+      Object.keys(KNOWN_DAPP_ICONS).find(
+        (key) => key.toLowerCase() === trimmed.toLowerCase(),
+      ) ?? ""
+    ];
+  if (known) {
+    return { type: "emoji", emoji: known };
+  }
+  return {
+    type: "initials",
+    initials: buildDappInitials(trimmed),
+    backgroundColor: initialsBackground(trimmed),
+  };
+}
