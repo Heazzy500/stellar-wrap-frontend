@@ -4,8 +4,8 @@ import { notFound } from 'next/navigation';
 import Script from 'next/script';
 import { routing } from '../../i18n/routing';
 import { ReactNode } from 'react';
-// Import your ThemeProvider component (adjust this path if your ThemeContext file is located elsewhere)
 import { ThemeProvider } from '../context/ThemeContext';
+import { SkipNavigation } from '@/app/components/SkipNavigation';
 
 type Props = {
   children: ReactNode;
@@ -39,6 +39,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         )}
       </head>
       <body>
+        <SkipNavigation />
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider> {/* <-- Wrap here so everything inside has access to useTheme */}
             {children}

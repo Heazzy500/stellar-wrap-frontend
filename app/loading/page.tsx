@@ -20,7 +20,7 @@ import { IndexerEventEmitter } from "../utils/indexerEventEmitter";
 
 export default function LoadingScreen() {
   const router = useRouter();
-  const { address, period, network, setStatus, setResult, setError, setCacheMeta, startIndexing, cancelIndexing, completeIndexing, syncIndexingProgress } =
+  const { address, period, network, setStatus, setResult, setError, setCacheMeta, startIndexing, cancelIndexing, completeIndexing, syncIndexingProgress, refreshToken, bumpRefreshToken, setRefreshing } =
     useWrapStore();
 
   const { playSound } = useSound();
@@ -122,7 +122,10 @@ export default function LoadingScreen() {
       try {
         setStatus("loading");
         setError(null);
-        setCacheMeta(null);
+        const { isRefreshing } = useWrapStore.getState();
+        if (!isRefreshing) {
+          setCacheMeta(null);
+        }
 
         // NOTE: Do NOT call loadIndexingState() here - it will overwrite isLoading: true
         // The startIndexing() call above already set isLoading, which is what matters
@@ -171,6 +174,7 @@ export default function LoadingScreen() {
         setResult(result);
         setStatus("ready");
         completeIndexing();
+        useWrapStore.getState().setRefreshing(false);
         playSound(SOUND_NAMES.MINT_SUCCESS);
         trackEvent("wrap_completed");
 
@@ -183,6 +187,7 @@ export default function LoadingScreen() {
       } catch (error: unknown) {
         if (isAbortError(error) || !isMounted) return;
         setStatus("error");
+        useWrapStore.getState().setRefreshing(false);
         if (error instanceof Error) {
           setError(error.message);
         } else {
@@ -219,6 +224,9 @@ export default function LoadingScreen() {
     handleComplete,
     startIndexing,
     completeIndexing,
+    refreshToken,
+    bumpRefreshToken,
+    setRefreshing,
   ]);
 
   const starConfigs = useMemo(
