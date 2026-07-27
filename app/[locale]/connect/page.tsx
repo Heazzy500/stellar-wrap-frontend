@@ -332,33 +332,18 @@ export default function ConnectPage() {
 
   // Keyboard navigation for the entire page
   const handlePageKeyDown = (e: KeyboardEvent) => {
-    // Handle Escape key to go back
+    // Handle Escape key to go back, except when inside the input where it should just blur
     if (e.key === "Escape") {
+      if (document.activeElement === addressInputRef.current) {
+        addressInputRef.current?.blur();
+        return;
+      }
       e.preventDefault();
       onBack();
     }
-
-    // Handle Tab key for focus trapping
-    if (e.key === "Tab" && mainContentRef.current) {
-      const focusableElements = mainContentRef.current.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-
-      if (focusableElements.length > 0) {
-        const firstElement = focusableElements[0] as HTMLElement;
-        const lastElement = focusableElements[
-          focusableElements.length - 1
-        ] as HTMLElement;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    }
+    // Tab behavior is left un-intercepted intentionally. 
+    // This allows the focus to escape into the browser chrome (e.g. URL bar),
+    // which is required for full-page accessibility compliance.
   };
 
   const errorId = localError ? "address-error" : undefined;

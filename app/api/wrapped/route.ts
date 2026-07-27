@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { indexAccount } from "@/app/services/indexerServer";
 import { WrapPeriod, PERIODS } from "@/app/utils/indexer";
+import { validateStellarAddress } from "@/src/utils/validateStellarAddress";
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,9 +24,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (!accountId.startsWith("G") || accountId.length !== 56) {
+    const validationResult = validateStellarAddress(accountId, network as any);
+    if (!validationResult.isValid) {
       return NextResponse.json(
-        { error: "Invalid account ID format" },
+        { error: validationResult.error || "Invalid account ID format" },
         { status: 400 },
       );
     }
