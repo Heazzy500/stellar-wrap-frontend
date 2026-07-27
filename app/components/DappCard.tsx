@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { formatDappDisplayName } from "@/app/utils/formatDappLabel";
 
 interface DappCardProps {
   rank: number;
@@ -54,8 +55,11 @@ export function DappCard({
       </div>
 
       <div className="relative z-10 space-y-1 sm:space-y-1.5">
-        <h3 className="text-xl sm:text-2xl md:text-[28px] lg:text-[32px] font-black tracking-tight leading-none text-white drop-shadow-lg group-hover:drop-shadow-xl transition-all truncate">
-          {name}
+        <h3
+          className="text-xl sm:text-2xl md:text-[28px] lg:text-[32px] font-black tracking-tight leading-none text-white drop-shadow-lg group-hover:drop-shadow-xl transition-all truncate"
+          title={name}
+        >
+          {formatDappDisplayName(name)}
         </h3>
         <div className="flex items-baseline gap-2">
           <span className="text-lg sm:text-xl md:text-[20px] lg:text-[22px] font-black text-[#1DB954] group-hover:text-white transition-colors duration-300 tabular-nums">
