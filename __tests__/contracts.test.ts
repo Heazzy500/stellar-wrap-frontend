@@ -13,6 +13,34 @@ import { NETWORKS, type Network } from "../src/config";
 const VALID_CONTRACT_ID =
   "CA3D5KRYM6CB7OWQ6TWYRR3Z4T7GNZLKERYNZGGA5SOAOPIFY6YQGAXE";
 
+function withEnv(
+  vars: Record<string, string | undefined>,
+  fn: () => void,
+) {
+  const prev: Record<string, string | undefined> = {};
+  for (const key of Object.keys(vars)) {
+    prev[key] = process.env[key];
+  }
+  try {
+    for (const [key, val] of Object.entries(vars)) {
+      if (val === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = val;
+      }
+    }
+    fn();
+  } finally {
+    for (const [key, val] of Object.entries(prev)) {
+      if (val === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = val;
+      }
+    }
+  }
+}
+
 describe("isValidContractAddress", () => {
   it("accepts valid 56-char C-prefix base32 address", () => {
     expect(isValidContractAddress(VALID_CONTRACT_ID)).toBe(true);
@@ -56,6 +84,62 @@ describe("getContractConfigForAllNetworks", () => {
     expect(isValidContractAddress(config.mainnet.contractAddress)).toBe(true);
     expect(isValidContractAddress(config.testnet.contractAddress)).toBe(true);
   });
+
+  it("uses network-specific env var over placeholder for mainnet", () => {
+    withEnv(
+      {
+        NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET: VALID_CONTRACT_ID,
+        NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET: undefined,
+      },
+      () => {
+        const config = getContractConfigForAllNetworks();
+        expect(config.mainnet.contractAddress).toBe(VALID_CONTRACT_ID);
+        expect(config.testnet.contractAddress).toBe("C" + "A".repeat(55));
+      },
+    );
+  });
+
+  it("uses network-specific env var for testnet", () => {
+    withEnv(
+      {
+        NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET: undefined,
+        NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET: VALID_CONTRACT_ID,
+      },
+      () => {
+        const config = getContractConfigForAllNetworks();
+        expect(config.testnet.contractAddress).toBe(VALID_CONTRACT_ID);
+      },
+    );
+  });
+
+  it("falls back to legacy env var when per-network vars are not set", () => {
+    withEnv(
+      {
+        NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET: undefined,
+        NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET: undefined,
+        NEXT_PUBLIC_CONTRACT_ADDRESS: VALID_CONTRACT_ID,
+      },
+      () => {
+        const config = getContractConfigForAllNetworks();
+        expect(config.mainnet.contractAddress).toBe(VALID_CONTRACT_ID);
+        expect(config.testnet.contractAddress).toBe(VALID_CONTRACT_ID);
+      },
+    );
+  });
+
+  it("prefers per-network env var over legacy env var", () => {
+    withEnv(
+      {
+        NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET: VALID_CONTRACT_ID,
+        NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET: undefined,
+        NEXT_PUBLIC_CONTRACT_ADDRESS: "C" + "B".repeat(55),
+      },
+      () => {
+        const config = getContractConfigForAllNetworks();
+        expect(config.mainnet.contractAddress).toBe(VALID_CONTRACT_ID);
+      },
+    );
+  });
 });
 
 describe("getContractAddress", () => {
@@ -70,5 +154,36 @@ describe("getContractAddress", () => {
 
   it("throws on invalid network", () => {
     expect(() => getContractAddress("invalid" as Network)).toThrow();
+  });
+
+  it("throws when env var contains an invalid contract address", () => {
+    withEnv(
+      {
+        NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET: "not-a-valid-address",
+      },
+      () => {
+        expect(() => getContractAddress(NETWORKS.MAINNET)).toThrow(
+          "Invalid contract address for mainnet",
+        );
+      },
+    );
+  });
+
+  it("throws when legacy env var contains an invalid contract address", () => {
+    withEnv(
+      {
+        NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET: undefined,
+        NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET: undefined,
+        NEXT_PUBLIC_CONTRACT_ADDRESS: "bad-address",
+      },
+      () => {
+        expect(() => getContractAddress(NETWORKS.MAINNET)).toThrow(
+          "Invalid contract address for mainnet",
+        );
+        expect(() => getContractAddress(NETWORKS.TESTNET)).toThrow(
+          "Invalid contract address for testnet",
+        );
+      },
+    );
   });
 });
