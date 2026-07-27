@@ -13,6 +13,11 @@ import {
 } from "@/app/utils/assetConstants";
 import { assetCache } from "@/app/services/assetCacheService";
 
+export interface ResolveAssetOptions {
+  /** When true, evicts any cached entry before resolving again. */
+  forceRefresh?: boolean;
+}
+
 // Note: Type definition kept for future use with Horizon API responses
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface HorizonAsset {
@@ -28,13 +33,23 @@ class AssetResolver {
    * Resolve asset code and issuer to metadata
    * Checks cache first, then known assets, then attempts to fetch metadata
    */
-  async resolveAsset(code: string, issuer?: string): Promise<AssetMetadata> {
+  async resolveAsset(
+    code: string,
+    issuer?: string,
+    options?: ResolveAssetOptions,
+  ): Promise<AssetMetadata> {
     // Normalize native asset
     if (!code || code === "native" || code.toUpperCase() === "XLM") {
       return NATIVE_ASSET;
     }
 
     const normalizedCode = code.toUpperCase();
+
+    if (options?.forceRefresh) {
+      assetCache.clearAsset(normalizedCode, issuer);
+    }
+
+    assetCache.invalidateExpired();
 
     // Check cache first
     const cached = assetCache.get(normalizedCode, issuer);
@@ -235,6 +250,20 @@ class AssetResolver {
   clearCache(): void {
     assetCache.clear();
   }
+
+  /**
+   * Drop stale cache entries and re-resolve a single asset.
+   */
+  async refreshAsset(code: string, issuer?: string): Promise<AssetMetadata> {
+    return this.resolveAsset(code, issuer, { forceRefresh: true });
+  }
+
+  /**
+   * Manual cache maintenance — evicts TTL- or version-expired entries.
+   */
+  invalidateStaleCache(): number {
+    return assetCache.invalidateExpired();
+  }
 }
 
 // Singleton instance
@@ -246,8 +275,9 @@ export const assetResolver = new AssetResolver();
 export async function resolveAsset(
   code: string,
   issuer?: string,
+  options?: ResolveAssetOptions,
 ): Promise<AssetMetadata> {
-  return assetResolver.resolveAsset(code, issuer);
+  return assetResolver.resolveAsset(code, issuer, options);
 }
 
 /**
@@ -278,6 +308,17 @@ export function getAssetShortName(metadata: AssetMetadata): string {
  */
 export function isNativeAsset(code: string): boolean {
   return assetResolver.isNativeAsset(code);
+}
+
+export async function refreshAsset(
+  code: string,
+  issuer?: string,
+): Promise<AssetMetadata> {
+  return assetResolver.refreshAsset(code, issuer);
+}
+
+export function invalidateStaleAssetCache(): number {
+  return assetResolver.invalidateStaleCache();
 }
 
 // ---------------------------------------------------------------------------
