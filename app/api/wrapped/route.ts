@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { indexAccount } from "@/app/services/indexerServer";
 import { WrapPeriod, PERIODS } from "@/app/utils/indexer";
+import { HorizonError } from "@/app/services/indexerCore";
 
 export async function GET(request: NextRequest) {
   try {
@@ -50,48 +51,34 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     console.error("Error in /api/wrapped:", error);
 
-    // Handle specific error cases
-    const err = error as Record<string, unknown>;
-    const message = (err?.message as string) || "";
-    const statusCode = err?.statusCode as number | undefined;
-
-    // Check for NotFoundError (account doesn't exist on this network)
-    if (
-      message.includes("Not Found") ||
-      message.includes("not found") ||
-      statusCode === 404
-    ) {
+    // Branch on HorizonError first — preserves structured status + type
+    if (error instanceof HorizonError) {
+      if (error.errorType === "not_found") {
+        return NextResponse.json(
+          {
+            error: "Account not found on this network",
+            details:
+              "Make sure you selected the correct network (mainnet/testnet) where the account exists",
+          },
+          { status: 404 },
+        );
+      }
+      if (error.errorType === "rate_limited") {
+        return NextResponse.json(
+          { error: "Rate limited. Please try again later." },
+          { status: 429 },
+        );
+      }
+      if (error.errorType === "timeout") {
+        return NextResponse.json(
+          { error: "Request timed out. Please try again." },
+          { status: 408 },
+        );
+      }
+      // server_error or unknown
       return NextResponse.json(
-        {
-          error: "Account not found on this network",
-          details:
-            "Make sure you selected the correct network (mainnet/testnet) where the account exists",
-        },
-        { status: 404 },
-      );
-    }
-
-    // Check for rate limiting
-    if (statusCode === 429) {
-      return NextResponse.json(
-        { error: "Rate limited. Please try again later." },
-        { status: 429 },
-      );
-    }
-
-    // Check for Horizon server errors
-    if (statusCode === 500) {
-      return NextResponse.json(
-        { error: "Horizon server error" },
-        { status: 500 },
-      );
-    }
-
-    // Check for Bad Request (pagination or other API issues)
-    if (message.includes("Bad Request") || statusCode === 400) {
-      return NextResponse.json(
-        { error: "Bad Request to Horizon API" },
-        { status: 400 },
+        { error: "Horizon server error", details: error.message },
+        { status: error.statusCode },
       );
     }
 
