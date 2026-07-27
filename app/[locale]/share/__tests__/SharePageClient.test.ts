@@ -2,6 +2,10 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import SharePageClient from '../SharePageClient';
 
 // Mock the dependencies
+jest.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(),
+}));
+
 jest.mock('@/app/data/mockData', () => ({
   mockData: {
     username: 'testuser',

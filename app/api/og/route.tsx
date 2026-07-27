@@ -1,6 +1,7 @@
 import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
 import React from "react";
+import { parseSharePreviewParams } from '@/app/utils/sharePreviewParams';
 
 export const runtime = 'edge';
 
@@ -9,12 +10,13 @@ const CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=604800';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const username = searchParams.get('username') || 'StellarUser';
-    const transactions = searchParams.get('transactions') || '0';
-    const persona = searchParams.get('persona') || 'Network Pioneer';
-    const topVibe = searchParams.get('topVibe') || 'Steady';
-    const vibePercentage = searchParams.get('vibePercentage') || '0';
-    const archetypeImagePath = searchParams.get('archetypeImage') ||
+    const preview = parseSharePreviewParams(searchParams);
+    const username = preview.username;
+    const transactions = String(preview.transactions);
+    const persona = preview.persona;
+    const topVibe = preview.topVibe;
+    const vibePercentage = String(preview.vibePercentage);
+    const archetypeImagePath = preview.archetypeImage ||
       `/archetypes/${persona.toLowerCase().replace(/^the\s+/, '').replace(/\s+/g, '-')}.png`;
 
     const baseUrl = req.nextUrl.origin;
