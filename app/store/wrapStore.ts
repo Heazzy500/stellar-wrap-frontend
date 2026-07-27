@@ -406,7 +406,10 @@ export const useWrapStore = create<WrapStoreState>()(
           const persistedState: PersistedIndexingState = JSON.parse(saved);
           const now = Date.now();
 
-          if (now - persistedState.timestamp > PERSISTENCE_TIMEOUT) {
+          const ts = persistedState?.timestamp;
+          const timestampValid = typeof ts === "number" && Number.isFinite(ts);
+
+          if (!timestampValid || now - ts >= PERSISTENCE_TIMEOUT) {
             localStorage.removeItem(PERSISTENCE_KEY);
             return false;
           }
@@ -428,6 +431,11 @@ export const useWrapStore = create<WrapStoreState>()(
           return true;
         } catch (error) {
           console.warn("Failed to load persisted indexing state:", error);
+          try {
+            localStorage.removeItem(PERSISTENCE_KEY);
+          } catch {
+            // best effort
+          }
           return false;
         }
       },

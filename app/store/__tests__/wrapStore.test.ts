@@ -1,197 +1,414 @@
-/**
- * Unit Tests for wrapStore (Zustand)
- *
- * Run with: npx tsx app/store/__tests__/wrapStore.test.ts
- *
- * @module wrapStore.test
- */
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { useWrapStore } from "@/app/store/wrapStore";
+import type { PersistedIndexingState } from "@/app/types/indexing";
+import { STEP_ORDER } from "@/app/types/indexing";
 
-import { create } from 'zustand';
+const PERSISTENCE_KEY = "stellar-wrap-indexing-state";
+const PERSISTENCE_TIMEOUT = 5 * 60 * 1000;
 
-// ─── Inline types and store (avoids @/ alias issues with npx tsx) ───────────
-
-type WrapPeriod = 'weekly' | 'monthly' | 'yearly';
-type Network = 'mainnet' | 'testnet';
-type WrapStatus = 'idle' | 'loading' | 'ready' | 'error';
-
-interface DappData { name: string; interactions: number; }
-interface VibeSlice { type: string; percentage: number; color: string; label: string; }
-interface WrapResult {
-    username: string; totalTransactions: number; percentile: number;
-    dapps: DappData[]; vibes: VibeSlice[]; persona: string; personaDescription: string;
-}
-
-interface WrapStoreState {
-    address: string | null; period: WrapPeriod; network: Network;
-    status: WrapStatus; error: string | null; result: WrapResult | null;
-    setAddress: (address: string | null) => void;
-    setPeriod: (period: WrapPeriod) => void;
-    setNetwork: (network: Network) => void;
-    setStatus: (status: WrapStatus) => void;
-    setError: (error: string | null) => void;
-    setResult: (result: WrapResult | null) => void;
-    reset: () => void;
-}
-
-const useWrapStore = create<WrapStoreState>((set) => ({
-    address: null, period: 'yearly', network: 'mainnet' as Network,
-    status: 'idle', error: null, result: null,
-    setAddress: (address) => set({ address }),
-    setPeriod: (period) => set({ period }),
-    setNetwork: (network) => set({ network }),
-    setStatus: (status) => set({ status }),
-    setError: (error) => set({ error }),
-    setResult: (result) => set({ result }),
-    reset: () => set({ address: null, period: 'yearly', network: 'mainnet' as Network, status: 'idle', error: null, result: null }),
-}));
-
-// ─── Test Helpers ───────────────────────────────────────────────────────────
-
-let passed = 0;
-let failed = 0;
-const failures: string[] = [];
-
-function assert(condition: boolean, message: string): void {
-    if (condition) { passed++; } else { failed++; failures.push(message); console.error(`  ✗ ${message}`); }
-}
-
-function section(name: string): void {
-    console.log(`\n▸ ${name}`);
-}
-
-// ─── Fixtures ───────────────────────────────────────────────────────────────
-
-const mockResult: WrapResult = {
-    username: 'test_user', totalTransactions: 500, percentile: 95,
-    dapps: [{ name: 'DEX', interactions: 100 }],
-    vibes: [{ type: 'defi', percentage: 80, color: '#FF0000', label: 'DeFi Lord' }],
-    persona: 'The Trader', personaDescription: 'You live for the swap.',
+const BASE_STEP_PROGRESS: Record<string, number> = {
+  initializing: 0,
+  "fetching-transactions": 0,
+  "filtering-timeframes": 0,
+  "calculating-volume": 0,
+  "identifying-assets": 0,
+  "counting-contracts": 0,
+  finalizing: 0,
 };
 
-// ─── Initial State ──────────────────────────────────────────────────────────
+const BASE_COMPLETED_RECORD: Record<string, boolean> = {
+  initializing: false,
+  "fetching-transactions": false,
+  "filtering-timeframes": false,
+  "calculating-volume": false,
+  "identifying-assets": false,
+  "counting-contracts": false,
+  finalizing: false,
+};
 
-section('Initial state');
-{
+const BASE_STEP_TIMINGS: Record<string, number> = {
+  initializing: 0,
+  "fetching-transactions": 0,
+  "filtering-timeframes": 0,
+  "calculating-volume": 0,
+  "identifying-assets": 0,
+  "counting-contracts": 0,
+  finalizing: 0,
+};
+
+describe("wrapStore indexing persistence lifecycle", () => {
+  let storageMap: Map<string, string>;
+  let getItemSpy: ReturnType<typeof vi.fn>;
+  let setItemSpy: ReturnType<typeof vi.fn>;
+  let removeItemSpy: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    storageMap = new Map<string, string>();
+    const mockStorageBackend = {
+      getItem: (key: string) =>
+        storageMap.has(key) ? (storageMap.get(key) as string) : null,
+      setItem: (key: string, value: string) => storageMap.set(key, value),
+      removeItem: (key: string) => storageMap.delete(key),
+      clear: () => storageMap.clear(),
+      length: 0,
+      key: (_index: number) => null,
+    };
+    getItemSpy = vi.fn(mockStorageBackend.getItem);
+    setItemSpy = vi.fn(mockStorageBackend.setItem);
+    removeItemSpy = vi.fn(mockStorageBackend.removeItem);
+
+    const storageWithSpies: Storage = {
+      ...mockStorageBackend,
+      getItem: getItemSpy,
+      setItem: setItemSpy,
+      removeItem: removeItemSpy,
+    } as Storage;
+
+    vi.stubGlobal("window", { localStorage: storageWithSpies });
+    vi.stubGlobal("localStorage", storageWithSpies);
+
     const state = useWrapStore.getState();
-    assert(state.address === null, 'address starts null');
-    assert(state.period === 'yearly', 'period defaults to yearly');
-    assert(state.network === 'mainnet', 'network defaults to mainnet');
-    assert(state.status === 'idle', 'status starts idle');
-    assert(state.error === null, 'error starts null');
-    assert(state.result === null, 'result starts null');
-}
+    state.reset();
+    state.clearPersistedIndexingState();
+    try {
+      useWrapStore.persist.clearStorage?.();
+    } catch {
+      // no-op
+    }
 
-// ─── setAddress ─────────────────────────────────────────────────────────────
+    getItemSpy.mockClear();
+    setItemSpy.mockClear();
+    removeItemSpy.mockClear();
+  });
 
-section('setAddress');
-{
-    useWrapStore.getState().setAddress('GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7');
-    assert(useWrapStore.getState().address === 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7', 'setAddress works');
+  afterEach(() => {
+    vi.restoreAllMocks();
+    try {
+      vi.unstubAllGlobals();
+    } catch {
+      // no-op
+    }
+  });
 
-    useWrapStore.getState().setAddress(null);
-    assert(useWrapStore.getState().address === null, 'setAddress(null) clears');
-}
+  describe("A. Fresh State Hydration", () => {
+    it("rehydrates a valid, fresh indexing state (t < PERSISTENCE_TIMEOUT)", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
 
-// ─── setPeriod ──────────────────────────────────────────────────────────────
+      const freshTs = now - 60_000;
+      const persisted: PersistedIndexingState = {
+        currentStep: "fetching-transactions",
+        completedSteps: 1,
+        stepProgress: {
+          ...BASE_STEP_PROGRESS,
+          initializing: 100,
+          "fetching-transactions": 40,
+        } as PersistedIndexingState["stepProgress"],
+        overallProgress: 15,
+        completedStepRecord: {
+          ...BASE_COMPLETED_RECORD,
+          initializing: true,
+        } as PersistedIndexingState["completedStepRecord"],
+        stepTimings: { ...BASE_STEP_TIMINGS } as PersistedIndexingState["stepTimings"],
+        startTime: now - 90_000,
+        timestamp: freshTs,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(persisted));
 
-section('setPeriod');
-{
-    useWrapStore.getState().setPeriod('weekly');
-    assert(useWrapStore.getState().period === 'weekly', 'setPeriod to weekly');
+      const loaded = useWrapStore.getState().loadIndexingState();
 
-    useWrapStore.getState().setPeriod('monthly');
-    assert(useWrapStore.getState().period === 'monthly', 'setPeriod to monthly');
+      expect(loaded).toBe(true);
+      const s = useWrapStore.getState();
+      expect(s.currentStep).toBe("fetching-transactions");
+      expect(s.completedSteps).toBe(1);
+      expect(s.overallProgress).toBeGreaterThanOrEqual(15);
+      expect(s.stepProgress.initializing).toBe(100);
+      expect(s.stepProgress["fetching-transactions"]).toBe(40);
+      expect(s.completedStepRecord.initializing).toBe(true);
+      expect(s.startTime).toBe(now - 90_000);
+      expect(s.isLoading).toBe(true);
+      expect(s.isCancelled).toBe(false);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(true);
+      expect(removeItemSpy).not.toHaveBeenCalledWith(PERSISTENCE_KEY);
 
-    useWrapStore.getState().setPeriod('yearly');
-    assert(useWrapStore.getState().period === 'yearly', 'setPeriod back to yearly');
-}
+      vi.useRealTimers();
+    });
 
-// ─── setNetwork ─────────────────────────────────────────────────────────────
+    it("rehydrates exactly at boundary t = PERSISTENCE_TIMEOUT - 1ms (still fresh)", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
 
-section('setNetwork');
-{
-    useWrapStore.getState().setNetwork('testnet');
-    assert(useWrapStore.getState().network === 'testnet', 'setNetwork to testnet');
+      const boundaryFreshTs = now - (PERSISTENCE_TIMEOUT - 1);
+      const persisted: PersistedIndexingState = {
+        currentStep: "identifying-assets",
+        completedSteps: 3,
+        stepProgress: { ...BASE_STEP_PROGRESS } as PersistedIndexingState["stepProgress"],
+        overallProgress: 45,
+        completedStepRecord: { ...BASE_COMPLETED_RECORD } as PersistedIndexingState["completedStepRecord"],
+        stepTimings: { ...BASE_STEP_TIMINGS } as PersistedIndexingState["stepTimings"],
+        startTime: now - 120_000,
+        timestamp: boundaryFreshTs,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(persisted));
 
-    useWrapStore.getState().setNetwork('mainnet');
-    assert(useWrapStore.getState().network === 'mainnet', 'setNetwork back to mainnet');
-}
+      const loaded = useWrapStore.getState().loadIndexingState();
 
-// ─── setStatus ──────────────────────────────────────────────────────────────
+      expect(loaded).toBe(true);
+      const s = useWrapStore.getState();
+      expect(s.currentStep).toBe("identifying-assets");
+      expect(s.isLoading).toBe(true);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(true);
+      expect(removeItemSpy).not.toHaveBeenCalledWith(PERSISTENCE_KEY);
 
-section('setStatus transitions');
-{
-    useWrapStore.getState().setStatus('loading');
-    assert(useWrapStore.getState().status === 'loading', 'status: loading');
+      vi.useRealTimers();
+    });
+  });
 
-    useWrapStore.getState().setStatus('ready');
-    assert(useWrapStore.getState().status === 'ready', 'status: ready');
+  describe("B. Expired State Clearing & Rejection", () => {
+    it("rejects state exactly at boundary t = PERSISTENCE_TIMEOUT and purges storage", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
 
-    useWrapStore.getState().setStatus('error');
-    assert(useWrapStore.getState().status === 'error', 'status: error');
+      const expiredTs = now - PERSISTENCE_TIMEOUT;
+      const persisted: PersistedIndexingState = {
+        currentStep: "fetching-transactions",
+        completedSteps: 1,
+        stepProgress: {
+          ...BASE_STEP_PROGRESS,
+          initializing: 100,
+          "fetching-transactions": 80,
+        } as PersistedIndexingState["stepProgress"],
+        overallProgress: 25,
+        completedStepRecord: {
+          ...BASE_COMPLETED_RECORD,
+          initializing: true,
+        } as PersistedIndexingState["completedStepRecord"],
+        stepTimings: { ...BASE_STEP_TIMINGS } as PersistedIndexingState["stepTimings"],
+        startTime: now - 3_600_000,
+        timestamp: expiredTs,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(persisted));
 
-    useWrapStore.getState().setStatus('idle');
-    assert(useWrapStore.getState().status === 'idle', 'status: back to idle');
-}
+      const loaded = useWrapStore.getState().loadIndexingState();
 
-// ─── setResult ──────────────────────────────────────────────────────────────
+      expect(loaded).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledTimes(1);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
 
-section('setResult');
-{
-    useWrapStore.getState().setResult(mockResult);
-    const state = useWrapStore.getState();
-    assert(state.result !== null, 'result is set');
-    assert(state.result?.username === 'test_user', 'result username matches');
-    assert(state.result?.totalTransactions === 500, 'result totalTransactions matches');
-    assert(state.result?.dapps.length === 1, 'result dapps length matches');
+      const s = useWrapStore.getState();
+      expect(s.currentStep).toBe(null);
+      expect(s.completedSteps).toBe(0);
+      expect(s.overallProgress).toBe(0);
+      expect(s.isLoading).toBe(false);
+      expect(s.isCancelled).toBe(false);
+      expect(s.indexingError).toBe(null);
+      expect(s.startTime).toBe(null);
+      STEP_ORDER.forEach((step) => {
+        expect(s.stepProgress[step]).toBe(0);
+        expect(s.completedStepRecord[step]).toBe(false);
+      });
 
-    useWrapStore.getState().setResult(null);
-    assert(useWrapStore.getState().result === null, 'setResult(null) clears');
-}
+      vi.useRealTimers();
+    });
 
-// ─── setError ───────────────────────────────────────────────────────────────
+    it("rejects stale state (t >> PERSISTENCE_TIMEOUT) and does NOT resurrect stale loading UI", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
 
-section('setError');
-{
-    useWrapStore.getState().setError('Network timeout');
-    assert(useWrapStore.getState().error === 'Network timeout', 'error set');
+      const staleTs = now - PERSISTENCE_TIMEOUT - 3_600_000;
+      const persisted: PersistedIndexingState = {
+        currentStep: "finalizing",
+        completedSteps: 6,
+        stepProgress: {
+          ...BASE_STEP_PROGRESS,
+          finalizing: 99,
+        } as PersistedIndexingState["stepProgress"],
+        overallProgress: 98,
+        completedStepRecord: { ...BASE_COMPLETED_RECORD } as PersistedIndexingState["completedStepRecord"],
+        stepTimings: { ...BASE_STEP_TIMINGS } as PersistedIndexingState["stepTimings"],
+        startTime: staleTs,
+        timestamp: staleTs,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(persisted));
 
-    useWrapStore.getState().setError(null);
-    assert(useWrapStore.getState().error === null, 'error cleared');
-}
+      const loaded = useWrapStore.getState().loadIndexingState();
 
-// ─── reset ──────────────────────────────────────────────────────────────────
+      expect(loaded).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
 
-section('reset');
-{
-    // Set various state
-    useWrapStore.getState().setAddress('GTEST...');
-    useWrapStore.getState().setPeriod('weekly');
-    useWrapStore.getState().setNetwork('testnet');
-    useWrapStore.getState().setStatus('ready');
-    useWrapStore.getState().setResult(mockResult);
-    useWrapStore.getState().setError('some error');
+      const s = useWrapStore.getState();
+      expect(s.currentStep).toBe(null);
+      expect(s.isLoading).toBe(false);
+      expect(s.overallProgress).toBe(0);
+      expect(s.completedSteps).toBe(0);
 
-    // Reset
-    useWrapStore.getState().reset();
-    const state = useWrapStore.getState();
-    assert(state.address === null, 'reset: address null');
-    assert(state.period === 'yearly', 'reset: period yearly');
-    assert(state.network === 'mainnet', 'reset: network mainnet');
-    assert(state.status === 'idle', 'reset: status idle');
-    assert(state.result === null, 'reset: result null');
-    assert(state.error === null, 'reset: error null');
-}
+      vi.useRealTimers();
+    });
+  });
 
-// ─── Report ─────────────────────────────────────────────────────────────────
+  describe("C. Time-Fast-Forwarding / Active Expiry", () => {
+    it("accepts fresh state, then after advancing past PERSISTENCE_TIMEOUT rejects on re-check", () => {
+      const T0 = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(T0);
 
-console.log('\n══════════════════════════════════════════════════════');
-console.log(`  Results:  ${passed} passed, ${failed} failed`);
-console.log('══════════════════════════════════════════════════════');
+      const persisted: PersistedIndexingState = {
+        currentStep: "filtering-timeframes",
+        completedSteps: 2,
+        stepProgress: { ...BASE_STEP_PROGRESS } as PersistedIndexingState["stepProgress"],
+        overallProgress: 40,
+        completedStepRecord: { ...BASE_COMPLETED_RECORD } as PersistedIndexingState["completedStepRecord"],
+        stepTimings: { ...BASE_STEP_TIMINGS } as PersistedIndexingState["stepTimings"],
+        startTime: T0 - 30_000,
+        timestamp: T0 - 1_000,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(persisted));
 
-if (failures.length > 0) {
-    console.log('\nFailed tests:');
-    failures.forEach((f) => console.log(`  ✗ ${f}`));
-}
+      const loaded = useWrapStore.getState().loadIndexingState();
+      expect(loaded).toBe(true);
+      const s1 = useWrapStore.getState();
+      expect(s1.currentStep).toBe("filtering-timeframes");
+      expect(s1.isLoading).toBe(true);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(true);
 
-process.exit(failed > 0 ? 1 : 0);
+      vi.advanceTimersByTime(PERSISTENCE_TIMEOUT - 1_000 + 1);
+
+      const loaded2 = useWrapStore.getState().loadIndexingState();
+      expect(loaded2).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+
+      vi.useRealTimers();
+    });
+
+    it("boundary check: advancing by exactly PERSISTENCE_TIMEOUT triggers purge (t + 1ms effective)", () => {
+      const T0 = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(T0);
+
+      const persisted: PersistedIndexingState = {
+        currentStep: "counting-contracts",
+        completedSteps: 5,
+        stepProgress: { ...BASE_STEP_PROGRESS } as PersistedIndexingState["stepProgress"],
+        overallProgress: 80,
+        completedStepRecord: { ...BASE_COMPLETED_RECORD } as PersistedIndexingState["completedStepRecord"],
+        stepTimings: { ...BASE_STEP_TIMINGS } as PersistedIndexingState["stepTimings"],
+        startTime: T0 - 200_000,
+        timestamp: T0,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(persisted));
+
+      expect(useWrapStore.getState().loadIndexingState()).toBe(true);
+
+      vi.advanceTimersByTime(PERSISTENCE_TIMEOUT + 1);
+
+      const result = useWrapStore.getState().loadIndexingState();
+      expect(result).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe("D. Corrupted JSON Recovery", () => {
+    it("handles malformed JSON string, purges key, and falls back to initial state", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      storageMap.set(PERSISTENCE_KEY, "{ malformed_json: ");
+
+      const consoleWarnSpy = vi
+        .spyOn(console, "warn")
+        .mockImplementation(() => void 0);
+
+      const loaded = useWrapStore.getState().loadIndexingState();
+
+      expect(loaded).toBe(false);
+      expect(consoleWarnSpy).toHaveBeenCalled();
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+
+      const s = useWrapStore.getState();
+      expect(s.currentStep).toBe(null);
+      expect(s.isLoading).toBe(false);
+      expect(s.overallProgress).toBe(0);
+      expect(s.completedSteps).toBe(0);
+      expect(s.startTime).toBe(null);
+      expect(s.indexingError).toBe(null);
+      expect(s.isCancelled).toBe(false);
+
+      consoleWarnSpy.mockRestore();
+      vi.useRealTimers();
+    });
+
+    it("handles valid JSON but non-object primitive payload gracefully and purges storage", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify("just-a-string"));
+
+      const loaded = useWrapStore.getState().loadIndexingState();
+
+      expect(loaded).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+      const s = useWrapStore.getState();
+      expect(s.currentStep).toBe(null);
+      expect(s.isLoading).toBe(false);
+
+      vi.useRealTimers();
+    });
+
+    it("handles valid JSON object with null timestamp gracefully and purges storage", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const invalidShape = {
+        currentStep: "initializing",
+        timestamp: null,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(invalidShape));
+
+      const loaded = useWrapStore.getState().loadIndexingState();
+
+      expect(loaded).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+      const s = useWrapStore.getState();
+      expect(s.currentStep).toBe(null);
+      expect(s.isLoading).toBe(false);
+      expect(s.overallProgress).toBe(0);
+
+      vi.useRealTimers();
+    });
+
+    it("handles valid JSON object with timestamp set to non-number string and purges storage", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const invalidTimestamp = {
+        currentStep: "initializing",
+        completedSteps: 0,
+        stepProgress: { ...BASE_STEP_PROGRESS },
+        overallProgress: 0,
+        completedStepRecord: { ...BASE_COMPLETED_RECORD },
+        stepTimings: { ...BASE_STEP_TIMINGS },
+        startTime: null,
+        timestamp: "not-a-number",
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(invalidTimestamp));
+
+      const loaded = useWrapStore.getState().loadIndexingState();
+
+      expect(loaded).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+      const s = useWrapStore.getState();
+      expect(s.isLoading).toBe(false);
+      expect(s.currentStep).toBe(null);
+
+      vi.useRealTimers();
+    });
+  });
+});
