@@ -112,8 +112,31 @@ export default function SharePageClient() {
         setShareOpen(false);
       }
     };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && shareOpen) {
+        setShareOpen(false);
+        shareBtnRef.current?.focus();
+      }
+    };
+
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [shareOpen]);
+
+  useEffect(() => {
+    if (shareOpen) {
+      // Small delay to ensure the motion element is mounted before focusing
+      const timer = setTimeout(() => {
+        const firstButton = shareMenuRef.current?.querySelector("button");
+        firstButton?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
   }, [shareOpen]);
 
   return (
@@ -245,6 +268,9 @@ export default function SharePageClient() {
 
           <button
             ref={shareBtnRef}
+            aria-expanded={shareOpen}
+            aria-haspopup="menu"
+            aria-label="Toggle share menu"
             onClick={() => setShareOpen(!shareOpen)}
             className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
           >
