@@ -332,39 +332,24 @@ export default function ConnectPage() {
 
   // Keyboard navigation for the entire page
   const handlePageKeyDown = (e: KeyboardEvent) => {
-    // Handle Escape key to go back
+    // Handle Escape key to go back, except when inside the input where it should just blur
     if (e.key === "Escape") {
+      if (document.activeElement === addressInputRef.current) {
+        addressInputRef.current?.blur();
+        return;
+      }
       e.preventDefault();
       onBack();
     }
-
-    // Handle Tab key for focus trapping
-    if (e.key === "Tab" && mainContentRef.current) {
-      const focusableElements = mainContentRef.current.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-
-      if (focusableElements.length > 0) {
-        const firstElement = focusableElements[0] as HTMLElement;
-        const lastElement = focusableElements[
-          focusableElements.length - 1
-        ] as HTMLElement;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    }
+    // Tab behavior is left un-intercepted intentionally. 
+    // This allows the focus to escape into the browser chrome (e.g. URL bar),
+    // which is required for full-page accessibility compliance.
   };
 
   const errorId = localError ? "address-error" : undefined;
 
   return (
-    <div
+    <main
       ref={mainContentRef}
       tabIndex={-1}
       onKeyDown={handlePageKeyDown}
@@ -413,43 +398,45 @@ export default function ConnectPage() {
         }}
       />
 
-      {/* Back button */}
-      <motion.button
-        ref={backButtonRef}
-        onClick={onBack}
-        onKeyDown={handleBackKeyDown}
-        className="absolute top-6 left-6 md:top-8 md:left-8 z-20 group focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black focus:rounded-xl"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        tabIndex={0}
-        aria-label="Go back to previous page"
-        role="button"
-      >
-        <div
-          className="flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/20"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+      <nav aria-label="Primary">
+        {/* Back button */}
+        <motion.button
+          ref={backButtonRef}
+          onClick={onBack}
+          onKeyDown={handleBackKeyDown}
+          className="absolute top-6 left-6 md:top-8 md:left-8 z-20 group focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black focus:rounded-xl"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          tabIndex={0}
+          aria-label="Go back to previous page"
+          role="button"
         >
-          <ArrowLeft
-            className="w-5 h-5 text-white group-hover:text-white/80 transition-colors"
-            aria-hidden="true"
-          />
-          <span className="text-sm font-black text-white/80 group-hover:text-white transition-colors hidden sm:inline">
-            BACK
-          </span>
-        </div>
-      </motion.button>
+          <div
+            className="flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/20"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+          >
+            <ArrowLeft
+              className="w-5 h-5 text-white group-hover:text-white/80 transition-colors"
+              aria-hidden="true"
+            />
+            <span className="text-sm font-black text-white/80 group-hover:text-white transition-colors hidden sm:inline">
+              BACK
+            </span>
+          </div>
+        </motion.button>
 
-      <motion.div
-        className="absolute top-6 right-6 md:top-8 md:right-8 z-20"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <MuteToggle />
-      </motion.div>
+        <motion.div
+          className="absolute top-6 right-6 md:top-8 md:right-8 z-20"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <MuteToggle />
+        </motion.div>
+      </nav>
 
       {/* Main content */}
       <div className="relative z-10 max-w-2xl w-full mx-auto px-4 sm:px-6 md:px-8">
@@ -756,7 +743,7 @@ export default function ConnectPage() {
                   exit={{ opacity: 0, y: -10 }}
                   className="mb-6 p-6 bg-theme-primary/10 border-2 border-theme-primary/50 rounded-xl"
                 >
-                  <h3 className="text-sm font-bold text-white/80 mb-4 tracking-wide">ACCOUNT SUMMARY</h3>
+                  <h2 className="text-sm font-bold text-white/80 mb-4 tracking-wide">ACCOUNT SUMMARY</h2>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-white/60 text-sm">Network</span>

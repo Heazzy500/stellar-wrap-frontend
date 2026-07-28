@@ -130,6 +130,8 @@ interface WrapStoreState {
   cacheMeta: CacheMeta | null;
   currentContractAddress: string | null;
   contractAddresses: ContractAddressesByNetwork;
+  refreshToken: number;
+  isRefreshing: boolean;
   // Indexing state
   currentStep: IndexingStep | null;
   stepProgress: Record<IndexingStep, number>;
@@ -152,6 +154,8 @@ interface WrapStoreState {
   setResult: (result: WrapResult | null) => void;
   setCacheMeta: (meta: CacheMeta | null) => void;
   setContractAddresses: (addresses: ContractAddressesByNetwork) => void;
+  setRefreshing: (isRefreshing: boolean) => void;
+  bumpRefreshToken: () => void;
   reset: () => void;
   // Indexing actions
   setCurrentStep: (step: IndexingStep | null) => void;
@@ -209,6 +213,8 @@ export const useWrapStore = create<WrapStoreState>()(
       cacheMeta: null,
       currentContractAddress: null,
       contractAddresses: {},
+      refreshToken: 0,
+      isRefreshing: false,
       // Indexing initial state
       ...initialIndexingState,
       setAddress: (address) => set({ address }),
@@ -219,6 +225,8 @@ export const useWrapStore = create<WrapStoreState>()(
       setResult: (result) => set({ result }),
       setCacheMeta: (cacheMeta) => set({ cacheMeta }),
       setContractAddresses: (contractAddresses) => set({ contractAddresses }),
+      setRefreshing: (isRefreshing) => set({ isRefreshing }),
+      bumpRefreshToken: () => set((s) => ({ refreshToken: s.refreshToken + 1 })),
       reset: () =>
         set({
           address: null,
@@ -230,6 +238,8 @@ export const useWrapStore = create<WrapStoreState>()(
           cacheMeta: null,
           currentContractAddress: null,
           contractAddresses: {},
+          refreshToken: 0,
+          isRefreshing: false,
           ...initialIndexingState,
         }),
 
@@ -241,11 +251,21 @@ export const useWrapStore = create<WrapStoreState>()(
       },
 
       setStepProgress: (step, progress) => {
-        const clamped = Math.max(0, Math.min(100, progress));
-        set((state) => ({
+        const state = get();
+        // Ignore stale updates after the step is already complete
+        if (state.completedStepRecord[step]) {
+          return;
+        }
+        const next = Math.max(0, Math.min(100, progress));
+        const current = state.stepProgress[step] ?? 0;
+        // Monotonic: never allow progress to regress within a run
+        if (next < current) {
+          return;
+        }
+        set((s) => ({
           stepProgress: {
-            ...state.stepProgress,
-            [step]: clamped,
+            ...s.stepProgress,
+            [step]: next,
           },
         }));
         get().updateOverallProgress();
@@ -385,6 +405,9 @@ export const useWrapStore = create<WrapStoreState>()(
           stepTimings,
           startTime: state.startTime,
           timestamp: Date.now(),
+          address: state.address,
+          network: state.network,
+          period: state.period,
         };
 
         if (typeof window !== "undefined") {
@@ -405,8 +428,18 @@ export const useWrapStore = create<WrapStoreState>()(
 
           const persistedState: PersistedIndexingState = JSON.parse(saved);
           const now = Date.now();
+          const state = get();
 
           if (now - persistedState.timestamp > PERSISTENCE_TIMEOUT) {
+            localStorage.removeItem(PERSISTENCE_KEY);
+            return false;
+          }
+
+          if (
+            persistedState.address !== state.address ||
+            persistedState.network !== state.network ||
+            persistedState.period !== state.period
+          ) {
             localStorage.removeItem(PERSISTENCE_KEY);
             return false;
           }

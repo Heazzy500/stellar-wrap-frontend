@@ -336,6 +336,7 @@ export default function ArchetypeReveal(): JSX.Element {
         {/* Progress Indicator */}
         <ProgressIndicator currentStep={5} totalSteps={6} showNext={false} />
 
+        <main id="main-content">
         <div className="md:max-w-[1330px] w-96  md:w-full p-4 sm:p-12 flex flex-col items-center justify-center gap-4 sm:gap-8 overflow-hidden bg-[#020202] text-white min-h-screen sm:min-h-0">
           {/* Background Layer (ring wave + ambient) */}
           <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
