@@ -71,6 +71,11 @@ export function StepProgressDisplay({
     >
       {/* Main Progress Container */}
       <div className="relative rounded-2xl border border-white/10 bg-linear-to-b from-white/5 to-transparent backdrop-blur-xl p-8 space-y-6">
+        {/* Screen Reader Progress Announcer */}
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {!indexingError && (currentStep ? `Step ${completedSteps + 1} of ${totalSteps}: ${INDEXING_STEPS[currentStep].label}. ${Math.floor(overallProgress / 20) * 20}% complete.` : "Preparing your data...")}
+        </div>
+
         {/* Header Section */}
         <div className="space-y-2">
           <h2 className="text-2xl md:text-3xl font-black text-white">
@@ -254,6 +259,8 @@ export function StepProgressDisplay({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 space-y-3"
+              role="alert"
+              aria-live="assertive"
             >
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />

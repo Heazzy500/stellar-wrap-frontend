@@ -1,5 +1,5 @@
 import SharePageClient from "./SharePageClient";
 
-export default function SharePage() {
+export default function ShareCardPage() {
   return <SharePageClient />;
 }

@@ -107,7 +107,7 @@ export function getCacheKey(
   network: "mainnet" | "testnet",
   period: WrapPeriod,
 ): string {
-  return `${accountId}:${network}:${period}`;
+  return `${accountId}:${network}:${period}:${CACHE_VERSION}`;
 }
 
 export function isCacheValid(
