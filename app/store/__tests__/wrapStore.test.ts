@@ -410,5 +410,244 @@ describe("wrapStore indexing persistence lifecycle", () => {
 
       vi.useRealTimers();
     });
+
+    it("handles valid JSON object with timestamp set to Infinity and purges storage", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const invalidTimestamp = {
+        currentStep: "initializing",
+        completedSteps: 0,
+        stepProgress: { ...BASE_STEP_PROGRESS },
+        overallProgress: 0,
+        completedStepRecord: { ...BASE_COMPLETED_RECORD },
+        stepTimings: { ...BASE_STEP_TIMINGS },
+        startTime: null,
+        timestamp: Infinity,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(invalidTimestamp));
+
+      const loaded = useWrapStore.getState().loadIndexingState();
+
+      expect(loaded).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+      const s = useWrapStore.getState();
+      expect(s.isLoading).toBe(false);
+      expect(s.currentStep).toBe(null);
+
+      vi.useRealTimers();
+    });
+
+    it("handles valid JSON object with timestamp set to NaN and purges storage", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const invalidTimestamp = {
+        currentStep: "initializing",
+        completedSteps: 0,
+        stepProgress: { ...BASE_STEP_PROGRESS },
+        overallProgress: 0,
+        completedStepRecord: { ...BASE_COMPLETED_RECORD },
+        stepTimings: { ...BASE_STEP_TIMINGS },
+        startTime: null,
+        timestamp: NaN,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(invalidTimestamp));
+
+      const loaded = useWrapStore.getState().loadIndexingState();
+
+      expect(loaded).toBe(false);
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+      const s = useWrapStore.getState();
+      expect(s.isLoading).toBe(false);
+      expect(s.currentStep).toBe(null);
+
+      vi.useRealTimers();
+    });
+
+    it("handles empty string payload and returns false without crashing", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      storageMap.set(PERSISTENCE_KEY, "");
+
+      const loaded = useWrapStore.getState().loadIndexingState();
+
+      expect(loaded).toBe(false);
+      // Empty string returns null from getItem, so no storage removal needed
+      const s = useWrapStore.getState();
+      expect(s.isLoading).toBe(false);
+      expect(s.currentStep).toBe(null);
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe("E. Storage Operations & State Lifecycle", () => {
+    it("saveIndexingState persists state when isLoading is true", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const store = useWrapStore.getState();
+      store.startIndexing();
+      store.setCurrentStep("fetching-transactions");
+      store.setStepProgress("fetching-transactions", 50);
+
+      store.saveIndexingState();
+
+      expect(setItemSpy).toHaveBeenCalled();
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(true);
+
+      const saved = JSON.parse(storageMap.get(PERSISTENCE_KEY)!);
+      expect(saved.currentStep).toBe("fetching-transactions");
+      expect(saved.timestamp).toBe(now);
+      expect(saved.stepProgress["fetching-transactions"]).toBe(50);
+
+      vi.useRealTimers();
+    });
+
+    it("saveIndexingState does not persist when isLoading is false", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const store = useWrapStore.getState();
+      store.resetIndexing();
+
+      setItemSpy.mockClear();
+      store.saveIndexingState();
+
+      expect(setItemSpy).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it("saveIndexingState does not persist when isCancelled is true", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const store = useWrapStore.getState();
+      store.startIndexing();
+      store.cancelIndexing();
+
+      setItemSpy.mockClear();
+      store.saveIndexingState();
+
+      expect(setItemSpy).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it("clearPersistedIndexingState removes storage entry", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const persisted: PersistedIndexingState = {
+        currentStep: "initializing",
+        completedSteps: 0,
+        stepProgress: { ...BASE_STEP_PROGRESS } as PersistedIndexingState["stepProgress"],
+        overallProgress: 5,
+        completedStepRecord: { ...BASE_COMPLETED_RECORD } as PersistedIndexingState["completedStepRecord"],
+        stepTimings: { ...BASE_STEP_TIMINGS } as PersistedIndexingState["stepTimings"],
+        startTime: now - 10_000,
+        timestamp: now - 5_000,
+      };
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify(persisted));
+
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(true);
+
+      useWrapStore.getState().clearPersistedIndexingState();
+
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+
+      vi.useRealTimers();
+    });
+
+    it("completeIndexing clears persisted state and sets all steps to 100%", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const store = useWrapStore.getState();
+      store.startIndexing();
+      store.setCurrentStep("fetching-transactions");
+
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify({
+        currentStep: "fetching-transactions",
+        timestamp: now,
+      }));
+
+      store.completeIndexing();
+
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+
+      // Need to get fresh state after mutation
+      const s = useWrapStore.getState();
+      expect(s.overallProgress).toBe(100);
+      expect(s.completedSteps).toBe(STEP_ORDER.length);
+      expect(s.isLoading).toBe(false);
+      expect(s.estimatedTimeRemaining).toBe(0);
+
+      STEP_ORDER.forEach((step) => {
+        expect(s.stepProgress[step]).toBe(100);
+        expect(s.completedStepRecord[step]).toBe(true);
+      });
+
+      vi.useRealTimers();
+    });
+
+    it("cancelIndexing clears persisted state and resets to initial state", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      const store = useWrapStore.getState();
+      store.startIndexing();
+      store.setCurrentStep("calculating-volume");
+      store.setStepProgress("calculating-volume", 60);
+
+      storageMap.set(PERSISTENCE_KEY, JSON.stringify({
+        currentStep: "calculating-volume",
+        timestamp: now,
+      }));
+
+      store.cancelIndexing();
+
+      expect(removeItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+
+      // Need to get fresh state after mutation
+      const s = useWrapStore.getState();
+      expect(s.isCancelled).toBe(true);
+      expect(s.isLoading).toBe(false);
+      expect(s.currentStep).toBe(null);
+      expect(s.overallProgress).toBe(0);
+      expect(s.status).toBe("idle");
+      expect(s.result).toBe(null);
+
+      vi.useRealTimers();
+    });
+  });
+
+  describe("F. No Storage Key Exists", () => {
+    it("returns false when no persisted state exists in storage", () => {
+      const now = 1_700_000_000_000;
+      vi.useFakeTimers().setSystemTime(now);
+
+      expect(storageMap.has(PERSISTENCE_KEY)).toBe(false);
+
+      const loaded = useWrapStore.getState().loadIndexingState();
+
+      expect(loaded).toBe(false);
+      expect(getItemSpy).toHaveBeenCalledWith(PERSISTENCE_KEY);
+      expect(removeItemSpy).not.toHaveBeenCalled();
+
+      const s = useWrapStore.getState();
+      expect(s.currentStep).toBe(null);
+      expect(s.isLoading).toBe(false);
+
+      vi.useRealTimers();
+    });
   });
 });
