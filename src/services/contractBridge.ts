@@ -10,7 +10,11 @@ import { Horizon } from 'stellar-sdk';
 import { Server, Api } from 'stellar-sdk/rpc';
 import { signTransaction } from '@stellar/freighter-api';
 import { Network, NETWORK_PASSPHRASES, SOROBAN_RPC_URLS, RPC_ENDPOINTS } from '../config';
-import { getContractAddress } from '../../config/contracts';
+import {
+  getContractAddress,
+  isPlaceholderContractAddress,
+  PlaceholderContractAddressError,
+} from '../../config/contracts';
 import { buildContractArgs, type ContractStatsInput } from '../utils/contractArgsBuilder';
 
 export type TransactionState =
@@ -199,11 +203,18 @@ async function buildMintTransaction(
   stats: ContractStatsInput,
   network: Network,
 ): Promise<{ transaction: Transaction; contract: Contract }> {
-  const contractAddress = getContractAddress(network);
-  if (!contractAddress || contractAddress.startsWith('CAAAAAAAA')) {
-    throw new Error(
-      `Invalid contract address for ${network}. Please configure NEXT_PUBLIC_CONTRACT_ADDRESS_${network.toUpperCase()} environment variable.`,
-    );
+  let contractAddress: string;
+  try {
+    contractAddress = getContractAddress(network);
+  } catch (err) {
+    if (err instanceof PlaceholderContractAddressError) {
+      throw new Error(`${err.userMessage} ${err.developerHint}`);
+    }
+    throw err;
+  }
+  if (!contractAddress || isPlaceholderContractAddress(contractAddress)) {
+    const placeholderErr = new PlaceholderContractAddressError(network);
+    throw new Error(`${placeholderErr.userMessage} ${placeholderErr.developerHint}`);
   }
 
   const sorobanServer = createSorobanServer(network);

@@ -29,19 +29,25 @@ function formatLastIndexed(timestamp: number): string {
 }
 
 export function CacheStatusBadge() {
-  const { cacheMeta, address, network, period } = useWrapStore();
+  const { cacheMeta, address, network, period, isRefreshing, bumpRefreshToken, setRefreshing } = useWrapStore();
   const isOnline = useOnlineStatus();
 
+  const isStale =
+    cacheMeta?.fromCache === true &&
+    cacheMeta.cacheTimestamp != null &&
+    Date.now() - cacheMeta.cacheTimestamp > STALE_CACHE_THRESHOLD_MS;
+
   const handleRefresh = useCallback(async () => {
-    if (!address || !isOnline) return;
+    if (!address || !isOnline || isRefreshing) return;
     const key = getCachedDataKey(
       address,
       network as "mainnet" | "testnet",
       period as "weekly" | "biweekly" | "monthly" | "yearly",
     );
+    setRefreshing(true);
     await invalidateCache(key);
-    window.location.reload();
-  }, [address, isOnline, network, period]);
+    bumpRefreshToken();
+  }, [address, isOnline, isRefreshing, network, period, bumpRefreshToken, setRefreshing]);
 
   // Don't show anything if there's no cache info
   if (!cacheMeta) return null;
