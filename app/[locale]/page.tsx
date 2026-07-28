@@ -56,7 +56,7 @@ const faqJsonLd = {
 
 export default function Home() {
   return (
-    <main>
+    <main id="main-content">
       <JsonLd data={faqJsonLd} />
       <LandingPage />
     </main>
