@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Share2, Download, Twitter, Loader2, Sparkles, AlertCircle, Film, ImagePlay } from "lucide-react";
+import { Share2, Download, Twitter, Loader2, Sparkles, AlertCircle, Film, ImagePlay, ExternalLink } from "lucide-react";
 import { useState, RefObject, useEffect } from "react";
 import { downloadShareImage } from "../utils/imageExport";
 import { useWrapStore } from "@/app/store/wrapStore";
@@ -36,7 +36,7 @@ export function ShareCard({
   const { playSound } = useSound();
   const isOnline = useOnlineStatus();
   
-  const { transactionState, transactionHash, transactionError, resetTransaction } = useTransactionStore();
+  const { transactionState, transactionHash, transactionError, resetTransaction, confirmedTransactionHash } = useTransactionStore();
 
   const isMinting = [
     "building",
@@ -45,12 +45,15 @@ export function ShareCard({
     "submitting",
     "confirming",
   ].includes(transactionState);
-  
-  const mintSuccess = transactionState === "confirmed" ? transactionHash : null;
+
+  // Use the stable confirmedTransactionHash for links — it survives resetTransaction
+  // so the explorer link stays valid even if the user starts a new flow.
+  const mintSuccess = transactionState === "confirmed" ? (confirmedTransactionHash ?? transactionHash) : null;
   const mintFailed = transactionState === "failed";
 
   useEffect(() => {
-    if (transactionState === "confirmed" && transactionHash) {
+    if (transactionState === "confirmed" && (confirmedTransactionHash ?? transactionHash)) {
+      const txHash = confirmedTransactionHash ?? transactionHash;
       playSound(SOUND_NAMES.MINT_SUCCESS);
       toast.success("Minted successfully!", {
         description: "View your transaction on Stellar Explorer",
@@ -58,7 +61,7 @@ export function ShareCard({
           label: "View",
           onClick: () =>
             window.open(
-              `https://stellar.expert/explorer/testnet/tx/${transactionHash}`,
+              `https://stellar.expert/explorer/${network === "mainnet" ? "public" : "testnet"}/tx/${txHash}`,
               "_blank",
             ),
         },
@@ -70,7 +73,7 @@ export function ShareCard({
         description: transactionError,
       });
     }
-  }, [transactionState, transactionHash, transactionError, playSound]);
+  }, [transactionState, transactionHash, confirmedTransactionHash, transactionError, playSound, network]);
 
   const handleDownload = async () => {
     if (!shareImageRef.current || isDownloading) return;
@@ -557,6 +560,32 @@ export function ShareCard({
             >
               View full history on Stellar.expert →
             </motion.a>
+          )}
+
+          {/* Post-mint success banner — uses confirmedTransactionHash which
+              survives resetTransaction so the link stays visible on remount */}
+          {confirmedTransactionHash && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full mt-4 rounded-xl border border-green-500/30 bg-green-500/10 p-4 space-y-2"
+              role="status"
+              aria-live="polite"
+            >
+              <p className="text-sm font-bold text-green-300">
+                ✓ Wrap minted successfully
+              </p>
+              <a
+                href={`https://stellar.expert/explorer/${network === "mainnet" ? "public" : "testnet"}/tx/${confirmedTransactionHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-mono text-green-200/80 hover:text-green-100 transition-colors break-all"
+                aria-label="View confirmed transaction on Stellar.expert"
+              >
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                {confirmedTransactionHash.slice(0, 16)}…{confirmedTransactionHash.slice(-8)}
+              </a>
+            </motion.div>
           )}
         </div>
 

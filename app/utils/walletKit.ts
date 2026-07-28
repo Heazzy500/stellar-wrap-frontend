@@ -30,8 +30,9 @@ function getStringProperty(data: unknown, key: string): string | null {
     const value = (data as Record<string, unknown>)[key];
     return typeof value === "string" ? value : null;
   }
-
   return null;
+}
+
 function getStringField(data: unknown, field: string): string | null {
   if (!data || typeof data !== "object" || !(field in data)) {
     return null;
@@ -193,6 +194,7 @@ export async function mintWrap(params: MintWrapParams): Promise<string> {
             const transactionHash = getStringProperty(data, "transactionHash");
             if (transactionHash) {
               setTransactionHash(transactionHash);
+              useTransactionStore.getState().setConfirmedTransactionHash(transactionHash);
             }
           }
           break;
@@ -226,6 +228,7 @@ export async function mintWrap(params: MintWrapParams): Promise<string> {
 
     useTransactionStore.getState().setTransactionState("confirmed");
     useTransactionStore.getState().setTransactionHash(result.transactionHash);
+    useTransactionStore.getState().setConfirmedTransactionHash(result.transactionHash);
 
     return result.transactionHash;
   } catch (error) {
