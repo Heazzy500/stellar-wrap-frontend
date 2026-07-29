@@ -9,6 +9,25 @@ import { useSound } from "../hooks/useSound";
 import { SOUND_NAMES } from "../utils/soundManager";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
 import { mintWrap } from "../utils/walletKit";
+interface AnimationExportProgress {
+  phase: string;
+  progress: number;
+  message: string;
+}
+
+interface ShareAnimationData {
+  username: string;
+  transactions: number;
+  persona: string;
+  topVibe: string;
+  vibePercentage: number;
+  themeColor: string;
+}
+
+// Stub imports for animated exports
+const downloadAnimatedGif = async (...args: any[]) => { throw new Error("Not implemented"); };
+const downloadAnimatedVideo = async (...args: any[]) => { throw new Error("Not implemented"); };
+
 interface ShareCardProps {
   username: string;
   transactions: number;
@@ -19,6 +38,7 @@ interface ShareCardProps {
   themeColor?: string;
   cardFormat?: "square" | "stories";
   onFormatChange?: (format: "square" | "stories") => void;
+  mode?: "light" | "dark";
 }
 
 export function ShareCard({
@@ -31,9 +51,15 @@ export function ShareCard({
   themeColor = "rgb(5, 64, 32)",
   cardFormat = "square",
   onFormatChange,
+  mode = "dark",
 }: ShareCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
-const { address, network, period } = useWrapStore();
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [usedMainThreadFallback, setUsedMainThreadFallback] = useState(false);
+  const [exportProgress, setExportProgress] = useState<AnimationExportProgress | null>(null);
+  const [exportLabel, setExportLabel] = useState<string | null>(null);
+
+  const { address, network, period } = useWrapStore();
   const { playSound } = useSound();
   const isOnline = useOnlineStatus();
   
