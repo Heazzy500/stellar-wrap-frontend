@@ -297,7 +297,14 @@ export function LandingPage() {
         )}
 
         {/* Color Toggle - Fixed Position */}
-        <ColorToggle />
+        <motion.div
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+          className="fixed top-4 left-4 md:top-8 md:left-24 z-50"
+        >
+          <ColorToggle />
+        </motion.div>
 
         {/* Network Toggle - Fixed Position */}
         <NetworkToggle />
@@ -485,7 +492,7 @@ export function LandingPage() {
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 1.5 }}
-          className="w-full max-w-[min(100%,22rem)] sm:max-w-md px-2"
+          className="w-full max-w-[min(calc(100%-1rem),22rem)] sm:max-w-md px-2 z-20"
         >
           <motion.button
             onClick={handleStart}
