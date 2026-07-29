@@ -45,7 +45,7 @@ export default function SharePageClient() {
   const shareBtnRef = useRef<HTMLButtonElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement>(null!);
   const { color } = useTheme();
-  const { address: walletAddress, network, result } = useWrapStore();
+  const { address: walletAddress, network, result, period } = useWrapStore();
 
   const urlPreview = useMemo(
     () => parseSharePreviewParams(searchParams),
@@ -102,7 +102,7 @@ export default function SharePageClient() {
   const handleShare = (platform: string) => {
     trackEvent("share_clicked", { platform });
     const url = shareUrl || window.location.href;
-    const text = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
+    const text = `Check out my ${period} Stellar Wrapped! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
     let shareUrl = "";
 
     switch (platform) {
