@@ -2,8 +2,9 @@
 
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
-import { TrendingUp, Palette, Code, AppWindow } from 'lucide-react';
+import { TrendingUp, Palette, Code } from 'lucide-react';
 import { formatDappDisplayName } from '@/app/utils/formatDappLabel';
+import { DappIcon } from '@/app/components/DappIcon';
 import { DexTradingSummary } from './DexTradingSummary';
 import { SorobanBuilderTimeline } from './SorobanBuilderTimeline';
 import { PortfolioDiversityCard } from './PortfolioDiversityCard';
@@ -22,6 +23,8 @@ interface VibeData {
 interface TopDappItem {
   name: string;
   interactions: number;
+  icon?: string;
+  logo?: string;
 }
 
 interface Screen4VibeCheckProps {
@@ -219,15 +222,12 @@ export function Screen4VibeCheck({
                         style={{ backgroundColor: 'rgba(255, 255, 255, 0.04)' }}
                       >
                         <div className="flex items-center gap-3 min-w-0">
-                          <div
-                            className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg flex items-center justify-center shrink-0 border border-white/20"
-                            style={{ backgroundColor: 'rgba(var(--color-theme-primary-rgb), 0.15)' }}
-                          >
-                            <AppWindow
-                              className="w-4 h-4 text-white/80"
-                              aria-hidden="true"
-                            />
-                          </div>
+                          <DappIcon
+                            name={dapp.name}
+                            icon={dapp.icon}
+                            logo={dapp.logo}
+                            size="sm"
+                          />
                           <span
                             className="text-sm sm:text-base font-bold text-white truncate"
                             title={dapp.name}

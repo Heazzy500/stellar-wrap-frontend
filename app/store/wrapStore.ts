@@ -30,6 +30,7 @@ export const PERIODS: Record<WrapPeriod, number> = {
 export interface DappData {
   name: string;
   logo?: string;
+  icon?: string;
   interactions: number;
   isFanFavorite?: boolean;
   color?: string;
