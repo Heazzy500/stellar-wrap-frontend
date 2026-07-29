@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Share2 } from "lucide-react";
+import { ExternalLink, Share2, Link2, Check } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { mockData } from "@/app/data/mockData";
 import { GOLDEN_USER } from "@/src/data/mockData";
@@ -98,6 +98,30 @@ export default function SharePageClient() {
     const path = `${window.location.pathname}?${query}`;
     setShareUrl(`${window.location.origin}${path}`);
   }, [storePreview]);
+
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  const handleCopyLink = async () => {
+    const url = shareUrl || window.location.href;
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   const handleShare = (platform: string) => {
     trackEvent("share_clicked", { platform });
@@ -291,6 +315,36 @@ export default function SharePageClient() {
                     Telegram
                   </span>
                 </button>
+
+                <button
+                  onClick={handleCopyLink}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleCopyLink();
+                    }
+                  }}
+                  className="flex items-center cursor-pointer pl-4 gap-3 p-2 w-42 h-15 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors"
+                  aria-live="polite"
+                  aria-label={copied ? "Link copied to clipboard" : "Copy link to clipboard"}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6366f1]">
+                    {copied ? (
+                      <Check className="h-5 w-5 text-white" />
+                    ) : (
+                      <Link2 className="h-5 w-5 text-white" />
+                    )}
+                  </div>
+                  <span className="font-bold text-white tracking-wide">
+                    {copied ? "Copied!" : "Copy link"}
+                  </span>
+                </button>
+
+                {copyError && (
+                  <p className="text-xs text-red-400" aria-live="assertive">
+                    {copyError}
+                  </p>
+                )}
               </motion.div>
             )}
           </AnimatePresence>

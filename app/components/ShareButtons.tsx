@@ -41,10 +41,31 @@ export function ShareButtons({
   const [appUrl, setAppUrl] = useState('');
   const [shareOgUrl, setShareOgUrl] = useState('');
   const [copied, setCopied] = useState(false);
-  
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  const handleCopyLink = async () => {
+    if (typeof window === 'undefined' || !shareUrl) return;
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement('textarea');
+      textarea.value = shareUrl;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    // Defer state update to avoid synchronous setState in effect body
     const id = window.requestAnimationFrame(() => {
       setShareUrl(window.location.href);
       setAppUrl(window.location.origin);
@@ -85,26 +106,6 @@ export function ShareButtons({
     }
     if (e.key === "Escape" && isOpen) {
       setIsOpen(false);
-    }
-  };
-
-  const handleCopyLink = async () => {
-    if (typeof window === 'undefined' || !shareUrl) return;
-    try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      const textarea = document.createElement('textarea');
-      textarea.value = shareUrl;
-      textarea.style.position = 'fixed';
-      textarea.style.opacity = '0';
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textarea);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -248,8 +249,16 @@ export function ShareButtons({
               whileHover={{ scale: 1.05, x: 5 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleCopyLink}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleCopyLink();
+                }
+              }}
               className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all group"
               style={{ backgroundColor: 'rgba(138, 180, 248, 0.1)' }}
+              aria-live="polite"
+              aria-label={copied ? "Link copied to clipboard" : "Copy link to clipboard"}
             >
               <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: copied ? '#22c55e' : '#6366f1' }}>
                 {copied ? (
@@ -262,6 +271,12 @@ export function ShareButtons({
                 {copied ? 'Copied!' : 'Copy link'}
               </span>
             </motion.button>
+
+            {copyError && (
+              <p className="text-xs text-red-400" aria-live="assertive">
+                {copyError}
+              </p>
+            )}
 
             {/* Native Share (Mobile) */}
             {typeof navigator !== 'undefined' && 'share' in navigator && typeof navigator.share === 'function' && (
