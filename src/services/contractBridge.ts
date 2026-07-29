@@ -15,7 +15,7 @@ import {
   isPlaceholderContractAddress,
   PlaceholderContractAddressError,
 } from '../../config/contracts';
-import { buildContractArgs, type ContractStatsInput } from '../utils/contractArgsBuilder';
+import { buildMintWrapArgs, type MintWrapArgsInput } from '../utils/contractArgsBuilder';
 
 export type TransactionState =
   | 'pending'
@@ -29,7 +29,10 @@ export type TransactionObserver = (state: TransactionState, data?: unknown) => v
 
 export interface MintWrapOptions {
   accountAddress: string;
-  stats: ContractStatsInput;
+  period: string;
+  archetype: string;
+  dataHash: Uint8Array;
+  signature: Uint8Array;
   network: Network;
   observer?: TransactionObserver;
 }
@@ -200,7 +203,7 @@ function parseContractError(error: unknown): string {
 
 async function buildMintTransaction(
   accountAddress: string,
-  stats: ContractStatsInput,
+  mintArgsInput: Omit<MintWrapArgsInput, 'accountAddress'>,
   network: Network,
 ): Promise<{ transaction: Transaction; contract: Contract }> {
   let contractAddress: string;
@@ -236,7 +239,7 @@ async function buildMintTransaction(
     );
   }
 
-  const argsResult = buildContractArgs(stats, accountAddress);
+  const argsResult = buildMintWrapArgs({ accountAddress, ...mintArgsInput });
   if (!argsResult.success) {
     throw new Error(
       `Failed to build contract arguments: ${argsResult.errors.join(', ')}`,
@@ -521,14 +524,18 @@ async function submitTransaction(
 }
 
 export async function mintWrap(options: MintWrapOptions): Promise<MintResult> {
-  const { accountAddress, stats, network, observer } = options;
+  const { accountAddress, period, archetype, dataHash, signature, network, observer } = options;
 
   emitState(observer, 'pending');
 
   const startTime = Date.now();
 
   try {
-    const { transaction } = await buildMintTransaction(accountAddress, stats, network);
+    const { transaction } = await buildMintTransaction(
+    accountAddress,
+    { period, archetype, dataHash, signature },
+    network,
+  );
 
     const server = createSorobanServer(network);
 
