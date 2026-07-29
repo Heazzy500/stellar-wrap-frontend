@@ -9,6 +9,7 @@ import { ProgressIndicator } from "../components/ProgressIndicator";
 import { StepProgressDisplay } from "../components/StepProgressDisplay";
 import { CacheStatusBadge } from "../components/CacheStatusBadge";
 import { MuteToggle } from "../components/MuteToggle";
+import { ProgressRecoveryBanner } from "../components/ProgressRecoveryBanner";
 import { useWrapStore, type WrapResult } from "../store/wrapStore";
 
 import { useSound } from "../hooks/useSound";
@@ -242,6 +243,7 @@ export default function LoadingScreen() {
 
   return (
     <div className="relative w-full min-h-screen h-screen overflow-hidden flex items-center justify-center bg-theme-background">
+      <ProgressRecoveryBanner />
       <ProgressIndicator currentStep={3} totalSteps={6} showNext={false} />
 
       {/* Container for centered layout with progress left and content right */}
