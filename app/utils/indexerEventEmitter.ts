@@ -111,6 +111,11 @@ export class IndexerEventEmitter extends EventEmitter {
     });
 
     this.on("step-progress", ({ step, progress }) => {
+      const state = store.getState();
+      // Drop late events after step completion (defense in depth; store also clamps)
+      if (state.completedStepRecord[step]) {
+        return;
+      }
       store.getState().setStepProgress(step, progress);
     });
 

@@ -5,6 +5,7 @@ import type { WrapResult } from "@/app/store/wrapStore";
 function mapIndexerDapps(dapps: DappInfo[]) {
   return dapps.map((dapp) => ({
     name: dapp.name,
+    icon: dapp.icon,
     interactions: dapp.transactionCount,
   }));
 }

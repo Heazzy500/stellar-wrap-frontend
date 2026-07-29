@@ -392,16 +392,16 @@ export function LandingPage() {
                 borderWidth: '1px',
               }}
             >
-              <h3 
-                className="text-3xl sm:text-4xl md:text-5xl font-black"
-                style={{
-                  background: `linear-gradient(to right, #ffffff, var(--color-theme-primary))`,
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
-                STELLAR
-              </h3>
+              <h2
+                 className="text-3xl sm:text-4xl md:text-5xl font-black"
+                 style={{
+                   background: `linear-gradient(to right, #ffffff, var(--color-theme-primary))`,
+                   WebkitBackgroundClip: 'text',
+                   WebkitTextFillColor: 'transparent',
+                 }}
+               >
+                 STELLAR
+               </h2>
             </div>
           </div>
         </motion.div>
@@ -431,9 +431,10 @@ export function LandingPage() {
           transition={{ delay: 1.3 }}
           className="mb-6 md:mb-10"
         >
-          <div className="flex items-center gap-1 backdrop-blur-xl rounded-xl md:rounded-2xl p-1 md:p-2 border border-white/10"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-          >
+          <nav aria-label="Timeframe">
+            <div className="flex items-center gap-1 backdrop-blur-xl rounded-xl md:rounded-2xl p-1 md:p-2 border border-white/10"
+              style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            >
             {(['weekly', 'monthly', 'yearly'] as const).map((periodOption) => (
               <motion.button
                 key={periodOption}
@@ -467,6 +468,7 @@ export function LandingPage() {
               </motion.button>
             ))}
           </div>
+        </nav>
           {selectedPeriod === 'yearly' && (
             <motion.p
               initial={{ opacity: 0, y: -4 }}

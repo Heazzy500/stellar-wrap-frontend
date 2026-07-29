@@ -119,4 +119,7 @@ export interface PersistedIndexingState {
   stepTimings: Record<IndexingStep, number>; // time taken per step
   startTime: number | null;
   timestamp: number; // when state was saved
+  address: string | null;
+  network: string;
+  period: string;
 }
