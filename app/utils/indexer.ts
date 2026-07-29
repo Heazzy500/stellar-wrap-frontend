@@ -58,6 +58,12 @@ export interface BiggestDaySummary {
   busiestDayOfWeek: string;
 }
 
+export interface NftActivitySummary {
+  mintCount: number;
+  topCreatorAddress: string | null;
+  topCreatorMintCount: number;
+}
+
 export interface IndexerResult {
   accountId: string;
   totalTransactions: number;
@@ -67,6 +73,12 @@ export interface IndexerResult {
   gasSpent: number;
   dapps: DappInfo[];
   vibes: VibeTag[];
+  nftActivitySummary?: NftActivitySummary;
+  dexTradingSummary?: DexTradingSummary;
+  sorobanBuilderSummary?: SorobanBuilderSummary;
+  portfolioDiversitySummary?: PortfolioDiversitySummary;
+  biggestDaySummary?: BiggestDaySummary;
+  largestTransaction?: { amount: number; assetCode: string };
   /**
    * Computed persona archetype for this account, e.g. "The Yield Farmer".
    * Assigned by detectPersona() in achievementCalculator.

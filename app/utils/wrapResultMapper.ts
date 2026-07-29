@@ -39,6 +39,7 @@ export function mapIndexerResultToWrapResult(
     biggestDaySummary: indexerResult.biggestDaySummary,
     dexTradingSummary: indexerResult.dexTradingSummary,
     sorobanBuilderSummary: indexerResult.sorobanBuilderSummary,
+    nftActivitySummary: indexerResult.nftActivitySummary,
     largestTransaction: indexerResult.largestTransaction,
   };
 }
