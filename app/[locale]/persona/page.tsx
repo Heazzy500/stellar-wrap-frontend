@@ -7,6 +7,16 @@ import { Home, Share2, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import { readStreamableValue } from "ai/rsc";
 import { getArchetypeDescription } from "@/data/archetypeConfig";
+import { useSound } from "@/app/hooks/useSound";
+import { SOUND_NAMES } from "@/app/utils/soundManager";
+import { useWrapStore } from "@/app/store/wrapStore";
+import { useSoundStore } from "@/app/store/soundStore";
+import { useNotificationStore } from "@/app/store/notificationStore";
+import { MuteToggle } from "@/app/components/MuteToggle";
+import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimeline";
+import { NotificationPrompt } from "@/app/components/NotificationPrompt";
+import { generatePersonaDescription } from "@/app/actions/generate-persona";
+import { ProgressIndicator } from "@/app/components/ProgressIndicator";
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string) => {
@@ -165,15 +175,20 @@ export default function ArchetypeReveal(): JSX.Element {
 
   // Generate persona description on mount if not already streamed
   useEffect(() => {
+    let isMounted = true;
+    let currentStreamVersion = 0;
+
     const generatePersona = async () => {
       if (streamedDescription || !result) return;
+
+      const streamVersion = ++currentStreamVersion;
 
       try {
         const metrics = {
           username: result.username,
           topDapp: result.dapps?.[0]?.name,
           transactionCount: result.totalTransactions,
-          favoriteChain: "Stellar", // You can extract this from result if available
+          favoriteChain: "Stellar",
           percentile: result.percentile,
           vibes: result.vibes,
           totalDapps: result.dapps?.length,
@@ -183,19 +198,28 @@ export default function ArchetypeReveal(): JSX.Element {
 
         let fullText = "";
         for await (const chunk of readStreamableValue(response)) {
+          if (!isMounted || streamVersion !== currentStreamVersion) {
+            break;
+          }
           if (chunk) {
             fullText += chunk;
-            setStreamedDescription(fullText);
+            if (isMounted && streamVersion === currentStreamVersion) {
+              setStreamedDescription(fullText);
+            }
           }
         }
       } catch (error) {
-        console.error("Failed to generate persona:", error);
-        // Fall back to existing description
-        setStreamedDescription(result?.personaDescription || data.description);
+        if (isMounted && streamVersion === currentStreamVersion) {
+          setStreamedDescription(result?.personaDescription || data.description);
+        }
       }
     };
 
     generatePersona();
+
+    return () => {
+      isMounted = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
 
