@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useSound } from "../hooks/useSound";
 import { SOUND_NAMES } from "../utils/soundManager";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
+import { mintWrap } from "../utils/walletKit";
 interface ShareCardProps {
   username: string;
   transactions: number;
@@ -32,7 +33,7 @@ export function ShareCard({
   onFormatChange,
 }: ShareCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
-  const { address, network } = useWrapStore();
+const { address, network, period } = useWrapStore();
   const { playSound } = useSound();
   const isOnline = useOnlineStatus();
   
@@ -195,6 +196,8 @@ export function ShareCard({
       await mintWrap({
         userAddress: address,
         network: network || "testnet",
+        period,
+        archetype: persona,
         observer,
       });
     } catch (error) {

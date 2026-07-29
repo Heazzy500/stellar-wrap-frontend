@@ -63,6 +63,8 @@ export function TopDapps() {
             key={dapp.name}
             rank={index + 1}
             name={dapp.name}
+            icon={dapp.icon}
+            logo={dapp.logo}
             interactions={dapp.interactions}
             delay={index * 0.15}
           />

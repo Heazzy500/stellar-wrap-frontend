@@ -10,3 +10,6 @@ export function formatDappDisplayName(name: string): string {
   }
   return trimmed;
 }
+
+/** Alias used across charts, cards, and share surfaces. */
+export const formatDappLabel = formatDappDisplayName;

@@ -33,3 +33,11 @@ export const Wallet: Story = {
 export const Bridge: Story = {
   args: { rank: 3, name: "Allbridge", interactions: 318 },
 };
+
+export const UnknownContract: Story = {
+  args: {
+    rank: 1,
+    name: "GBRPYHIL2CI3WHZDTOOQFC6EB4CGQONFCIUQG74P3UDMQ74P6C6DJCCEF",
+    interactions: 12,
+  },
+};
