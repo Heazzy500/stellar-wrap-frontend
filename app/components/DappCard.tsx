@@ -1,11 +1,15 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { formatDappDisplayName } from "@/app/utils/formatDappLabel";
+import { DappIcon } from "@/app/components/DappIcon";
 
 interface DappCardProps {
   rank: number;
   name: string;
   interactions: number;
+  icon?: string;
+  logo?: string;
   delay?: number;
 }
 
@@ -13,6 +17,8 @@ export function DappCard({
   rank,
   name,
   interactions,
+  icon,
+  logo,
   delay = 0,
 }: DappCardProps) {
   return (
@@ -47,6 +53,10 @@ export function DappCard({
     
       <div className="absolute inset-0 rounded-[24px] shadow-[inset_0_0_60px_rgba(29,185,84,0.05)] group-hover:shadow-[inset_0_0_40px_rgba(255,255,255,0.05)] transition-all duration-500" />
 
+      <div className="absolute top-3 sm:top-4 md:top-5 right-3 sm:right-4 md:right-5">
+        <DappIcon name={name} icon={icon} logo={logo} size="sm" />
+      </div>
+
       <div className="absolute top-3 sm:top-4 md:top-5 left-3 sm:left-4 md:left-5">
         <div className="w-9 h-9 sm:w-10 sm:h-10 md:w-11 md:h-11 rounded-xl bg-black/80 backdrop-blur-sm flex items-center justify-center border border-white/10 shadow-lg">
           <span className="text-base sm:text-lg font-black text-white">{rank}</span>
@@ -54,8 +64,11 @@ export function DappCard({
       </div>
 
       <div className="relative z-10 space-y-1 sm:space-y-1.5">
-        <h3 className="text-xl sm:text-2xl md:text-[28px] lg:text-[32px] font-black tracking-tight leading-none text-white drop-shadow-lg group-hover:drop-shadow-xl transition-all truncate">
-          {name}
+        <h3
+          className="text-xl sm:text-2xl md:text-[28px] lg:text-[32px] font-black tracking-tight leading-none text-white drop-shadow-lg group-hover:drop-shadow-xl transition-all truncate"
+          title={name}
+        >
+          {formatDappDisplayName(name)}
         </h3>
         <div className="flex items-baseline gap-2">
           <span className="text-lg sm:text-xl md:text-[20px] lg:text-[22px] font-black text-[#1DB954] group-hover:text-white transition-colors duration-300 tabular-nums">

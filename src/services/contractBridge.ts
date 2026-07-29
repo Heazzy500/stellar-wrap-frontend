@@ -10,8 +10,12 @@ import { Horizon } from 'stellar-sdk';
 import { Server, Api } from 'stellar-sdk/rpc';
 import { signTransaction } from '@stellar/freighter-api';
 import { Network, NETWORK_PASSPHRASES, SOROBAN_RPC_URLS, RPC_ENDPOINTS } from '../config';
-import { getContractAddress } from '../../config/contracts';
-import { buildContractArgs, type ContractStatsInput } from '../utils/contractArgsBuilder';
+import {
+  getContractAddress,
+  isPlaceholderContractAddress,
+  PlaceholderContractAddressError,
+} from '../../config/contracts';
+import { buildMintWrapArgs, type MintWrapArgsInput } from '../utils/contractArgsBuilder';
 
 export type TransactionState =
   | 'pending'
@@ -25,7 +29,10 @@ export type TransactionObserver = (state: TransactionState, data?: unknown) => v
 
 export interface MintWrapOptions {
   accountAddress: string;
-  stats: ContractStatsInput;
+  period: string;
+  archetype: string;
+  dataHash: Uint8Array;
+  signature: Uint8Array;
   network: Network;
   observer?: TransactionObserver;
 }
@@ -196,14 +203,21 @@ function parseContractError(error: unknown): string {
 
 async function buildMintTransaction(
   accountAddress: string,
-  stats: ContractStatsInput,
+  mintArgsInput: Omit<MintWrapArgsInput, 'accountAddress'>,
   network: Network,
 ): Promise<{ transaction: Transaction; contract: Contract }> {
-  const contractAddress = getContractAddress(network);
-  if (!contractAddress || contractAddress.startsWith('CAAAAAAAA')) {
-    throw new Error(
-      `Invalid contract address for ${network}. Please configure NEXT_PUBLIC_CONTRACT_ADDRESS_${network.toUpperCase()} environment variable.`,
-    );
+  let contractAddress: string;
+  try {
+    contractAddress = getContractAddress(network);
+  } catch (err) {
+    if (err instanceof PlaceholderContractAddressError) {
+      throw new Error(`${err.userMessage} ${err.developerHint}`);
+    }
+    throw err;
+  }
+  if (!contractAddress || isPlaceholderContractAddress(contractAddress)) {
+    const placeholderErr = new PlaceholderContractAddressError(network);
+    throw new Error(`${placeholderErr.userMessage} ${placeholderErr.developerHint}`);
   }
 
   const sorobanServer = createSorobanServer(network);
@@ -225,7 +239,7 @@ async function buildMintTransaction(
     );
   }
 
-  const argsResult = buildContractArgs(stats, accountAddress);
+  const argsResult = buildMintWrapArgs({ accountAddress, ...mintArgsInput });
   if (!argsResult.success) {
     throw new Error(
       `Failed to build contract arguments: ${argsResult.errors.join(', ')}`,
@@ -510,14 +524,18 @@ async function submitTransaction(
 }
 
 export async function mintWrap(options: MintWrapOptions): Promise<MintResult> {
-  const { accountAddress, stats, network, observer } = options;
+  const { accountAddress, period, archetype, dataHash, signature, network, observer } = options;
 
   emitState(observer, 'pending');
 
   const startTime = Date.now();
 
   try {
-    const { transaction } = await buildMintTransaction(accountAddress, stats, network);
+    const { transaction } = await buildMintTransaction(
+    accountAddress,
+    { period, archetype, dataHash, signature },
+    network,
+  );
 
     const server = createSorobanServer(network);
 

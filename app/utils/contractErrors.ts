@@ -24,6 +24,26 @@ export class InvalidContractAddressError extends ContractConfigurationError {
   }
 }
 
+/**
+ * Thrown when the configured address is the CAAAAA… placeholder.
+ * Includes a user-safe message and a developer configuration hint.
+ */
+export class PlaceholderContractError extends ContractConfigurationError {
+  readonly userMessage: string;
+  readonly developerHint: string;
+
+  constructor(network: string) {
+    const envVar = `NEXT_PUBLIC_CONTRACT_ADDRESS_${network.toUpperCase()}`;
+    const userMessage =
+      "This network is not ready for minting yet. Contract configuration is missing.";
+    const developerHint = `Set ${envVar} (or NEXT_PUBLIC_CONTRACT_ADDRESS) to a real Soroban contract ID. Placeholder CAAAAA… addresses are rejected before wallet signing.`;
+    super(`${userMessage} ${developerHint}`, network);
+    this.name = "PlaceholderContractError";
+    this.userMessage = userMessage;
+    this.developerHint = developerHint;
+  }
+}
+
 export class ContractNotFoundError extends ContractConfigurationError {
   constructor(network: string, cause?: unknown) {
     super(`Contract not found on ${network}.`, network, cause);

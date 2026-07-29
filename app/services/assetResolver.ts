@@ -13,6 +13,11 @@ import {
 } from "@/app/utils/assetConstants";
 import { assetCache } from "@/app/services/assetCacheService";
 
+export interface ResolveAssetOptions {
+  /** When true, evicts any cached entry before resolving again. */
+  forceRefresh?: boolean;
+}
+
 // Note: Type definition kept for future use with Horizon API responses
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface HorizonAsset {
@@ -28,13 +33,23 @@ class AssetResolver {
    * Resolve asset code and issuer to metadata
    * Checks cache first, then known assets, then attempts to fetch metadata
    */
-  async resolveAsset(code: string, issuer?: string): Promise<AssetMetadata> {
+  async resolveAsset(
+    code: string,
+    issuer?: string,
+    options?: ResolveAssetOptions,
+  ): Promise<AssetMetadata> {
     // Normalize native asset
     if (!code || code === "native" || code.toUpperCase() === "XLM") {
       return NATIVE_ASSET;
     }
 
     const normalizedCode = code.toUpperCase();
+
+    if (options?.forceRefresh) {
+      assetCache.clearAsset(normalizedCode, issuer);
+    }
+
+    assetCache.invalidateExpired();
 
     // Check cache first
     const cached = assetCache.get(normalizedCode, issuer);
@@ -235,6 +250,20 @@ class AssetResolver {
   clearCache(): void {
     assetCache.clear();
   }
+
+  /**
+   * Drop stale cache entries and re-resolve a single asset.
+   */
+  async refreshAsset(code: string, issuer?: string): Promise<AssetMetadata> {
+    return this.resolveAsset(code, issuer, { forceRefresh: true });
+  }
+
+  /**
+   * Manual cache maintenance — evicts TTL- or version-expired entries.
+   */
+  invalidateStaleCache(): number {
+    return assetCache.invalidateExpired();
+  }
 }
 
 // Singleton instance
@@ -246,8 +275,9 @@ export const assetResolver = new AssetResolver();
 export async function resolveAsset(
   code: string,
   issuer?: string,
+  options?: ResolveAssetOptions,
 ): Promise<AssetMetadata> {
-  return assetResolver.resolveAsset(code, issuer);
+  return assetResolver.resolveAsset(code, issuer, options);
 }
 
 /**
@@ -278,4 +308,96 @@ export function getAssetShortName(metadata: AssetMetadata): string {
  */
 export function isNativeAsset(code: string): boolean {
   return assetResolver.isNativeAsset(code);
+}
+
+export async function refreshAsset(
+  code: string,
+  issuer?: string,
+): Promise<AssetMetadata> {
+  return assetResolver.refreshAsset(code, issuer);
+}
+
+export function invalidateStaleAssetCache(): number {
+  return assetResolver.invalidateStaleCache();
+}
+
+// ---------------------------------------------------------------------------
+// dApp icon / fallback visuals (deterministic initials for unknown contracts)
+// ---------------------------------------------------------------------------
+
+const STELLAR_CONTRACT_PATTERN = /^[GCM][A-Z2-7]{55}$/;
+
+/** Known dApp labels mapped to their indexer emoji icons — unchanged when present. */
+export const KNOWN_DAPP_ICONS: Record<string, string> = {
+  "Stellar Expert": "📊",
+  StellarX: "📈",
+  Aqua: "💧",
+  LOBSTR: "🦞",
+  Soroban: "⚡",
+  DEX: "🔄",
+  "Liquidity Pool": "💧",
+  Bridge: "🌉",
+  Payments: "💳",
+};
+
+export type DappVisual =
+  | { type: "logo"; logoUrl: string }
+  | { type: "emoji"; emoji: string }
+  | { type: "initials"; initials: string; backgroundColor: string };
+
+function hashDappKey(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+  }
+  return hash;
+}
+
+function buildDappInitials(name: string): string {
+  const trimmed = name.trim();
+  if (STELLAR_CONTRACT_PATTERN.test(trimmed)) {
+    return trimmed.slice(0, 2).toUpperCase();
+  }
+  const words = trimmed.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return `${words[0][0] ?? ""}${words[1][0] ?? ""}`.toUpperCase();
+  }
+  const alnum = trimmed.replace(/[^a-zA-Z0-9]/g, "");
+  return (alnum.slice(0, 2) || "??").toUpperCase();
+}
+
+function initialsBackground(name: string): string {
+  const hue = hashDappKey(name.trim().toLowerCase()) % 360;
+  return `hsl(${hue} 52% 32%)`;
+}
+
+/**
+ * Resolve how a dApp should be rendered: logo URL, known emoji, or initials fallback.
+ */
+export function resolveDappVisual(
+  name: string,
+  options?: { icon?: string; logo?: string },
+): DappVisual {
+  const trimmed = name.trim();
+  if (options?.logo) {
+    return { type: "logo", logoUrl: options.logo };
+  }
+  if (options?.icon) {
+    return { type: "emoji", emoji: options.icon };
+  }
+  const known =
+    KNOWN_DAPP_ICONS[trimmed] ??
+    KNOWN_DAPP_ICONS[
+      Object.keys(KNOWN_DAPP_ICONS).find(
+        (key) => key.toLowerCase() === trimmed.toLowerCase(),
+      ) ?? ""
+    ];
+  if (known) {
+    return { type: "emoji", emoji: known };
+  }
+  return {
+    type: "initials",
+    initials: buildDappInitials(trimmed),
+    backgroundColor: initialsBackground(trimmed),
+  };
 }

@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, Share2 } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { mockData } from "@/app/data/mockData";
 import { GOLDEN_USER } from "@/src/data/mockData";
 import { ProgressIndicator } from "@/app/components/ProgressIndicator";
@@ -20,6 +21,12 @@ import {
   TelegramIcon,
 } from "../components/SocialIcons";
 import { trackEvent } from "../../utils/plausible";
+import {
+  buildSharePreviewSearchParams,
+  hasSharePreviewParams,
+  parseSharePreviewParams,
+  type SharePreviewState,
+} from "@/app/utils/sharePreviewParams";
 
 const SocialIcons = {
   X: XIcon,
@@ -30,6 +37,7 @@ const SocialIcons = {
 };
 
 export default function SharePageClient() {
+  const searchParams = useSearchParams();
   const [shareOpen, setShareOpen] = useState<boolean>(false);
   const [shareUrl, setShareUrl] = useState<string>("");
   const [cardFormat, setCardFormat] = useState<"square" | "stories">("square");
@@ -39,17 +47,37 @@ export default function SharePageClient() {
   const { color } = useTheme();
   const { address: walletAddress, network, result } = useWrapStore();
 
-  const username = result?.username ?? mockData.username;
-  const transactions = result?.totalTransactions ?? mockData.transactions;
-  const persona = result?.persona ?? mockData.persona;
-  const topVibe = result?.vibes[0]?.label ?? mockData.vibes[0].label;
-  const vibePercentage = result?.vibes[0]?.percentage ?? mockData.vibes[0].percentage;
+  const urlPreview = useMemo(
+    () => parseSharePreviewParams(searchParams),
+    [searchParams],
+  );
+  const isPublicPreview = hasSharePreviewParams(searchParams);
 
-  const stellarExpertUrl = walletAddress
-    ? network === "testnet"
-      ? `https://stellar.expert/explorer/testnet/account/${walletAddress}`
-      : `https://stellar.expert/explorer/public/account/${walletAddress}`
-    : null;
+  const storePreview = useMemo<SharePreviewState>(
+    () => ({
+      username: result?.username ?? mockData.username,
+      transactions: result?.totalTransactions ?? mockData.transactions,
+      persona: result?.persona ?? mockData.persona,
+      topVibe: result?.vibes[0]?.label ?? mockData.vibes[0].label,
+      vibePercentage: result?.vibes[0]?.percentage ?? mockData.vibes[0].percentage,
+    }),
+    [result],
+  );
+
+  const displayPreview = isPublicPreview ? urlPreview : storePreview;
+
+  const username = displayPreview.username;
+  const transactions = displayPreview.transactions;
+  const persona = displayPreview.persona;
+  const topVibe = displayPreview.topVibe;
+  const vibePercentage = displayPreview.vibePercentage;
+
+  const stellarExpertUrl =
+    !isPublicPreview && walletAddress
+      ? network === "testnet"
+        ? `https://stellar.expert/explorer/testnet/account/${walletAddress}`
+        : `https://stellar.expert/explorer/public/account/${walletAddress}`
+      : null;
 
   const [themeColor] = useState<string>(() => {
     if (typeof window === "undefined") return themeColors.green.primary;
@@ -64,15 +92,16 @@ export default function SharePageClient() {
     return computedColor || themeColors[color].primary;
   });
 
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      setShareUrl(window.location.href);
-    }
-  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = buildSharePreviewSearchParams(storePreview).toString();
+    const path = `${window.location.pathname}?${query}`;
+    setShareUrl(`${window.location.origin}${path}`);
+  }, [storePreview]);
 
   const handleShare = (platform: string) => {
     trackEvent("share_clicked", { platform });
-    const url = window.location.href;
+    const url = shareUrl || window.location.href;
     const text = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
     let shareUrl = "";
 
@@ -112,8 +141,31 @@ export default function SharePageClient() {
         setShareOpen(false);
       }
     };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && shareOpen) {
+        setShareOpen(false);
+        shareBtnRef.current?.focus();
+      }
+    };
+
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [shareOpen]);
+
+  useEffect(() => {
+    if (shareOpen) {
+      // Small delay to ensure the motion element is mounted before focusing
+      const timer = setTimeout(() => {
+        const firstButton = shareMenuRef.current?.querySelector("button");
+        firstButton?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
   }, [shareOpen]);
 
   return (
@@ -245,6 +297,9 @@ export default function SharePageClient() {
 
           <button
             ref={shareBtnRef}
+            aria-expanded={shareOpen}
+            aria-haspopup="menu"
+            aria-label="Toggle share menu"
             onClick={() => setShareOpen(!shareOpen)}
             className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
           >
