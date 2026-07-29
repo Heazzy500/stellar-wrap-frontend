@@ -6,6 +6,8 @@ import { Database, RefreshCw, Loader2, CheckCircle2, Clock } from "lucide-react"
 import { invalidateCache, getCachedDataKey } from "@/app/services/cacheService";
 import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
 
+const STALE_CACHE_THRESHOLD_MS = 5 * 60 * 1000; // 5 minutes
+
 function formatCacheAge(timestamp: number): string {
   const ageMs = Date.now() - timestamp;
   const ageMin = Math.floor(ageMs / 60_000);
@@ -29,7 +31,16 @@ function formatLastIndexed(timestamp: number): string {
 }
 
 export function CacheStatusBadge() {
-  const { cacheMeta, address, network, period, isRefreshing, bumpRefreshToken, setRefreshing } = useWrapStore();
+  const {
+    cacheMeta,
+    address,
+    network,
+    period,
+    isRefreshing,
+    bumpRefreshToken,
+    setRefreshing,
+  } = useWrapStore();
+
   const isOnline = useOnlineStatus();
 
   const isStale =
@@ -39,11 +50,13 @@ export function CacheStatusBadge() {
 
   const handleRefresh = useCallback(async () => {
     if (!address || !isOnline || isRefreshing) return;
+
     const key = getCachedDataKey(
       address,
       network as "mainnet" | "testnet",
       period as "weekly" | "biweekly" | "monthly" | "yearly",
     );
+
     setRefreshing(true);
     await invalidateCache(key);
     bumpRefreshToken();
@@ -54,7 +67,7 @@ export function CacheStatusBadge() {
 
   // Determine status
   const isFromCache = cacheMeta.fromCache;
-  const isRefreshing = cacheMeta.refreshingInBackground;
+  const isBackgroundRefreshing = cacheMeta.refreshingInBackground; // renamed to avoid conflict
   const isOffline = cacheMeta.offline;
   const hasTimestamp = cacheMeta.cacheTimestamp != null;
 
@@ -63,7 +76,7 @@ export function CacheStatusBadge() {
   let statusLabel = "Using cached data";
   let statusColor = "text-emerald-400";
 
-  if (isRefreshing) {
+  if (isBackgroundRefreshing) {
     statusIcon = <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />;
     statusLabel = "Refreshing in background...";
     statusColor = "text-amber-400";
@@ -98,7 +111,7 @@ export function CacheStatusBadge() {
       )}
 
       {/* Background refresh indicator */}
-      {isRefreshing && (
+      {isBackgroundRefreshing && (
         <p className="text-xs text-amber-400/80">
           New data will appear automatically when ready.
         </p>
