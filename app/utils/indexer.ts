@@ -102,6 +102,18 @@ export const NEXT_PUBLIC_RPC_ENDPOINTS = {
   testnet: "https://horizon-testnet.stellar.org",
 };
 
+/**
+ * Normalizes a raw period query-string value into a valid WrapPeriod.
+ * Handles casing differences and trims whitespace.
+ * Returns `null` when the input cannot be mapped to a known period.
+ */
+export function normalizePeriod(raw: string | null | undefined): WrapPeriod | null {
+  if (raw == null) return null;
+  const trimmed = raw.trim().toLowerCase();
+  if (trimmed in PERIODS) return trimmed as WrapPeriod;
+  return null;
+}
+
 export function getCacheKey(
   accountId: string,
   network: "mainnet" | "testnet",

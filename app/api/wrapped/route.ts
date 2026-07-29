@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { indexAccount } from "@/app/services/indexerServer";
-import { WrapPeriod, PERIODS } from "@/app/utils/indexer";
+import { PERIODS, normalizePeriod } from "@/app/utils/indexer";
 import { validateStellarAddress } from "@/src/utils/validateStellarAddress";
 
 export async function GET(request: NextRequest) {
@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
     const accountId = searchParams.get("accountId");
     const network =
       (searchParams.get("network") as "mainnet" | "testnet") || "mainnet";
-    const period = (searchParams.get("period") as WrapPeriod) || "monthly";
+    const rawPeriod = searchParams.get("period");
+    const period = rawPeriod === null
+      ? "monthly"
+      : normalizePeriod(rawPeriod);
 
     // Validate inputs
     if (!accountId) {
@@ -36,8 +39,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Invalid network" }, { status: 400 });
     }
 
-    if (!PERIODS[period]) {
-      return NextResponse.json({ error: "Invalid period" }, { status: 400 });
+    if (!period) {
+      return NextResponse.json(
+        {
+          error: "Invalid period",
+          details: `Accepted values: ${Object.keys(PERIODS).join(", ")}`,
+        },
+        { status: 400 },
+      );
     }
 
     // Server-safe indexer (no IndexedDB) — returns live Horizon data

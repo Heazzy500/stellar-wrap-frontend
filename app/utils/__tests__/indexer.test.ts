@@ -1,6 +1,41 @@
-import { getCacheKey, isCacheValid, CACHE_VERSION, CACHE_TTL_MINUTES } from '../indexer';
+import { getCacheKey, isCacheValid, CACHE_VERSION, CACHE_TTL_MINUTES, normalizePeriod } from '../indexer';
 
 describe('indexer utils', () => {
+  describe('normalizePeriod', () => {
+    it('returns a valid WrapPeriod for lowercase input', () => {
+      expect(normalizePeriod('weekly')).toBe('weekly');
+      expect(normalizePeriod('monthly')).toBe('monthly');
+      expect(normalizePeriod('yearly')).toBe('yearly');
+      expect(normalizePeriod('biweekly')).toBe('biweekly');
+    });
+
+    it('normalizes uppercase input to lowercase', () => {
+      expect(normalizePeriod('WEEKLY')).toBe('weekly');
+      expect(normalizePeriod('Monthly')).toBe('monthly');
+      expect(normalizePeriod('YEARLY')).toBe('yearly');
+    });
+
+    it('normalizes mixed-case input', () => {
+      expect(normalizePeriod('WeEkLy')).toBe('weekly');
+    });
+
+    it('trims whitespace', () => {
+      expect(normalizePeriod('  monthly  ')).toBe('monthly');
+    });
+
+    it('returns null for invalid period strings', () => {
+      expect(normalizePeriod('daily')).toBeNull();
+      expect(normalizePeriod('quarterly')).toBeNull();
+      expect(normalizePeriod('')).toBeNull();
+      expect(normalizePeriod('   ')).toBeNull();
+    });
+
+    it('returns null for null or undefined', () => {
+      expect(normalizePeriod(null)).toBeNull();
+      expect(normalizePeriod(undefined)).toBeNull();
+    });
+  });
+
   describe('getCacheKey', () => {
     it('includes accountId, network, period, and cache version', () => {
       const key = getCacheKey('GABC', 'mainnet', 'monthly');
