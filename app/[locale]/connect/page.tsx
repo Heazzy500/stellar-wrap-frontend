@@ -4,9 +4,10 @@ import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Wallet, Copy, CheckCircle, XCircle, ChevronRight, QrCode } from "lucide-react";
-import { useWrapStore } from "@/app/store/wrapStore";
+import { useWrapStore, type WrapPeriod } from "@/app/store/wrapStore";
 import { useTransactionStore } from "@/app/store/transactionStore";
 import { useMultiTimeframeStore } from "@/app/store/multiTimeframeStore";
+import { PeriodSelector } from "@/app/components/PeriodSelector";
 import { useSound, SOUND_NAMES } from "@/app/hooks/useSound";
 import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
 import { useStellarAddressValidation } from "@/app/hooks/useStellarAddressValidation";
@@ -23,7 +24,8 @@ import { connectWalletConnect } from "@/app/utils/walletKit";
 
 export default function ConnectPage() {
   const router = useRouter();
-  const { setAddress, setError, setStatus, network, reset } = useWrapStore();
+  const { setAddress, setError, setStatus, network, period, setPeriod, reset } = useWrapStore();
+  const [selectedPeriod, setSelectedPeriod] = useState<WrapPeriod>(period);
   const { resetTransaction } = useTransactionStore();
   const { reset: resetMultiTimeframe } = useMultiTimeframeStore();
   const { playSound } = useSound();
@@ -169,6 +171,7 @@ export default function ConnectPage() {
     try {
       const publicKey = await connectXBull(network);
       setAddress(publicKey);
+      setPeriod(selectedPeriod);
       setError(null);
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       router.push("/loading");
@@ -200,6 +203,7 @@ export default function ConnectPage() {
     try {
       const publicKey = await connectWalletConnect(network);
       setAddress(publicKey);
+      setPeriod(selectedPeriod);
       setError(null);
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       router.push("/loading");
@@ -247,6 +251,7 @@ export default function ConnectPage() {
   };
 
   const handleContinue = () => {
+    setPeriod(selectedPeriod);
     router.push("/loading");
   };
 
@@ -285,6 +290,7 @@ export default function ConnectPage() {
     handleRawAddressChange(demoAddress);
     setTimeout(() => {
       setAddress(demoAddress);
+      setPeriod(selectedPeriod);
       setStatus("loading");
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       router.push("/loading");
@@ -533,6 +539,15 @@ export default function ConnectPage() {
           <p className="text-base sm:text-lg md:text-xl font-bold text-white/70 leading-relaxed">
             Enter your Stellar wallet address to unwrap your 2026 journey
           </p>
+
+          {/* Period selector */}
+          <div className="mt-4">
+            <PeriodSelector
+              value={selectedPeriod}
+              onChange={setSelectedPeriod}
+              layoutId="connect-period-bg"
+            />
+          </div>
         </motion.div>
 
         {/* Last-used address shortcut */}
@@ -549,6 +564,7 @@ export default function ConnectPage() {
                 resetTransaction();
                 resetMultiTimeframe();
                 setAddress(lastUsedAddress);
+                setPeriod(selectedPeriod);
                 playSound(SOUND_NAMES.SLIDE_WHOOSH);
                 router.push("/loading");
               }}
