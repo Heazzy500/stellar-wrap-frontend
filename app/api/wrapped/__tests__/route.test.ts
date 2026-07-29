@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { GET } from "../route";
+import { CACHE_TTL_MINUTES } from "@/app/utils/indexer";
 
 // Mock the indexer to isolate route logic
 jest.mock("@/app/services/indexerServer", () => ({
@@ -10,6 +11,8 @@ jest.mock("@/app/services/indexerServer", () => ({
     refreshingInBackground: false,
   }),
 }));
+
+const VALID_ACCOUNT_ID = "GDRZZGQDRBLJBAY24O3EMZFDGZ4EY6A7L24OERKQTPLT4T7SZKLUAZVQ";
 
 describe("GET /api/wrapped route validation", () => {
   const createRequest = (url: string) => {
@@ -56,12 +59,43 @@ describe("GET /api/wrapped route validation", () => {
   });
 
   it("processes request successfully for valid public key", async () => {
-    // Valid Stellar public key
-    const validAccountId = "GB3K3MUDMFEVFTY3ZZW7MOM62G3BYVZZN4MHTI6M2U7J3H4T4Z4Q3G6I";
-    const req = createRequest(`/api/wrapped?accountId=${validAccountId}`);
+    const req = createRequest(`/api/wrapped?accountId=${VALID_ACCOUNT_ID}`);
     const response = await GET(req);
     expect(response.status).toBe(200);
     const data = await response.json();
     expect(data.success).toBe(true);
+  });
+
+  describe("cache-control headers", () => {
+    it("sets private Cache-Control on successful responses", async () => {
+      const req = createRequest(`/api/wrapped?accountId=${VALID_ACCOUNT_ID}`);
+      const response = await GET(req);
+      expect(response.status).toBe(200);
+      const cc = response.headers.get("Cache-Control");
+      expect(cc).toContain("private");
+      expect(cc).toContain(`max-age=${CACHE_TTL_MINUTES * 60}`);
+    });
+
+    it("sets no-store Cache-Control on 400 error responses", async () => {
+      const req = createRequest("/api/wrapped");
+      const response = await GET(req);
+      expect(response.status).toBe(400);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+    });
+
+    it("sets no-store Cache-Control on validation error responses", async () => {
+      const req = createRequest("/api/wrapped?accountId=GSHORTID");
+      const response = await GET(req);
+      expect(response.status).toBe(400);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+    });
+
+    it("includes stale-while-revalidate for successful responses", async () => {
+      const req = createRequest(`/api/wrapped?accountId=${VALID_ACCOUNT_ID}`);
+      const response = await GET(req);
+      expect(response.status).toBe(200);
+      const cc = response.headers.get("Cache-Control");
+      expect(cc).toContain("stale-while-revalidate=60");
+    });
   });
 });
