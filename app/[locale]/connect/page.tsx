@@ -2,6 +2,24 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Wallet, Copy, CheckCircle, XCircle, ChevronRight, QrCode } from "lucide-react";
+import { useWrapStore } from "@/app/store/wrapStore";
+import { useTransactionStore } from "@/app/store/transactionStore";
+import { useMultiTimeframeStore } from "@/app/store/multiTimeframeStore";
+import { useSound, SOUND_NAMES } from "@/app/hooks/useSound";
+import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
+import { useStellarAddressValidation } from "@/app/hooks/useStellarAddressValidation";
+import { ProgressIndicator } from "@/app/components/ProgressIndicator";
+import { MuteToggle } from "@/app/[locale]/components/MuteToggle";
+import {
+  connectFreighter,
+  connectAlbedo,
+  connectXBull,
+  isXBullInstalled,
+  NetworkMismatchError,
+} from "@/app/utils/walletConnect";
+import { connectWalletConnect } from "@/app/utils/walletKit";
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -21,6 +39,15 @@ export default function ConnectPage() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  /**
+   * When set, the user's Freighter wallet is on a different network than the
+   * app expects. The object holds both sides so the UI can show an actionable
+   * switch-network prompt.
+   */
+  const [networkMismatch, setNetworkMismatch] = useState<{
+    expected: string;
+    actual: string;
+  } | null>(null);
 
   // Refs for focus management
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -52,6 +79,7 @@ export default function ConnectPage() {
 
     setIsConnecting(true);
     setLocalError(null);
+    setNetworkMismatch(null);
     setStatus("loading");
     // Reset all stores before connecting
     reset();
@@ -66,11 +94,17 @@ export default function ConnectPage() {
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       await fetchAccountPreview(publicKey);
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to connect wallet";
-      setError(errorMessage);
-      setLocalError(errorMessage);
-      setStatus("error");
+      if (error instanceof NetworkMismatchError) {
+        // Surface a targeted switch-network prompt instead of a generic error
+        setNetworkMismatch({ expected: error.expected, actual: error.actual });
+        setStatus("idle");
+      } else {
+        const msg =
+          error instanceof Error ? error.message : "Failed to connect wallet";
+        setError(msg);
+        setLocalError(msg);
+        setStatus("error");
+      }
     } finally {
       setIsConnecting(false);
     }
@@ -720,6 +754,43 @@ export default function ConnectPage() {
                   className="mb-6 p-4 bg-red-500/10 border-2 border-red-500/50 rounded-xl text-red-400 text-sm text-center font-medium"
                 >
                   ⚠️ {localError}
+                </motion.div>
+              )}
+              {/* ── Network mismatch prompt ───────────────────────────── */}
+              {networkMismatch && (
+                <motion.div
+                  data-testid="network-mismatch-prompt"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mb-6 p-4 bg-yellow-500/10 border-2 border-yellow-500/50 rounded-xl text-yellow-300 text-sm font-medium"
+                >
+                  <p className="font-bold mb-1">⚠️ Wallet network mismatch</p>
+                  <p className="text-yellow-400/80 text-xs mb-3">
+                    Freighter is connected to{" "}
+                    <span className="font-bold text-yellow-300">
+                      {networkMismatch.actual}
+                    </span>
+                    , but this app is set to{" "}
+                    <span className="font-bold text-yellow-300">
+                      {networkMismatch.expected}
+                    </span>
+                    . Please switch your Freighter wallet to{" "}
+                    <span className="font-bold text-yellow-300">
+                      {networkMismatch.expected}
+                    </span>{" "}
+                    and try again.
+                  </p>
+                  <button
+                    data-testid="network-mismatch-retry"
+                    onClick={() => {
+                      setNetworkMismatch(null);
+                      handleFreighterConnect();
+                    }}
+                    className="w-full px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/50 text-yellow-200 font-bold text-xs hover:bg-yellow-500/30 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  >
+                    I&apos;ve switched — try again
+                  </button>
                 </motion.div>
               )}
               {!isOnline && !localError && (
