@@ -27,6 +27,7 @@ import {
   parseSharePreviewParams,
   type SharePreviewState,
 } from "@/app/utils/sharePreviewParams";
+import { generatePlatformShareUrl, generateShareText } from "@/app/utils/shareUrl";
 
 const SocialIcons = {
   X: XIcon,
@@ -102,29 +103,11 @@ export default function SharePageClient() {
   const handleShare = (platform: string) => {
     trackEvent("share_clicked", { platform });
     const url = shareUrl || window.location.href;
-    const text = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
-    let shareUrl = "";
+    const text = generateShareText(transactions, persona, vibePercentage, topVibe);
+    const finalShareUrl = generatePlatformShareUrl(platform, url, text);
 
-    switch (platform) {
-      case "x":
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
-        break;
-      case "whatsapp":
-        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
-        break;
-      case "facebook":
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-        break;
-      case "linkedin":
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
-        break;
-      case "telegram":
-        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
-        break;
-    }
-
-    if (shareUrl) {
-      window.open(shareUrl, "_blank", "width=600,height=500");
+    if (finalShareUrl) {
+      window.open(finalShareUrl, "_blank", "width=600,height=500");
     }
     setShareOpen(false);
   };
