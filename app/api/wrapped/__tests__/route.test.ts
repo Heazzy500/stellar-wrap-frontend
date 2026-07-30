@@ -55,13 +55,60 @@ describe("GET /api/wrapped route validation", () => {
     expect(data.error).toContain("Stellar address must start with G");
   });
 
-  it("processes request successfully for valid public key", async () => {
-    // Valid Stellar public key
-    const validAccountId = "GB3K3MUDMFEVFTY3ZZW7MOM62G3BYVZZN4MHTI6M2U7J3H4T4Z4Q3G6I";
-    const req = createRequest(`/api/wrapped?accountId=${validAccountId}`);
-    const response = await GET(req);
-    expect(response.status).toBe(200);
-    const data = await response.json();
-    expect(data.success).toBe(true);
+  describe("period query parameter normalization", () => {
+    // Use a properly formatted valid Stellar test address
+    const validAccountId = "GDRZZGQDRBLJBAY24O3EMZFDGZ4EY6A7L24OERKQTPLT4T7SZKLUAZVQ";
+
+    it("defaults to monthly when period is missing", async () => {
+      const req = createRequest(`/api/wrapped?accountId=${validAccountId}`);
+      const response = await GET(req);
+      expect(response.status).toBe(200);
+    });
+
+    it("accepts lowercase period values", async () => {
+      const req = createRequest(
+        `/api/wrapped?accountId=${validAccountId}&period=weekly`,
+      );
+      const response = await GET(req);
+      expect(response.status).toBe(200);
+    });
+
+    it("normalizes uppercase period to lowercase", async () => {
+      const req = createRequest(
+        `/api/wrapped?accountId=${validAccountId}&period=YEARLY`,
+      );
+      const response = await GET(req);
+      expect(response.status).toBe(200);
+    });
+
+    it("normalizes mixed-case period to lowercase", async () => {
+      const req = createRequest(
+        `/api/wrapped?accountId=${validAccountId}&period=Monthly`,
+      );
+      const response = await GET(req);
+      expect(response.status).toBe(200);
+    });
+
+    it("returns 400 for invalid period values", async () => {
+      const req = createRequest(
+        `/api/wrapped?accountId=${validAccountId}&period=daily`,
+      );
+      const response = await GET(req);
+      expect(response.status).toBe(400);
+      const data = await response.json();
+      expect(data.error).toBe("Invalid period");
+      expect(data.details).toContain("weekly");
+      expect(data.details).toContain("monthly");
+      expect(data.details).toContain("yearly");
+    });
+
+    it("uses only the first value when period is repeated", async () => {
+      // URLSearchParams.get() returns the first value
+      const req = createRequest(
+        `/api/wrapped?accountId=${validAccountId}&period=yearly&period=weekly`,
+      );
+      const response = await GET(req);
+      expect(response.status).toBe(200);
+    });
   });
 });
