@@ -98,6 +98,83 @@ This allows Vercel's CDN (and any downstream CDN) to cache OG images for 24 hour
 
 ---
 
+## Bundle Size Tracking
+
+### Overview
+
+Animated pages, wallet libraries, and Stellar SDK can significantly increase frontend bundle size. Bundle size tracking helps catch regressions and identify optimization opportunities.
+
+### Running Bundle Analysis
+
+#### Local Development
+
+Run the bundle analyzer locally to inspect your bundle composition:
+
+```bash
+pnpm analyze
+```
+
+This will:
+1. Build the Next.js application with bundle analysis enabled
+2. Generate interactive HTML reports in `.next/analyze/`
+3. Automatically open the reports in your browser
+
+#### CI/CD
+
+The bundle size tracking workflow (`.github/workflows/bundle-size.yml`) automatically:
+- Runs on every pull request and push to main/master/develop branches
+- Builds the application with bundle analysis enabled
+- Uploads bundle analysis reports as artifacts (retained for 30 days)
+- Comments on pull requests with bundle size statistics
+
+### Inspecting Bundle Reports
+
+1. **Download the artifact** from the GitHub Actions run
+2. **Open the HTML files** in `.next/analyze/` directory:
+   - `client.html` - Client-side JavaScript bundles
+   - `nodejs.html` - Server-side Node.js bundles
+   - `edge.html` - Edge runtime bundles (if applicable)
+
+3. **Analyze the treemap visualization**:
+   - Larger rectangles represent larger modules
+   - Color intensity often indicates module size
+   - Click on modules to drill down into dependencies
+
+### Bundle Size Budgets & Thresholds
+
+Current baseline targets (to be refined after initial analysis):
+
+| Bundle Type | Target Size | Rationale |
+|-------------|-------------|-----------|
+| Main JS bundle | < 500 KB | Ensures fast initial load on 3G connections |
+| Total page weight | < 2 MB | Includes all JS, CSS, and assets |
+| Individual chunks | < 200 KB | Prevents large lazy-loaded chunks |
+
+### Common Bundle Size Issues & Solutions
+
+| Issue | Common Cause | Solution |
+|-------|--------------|----------|
+| Large main bundle | Heavy dependencies (Stellar SDK, motion libraries) | Code splitting, dynamic imports, tree shaking |
+| Duplicate dependencies | Multiple versions of same package | Deduplicate via pnpm, update to compatible versions |
+| Large node_modules in bundle | Bundling server-only code on client | Use `next.config.ts` to exclude server-only packages |
+| Unoptimized images | Large asset files | Use Next.js Image component, optimize assets |
+
+### Monitoring Regressions
+
+The CI workflow will comment on PRs with bundle size changes. Review these comments to ensure:
+- No significant bundle size increases without justification
+- New dependencies are properly code-split
+- Lazy-loaded chunks remain reasonably sized
+
+### Recommended Actions Before Merging
+
+1. Run `pnpm analyze` locally and review the report
+2. Check that new features use dynamic imports for heavy dependencies
+3. Verify that tree-shaking is working (no unused code in bundles)
+4. Ensure bundle size increase is justified by feature value
+
+---
+
 ## Recommended limits
 
 | Limit | Value | Rationale |

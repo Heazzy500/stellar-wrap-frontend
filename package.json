@@ -26,7 +26,9 @@
     "build-storybook": "storybook build",
     "lhci": "lhci autorun",
     "lhci:local": "lhci autorun",
-    "prepare": "husky install"
+    "test": "jest",
+    "prepare": "husky install",
+    "analyze": "ANALYZE=true next build"
   },
   "dependencies": {
     "@ai-sdk/openai": "^0.0.54",
@@ -53,6 +55,7 @@
   },
   "devDependencies": {
     "@lhci/cli": "^0.14.0",
+    "@next/bundle-analyzer": "^16.2.12",
     "@playwright/test": "^1.61.1",
     "@storybook/addon-a11y": "^10.4.6",
     "@storybook/nextjs": "^10.4.6",
