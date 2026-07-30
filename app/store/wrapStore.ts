@@ -44,7 +44,7 @@ export interface VibeSlice {
   label: string;
 }
 
-import type { DexTradingSummary as DexTradingSummaryType, SorobanBuilderSummary as SorobanBuilderSummaryType, PortfolioDiversitySummary as PortfolioDiversitySummaryType, BiggestDaySummary as BiggestDaySummaryType } from "@/app/utils/indexer";
+import type { DexTradingSummary as DexTradingSummaryType, SorobanBuilderSummary as SorobanBuilderSummaryType, PortfolioDiversitySummary as PortfolioDiversitySummaryType, BiggestDaySummary as BiggestDaySummaryType, NftActivitySummary as NftActivitySummaryType } from "@/app/utils/indexer";
 
 export interface WrapResult {
   username: string;
@@ -58,6 +58,8 @@ export interface WrapResult {
   sorobanBuilderSummary?: SorobanBuilderSummaryType;
   portfolioDiversitySummary?: PortfolioDiversitySummaryType;
   biggestDaySummary?: BiggestDaySummaryType;
+  nftActivitySummary?: NftActivitySummaryType;
+  largestTransaction?: { amount: number; assetCode: string };
 }
 
 type WrapStatus = "idle" | "loading" | "ready" | "error";
