@@ -10,15 +10,21 @@ const CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=604800';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const preview = parseSharePreviewParams(searchParams);
-    const username = preview.username;
-    const transactions = String(preview.transactions);
-    const persona = preview.persona;
-    const topVibe = preview.topVibe;
-    const vibePercentage = String(preview.vibePercentage);
-    const archetypeImagePath = preview.archetypeImage ||
-      `/archetypes/${persona.toLowerCase().replace(/^the\s+/, '').replace(/\s+/g, '-')}.png`;
+   const {
+  username,
+  transactions,
+  persona,
+  topVibe,
+  vibePercentage,
+  archetypeImage,
+} = parseSharePreviewParams(searchParams);
 
+const archetypeImagePath =
+  archetypeImage ??
+  `/archetypes/${persona
+    .toLowerCase()
+    .replace(/^the\s+/, "")
+    .replace(/\s+/g, "-")}.png`;
     const baseUrl = req.nextUrl.origin;
     let archetypeImageSrc: string | null = null;
     try {
@@ -123,7 +129,7 @@ export async function GET(req: NextRequest) {
                         Total Transactions
                     </span>
                     <span style={{ fontSize: '100px', fontWeight: 900, lineHeight: 1 }}>
-                        {transactions}
+                        {String(transactions)}
                     </span>
                 </div>
 
@@ -172,7 +178,7 @@ export async function GET(req: NextRequest) {
                         Top Vibe
                     </span>
                     <span style={{ fontSize: '50px', fontWeight: 900, color: 'white' }}>
-                        {vibePercentage}% {topVibe}
+                        {String(vibePercentage)}% {topVibe}
                     </span>
                 </div>
             </div>
