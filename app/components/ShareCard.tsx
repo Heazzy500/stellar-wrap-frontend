@@ -67,6 +67,9 @@ const { address, network, period } = useWrapStore();
     }
 
     if (transactionState === "failed" && transactionError) {
+      // transactionError is already mapped to a friendly message in contractBridge;
+      // keep the raw string in diagnostics for support/debugging.
+      console.error("[ShareCard] mint failed", { transactionError });
       toast.error("Minting failed", {
         description: transactionError,
       });
@@ -202,7 +205,7 @@ const { address, network, period } = useWrapStore();
       });
     } catch (error) {
       // Errors are handled by transactionObserver setting state to 'failed'
-      // which triggers the useEffect to show a toast, so we just log here.
+      // which triggers the useEffect to show a toast, so we just log raw details here.
       console.error("Minting process caught error:", error);
     }
   };

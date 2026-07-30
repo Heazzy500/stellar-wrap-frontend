@@ -125,10 +125,12 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
       <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 overflow-x-auto">
         {/* Home Button */}
         <motion.button
+          type="button"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.2 }}
           onClick={() => router.push("/")}
+          aria-label="Go to home"
         >
           <Home
             className="w-4 h-4 group-hover:scale-110 transition-transform"
@@ -212,9 +214,11 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
       {/* Bottom Controls */}
       <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 gap-4">
         <motion.button
+          type="button"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
+          aria-label="Share wrap"
         >
           <Share2 className="w-5 h-5 text-white/70" aria-hidden="true" />
         </motion.button>
@@ -223,6 +227,7 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
+          aria-label="Next story segment"
         >
           <ChevronRight
             className="w-6 h-6 group-hover:translate-x-1 transition-transform text-white/70"

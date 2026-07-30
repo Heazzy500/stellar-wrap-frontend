@@ -7,6 +7,7 @@ import {
   InvalidContractAddressError,
   ContractNotFoundError,
   ContractValidationError,
+  mapContractError,
 } from "./contractErrors";
 import { mintWrap as contractMintWrap, type MintWrapOptions, type TransactionObserver } from "../../src/services/contractBridge";
 import { useTransactionStore } from "../store/transactionStore";
@@ -227,8 +228,13 @@ export async function mintWrap(params: MintWrapParams): Promise<string> {
     }
     if (error instanceof Error) {
       useTransactionStore.getState().setTransactionState("failed");
-      useTransactionStore.getState().setTransactionError(error.message);
-      throw new Error(`Minting failed: ${error.message}`);
+      // Prefer friendly mapped copy when the error still carries a host Contract #code
+      const mapped = mapContractError(error);
+      const userMessage =
+        mapped.code !== "Unknown" ? mapped.userMessage : error.message;
+      console.error("[walletKit] mint failed", { code: mapped.code, raw: mapped.raw });
+      useTransactionStore.getState().setTransactionError(userMessage);
+      throw new Error(`Minting failed: ${userMessage}`);
     }
     const genericError = new Error("Minting failed: Unknown error occurred");
     useTransactionStore.getState().setTransactionState("failed");

@@ -220,7 +220,19 @@ export const useWrapStore = create<WrapStoreState>()(
       ...initialIndexingState,
       setAddress: (address) => set({ address }),
       setPeriod: (period) => set({ period }),
-      setNetwork: (network) => set({ network, ...syncContractState(network) }),
+      setNetwork: (network) => {
+        // Drop previous network's result/cache so stale wrap data cannot leak across networks.
+        // Keep intentional preferences (period, address).
+        resetCache();
+        set({
+          network,
+          ...syncContractState(network),
+          result: null,
+          cacheMeta: null,
+          status: "idle",
+          error: null,
+        });
+      },
       setStatus: (status) => set({ status }),
       setError: (error) => set({ error }),
       setResult: (result) => set({ result }),
