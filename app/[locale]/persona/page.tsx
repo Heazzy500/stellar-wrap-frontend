@@ -7,6 +7,7 @@ import { Home, Share2, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import { readStreamableValue } from "ai/rsc";
 import { getArchetypeDescription } from "@/data/archetypeConfig";
+import { generatePersonaDescription } from "@/app/actions/generate-persona";
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string) => {
