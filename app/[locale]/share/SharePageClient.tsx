@@ -20,6 +20,7 @@ import {
   TelegramIcon,
 } from "../components/SocialIcons";
 import { trackEvent } from "../../utils/plausible";
+import { useNativeShare } from "../../hooks/useNativeShare";
 
 const SocialIcons = {
   X: XIcon,
@@ -38,6 +39,7 @@ export default function SharePageClient() {
   const shareImageRef = useRef<HTMLDivElement>(null!);
   const { color } = useTheme();
   const { address: walletAddress, network, result } = useWrapStore();
+  const { isSupported: canNativeShare, share: nativeShare } = useNativeShare();
 
   const username = result?.username ?? mockData.username;
   const transactions = result?.totalTransactions ?? mockData.transactions;
@@ -70,10 +72,46 @@ export default function SharePageClient() {
     }
   }, []);
 
+  const shareTitle = "Stellar Wrapped 2026";
+  const shareText = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
+
+  /**
+   * Primary share button. Prefers the native share sheet when the browser
+   * supports it (mobile), and falls back to the social menu otherwise.
+   */
+  const handlePrimaryShare = async () => {
+    if (!canNativeShare) {
+      setShareOpen((open) => !open);
+      return;
+    }
+
+    trackEvent("share_clicked", { platform: "native" });
+
+    const outcome = await nativeShare({
+      title: shareTitle,
+      text: shareText,
+      url: window.location.href,
+    });
+
+    if (outcome === "shared") {
+      trackEvent("share_completed", { platform: "native" });
+      return;
+    }
+
+    if (outcome === "cancelled") {
+      // User dismissed the share sheet — expected, so no error surfaces.
+      trackEvent("share_cancelled", { platform: "native" });
+      return;
+    }
+
+    // Unsupported payload or a genuine failure: fall back to the social menu.
+    setShareOpen(true);
+  };
+
   const handleShare = (platform: string) => {
     trackEvent("share_clicked", { platform });
     const url = window.location.href;
-    const text = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
+    const text = shareText;
     let shareUrl = "";
 
     switch (platform) {
@@ -245,7 +283,10 @@ export default function SharePageClient() {
 
           <button
             ref={shareBtnRef}
-            onClick={() => setShareOpen(!shareOpen)}
+            onClick={handlePrimaryShare}
+            aria-label={canNativeShare ? "Share" : "Share options"}
+            aria-expanded={canNativeShare ? undefined : shareOpen}
+            aria-haspopup={canNativeShare ? undefined : "menu"}
             className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
           >
             <motion.div
