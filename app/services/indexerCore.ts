@@ -40,6 +40,27 @@ import {
 } from "@/app/utils/indexingAbort";
 import { indexerError } from "@/app/utils/indexerDebug";
 
+/**
+ * Structured error that preserves the HTTP status code and type from Horizon.
+ * Thrown instead of plain Error so callers (e.g. /api/wrapped) can branch
+ * on `statusCode` without parsing message strings.
+ */
+export class HorizonError extends Error {
+  constructor(
+    message: string,
+    public readonly statusCode: number,
+    public readonly errorType:
+      | "not_found"
+      | "rate_limited"
+      | "server_error"
+      | "timeout"
+      | "unknown",
+  ) {
+    super(message);
+    this.name = "HorizonError";
+  }
+}
+
 const MAX_CONCURRENT_REQUESTS = 5;
 
 interface QueueItem {
@@ -142,6 +163,7 @@ export async function runIndexingCore(
     emit(() => emitter.emitStepChange("fetching-transactions"));
 
     const allTransactions: unknown[] = [];
+    const seenTokens = new Set<string>();
     const fetchDuration =
       INDEXING_STEPS["fetching-transactions"].estimatedDuration;
     const fetchStart = Date.now();
@@ -186,20 +208,38 @@ export async function runIndexingCore(
           message?: string;
         };
         if (errorObj?.response?.status === 404) {
-          throw new Error("Account not found (404). Please check the address.");
+          throw new HorizonError(
+            "Account not found (404). Please check the address.",
+            404,
+            "not_found",
+          );
         } else if (errorObj?.response?.status === 429) {
-          throw new Error("Rate limit exceeded (429). Please try again later.");
+          throw new HorizonError(
+            "Rate limit exceeded (429). Please try again later.",
+            429,
+            "rate_limited",
+          );
         } else if (errorObj?.response?.status === 500) {
-          throw new Error("Server error (500). Please try again later.");
+          throw new HorizonError(
+            "Server error (500). Please try again later.",
+            500,
+            "server_error",
+          );
         } else if (
           errorObj?.code === "ECONNABORTED" ||
           errorObj?.name === "TimeoutError"
         ) {
-          throw new Error("Network timeout. Please check your connection.");
+          throw new HorizonError(
+            "Network timeout. Please check your connection.",
+            408,
+            "timeout",
+          );
         } else {
-          throw new Error(
+          throw new HorizonError(
             "Unknown error fetching transactions: " +
               (errorObj?.message || String(error)),
+            500,
+            "unknown",
           );
         }
       }
@@ -243,7 +283,13 @@ export async function runIndexingCore(
       const recordsInRange = recordsWithOps.filter((tx: TransactionRecord) => {
         return new Date(tx.created_at) >= cutoffDate;
       });
-      allTransactions.push(...recordsInRange);
+      for (const tx of recordsInRange) {
+        const key = String(tx.paging_token ?? (tx as Record<string, unknown>).hash ?? "");
+        if (!key || !seenTokens.has(key)) {
+          if (key) seenTokens.add(key);
+          allTransactions.push(tx);
+        }
+      }
 
       // Emit metrics update - transaction count
       emit(() =>
