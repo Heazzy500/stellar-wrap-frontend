@@ -20,8 +20,6 @@ jest.mock('@/app/utils/indexedDbCache', () => ({
 jest.mock('@/app/utils/indexer', () => ({
   getCacheKey: jest.fn((accountId, network, period) => `${accountId}:${network}:${period}:1`),
   buildCacheKey: jest.fn((accountId, network, period) => `${accountId}:${network}:${period}:1`),
-  type IndexerResult: {},
-  type WrapPeriod: 'weekly' | 'biweekly' | 'monthly' | 'yearly',
 }));
 
 import { getCacheEntry, setCacheEntry, invalidateCache as invalidateCacheEntry, clearCache as clearAllCache, getMostRecentCacheEntry } from '@/app/utils/indexedDbCache';
