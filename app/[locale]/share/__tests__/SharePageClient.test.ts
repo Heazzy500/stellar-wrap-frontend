@@ -71,7 +71,7 @@ describe('SharePageClient', () => {
     render(<SharePageClient />);
     const shareButton = screen.getByRole('button');
     fireEvent.click(shareButton);
-    
+
     // Check if share menu items appear
     expect(screen.getByText('x')).toBeInTheDocument();
     expect(screen.getByText('WhatsApp')).toBeInTheDocument();
@@ -82,10 +82,10 @@ describe('SharePageClient', () => {
     render(<SharePageClient />);
     const shareButton = screen.getByRole('button');
     fireEvent.click(shareButton);
-    
+
     const whatsappButton = screen.getByText('WhatsApp').closest('button');
     fireEvent.click(whatsappButton!);
-    
+
     expect(global.window.open).toHaveBeenCalledWith(
       expect.stringContaining('wa.me'),
       '_blank',
@@ -97,10 +97,10 @@ describe('SharePageClient', () => {
     render(<SharePageClient />);
     const shareButton = screen.getByRole('button');
     fireEvent.click(shareButton);
-    
+
     const xButton = screen.getByText('x').closest('button');
     fireEvent.click(xButton!);
-    
+
     expect(global.window.open).toHaveBeenCalledWith(
       expect.stringContaining('twitter.com'),
       '_blank',
@@ -112,17 +112,17 @@ describe('SharePageClient', () => {
     render(<SharePageClient />);
     const shareButton = screen.getByRole('button');
     fireEvent.click(shareButton);
-    
+
     const xButton = screen.getByText('x').closest('button');
     const whatsappButton = screen.getByText('WhatsApp').closest('button');
-    
+
     fireEvent.click(xButton!);
     const xCall = (global.window.open as jest.Mock).mock.calls[0][0];
-    
+
     (global.window.open as jest.Mock).mockClear();
     fireEvent.click(whatsappButton!);
     const whatsappCall = (global.window.open as jest.Mock).mock.calls[0][0];
-    
+
     // Verify URLs are different
     expect(xCall).not.toBe(whatsappCall);
     expect(xCall).toContain('twitter.com');
@@ -133,12 +133,12 @@ describe('SharePageClient', () => {
     render(<SharePageClient />);
     const shareButton = screen.getByRole('button');
     fireEvent.click(shareButton);
-    
+
     const whatsappButton = screen.getByText('WhatsApp').closest('button');
     fireEvent.click(whatsappButton!);
-    
+
     const callUrl = (global.window.open as jest.Mock).mock.calls[0][0];
-    
+
     // WhatsApp should NOT open Twitter URL
     expect(callUrl).not.toContain('twitter.com');
     expect(callUrl).toContain('wa.me');
@@ -148,12 +148,12 @@ describe('SharePageClient', () => {
     render(<SharePageClient />);
     const shareButton = screen.getByRole('button');
     fireEvent.click(shareButton);
-    
+
     const xButton = screen.getByText('x').closest('button');
     fireEvent.click(xButton!);
-    
+
     const callUrl = (global.window.open as jest.Mock).mock.calls[0][0];
-    
+
     // X should NOT open WhatsApp URL
     expect(callUrl).not.toContain('wa.me');
     expect(callUrl).toContain('twitter.com');

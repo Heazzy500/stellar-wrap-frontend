@@ -31,7 +31,7 @@ jest.mock("@/app/store/multiTimeframeStore", () => ({
   })),
 }));
 
-jest.mock("@/app/hooks/useStellarAddressValidation", () => ({
+jest.mock("@/src/hooks/useStellarAddressValidation", () => ({
   useStellarAddressValidation: jest.fn(() => ({
     address: "",
     validationState: "idle",
@@ -87,49 +87,46 @@ describe("ConnectPage Keyboard Interactions", () => {
   });
 
   it("should go back when pressing Escape on the page body", async () => {
-    const user = userEvent.setup();
     render(<ConnectPage />);
-    
+
     // Ensure focus is on the container (simulate the useEffect on mount)
-    const mainContainer = screen.getByText("CONNECT WALLET").closest('div[tabindex="-1"]');
-    if (mainContainer) {
-      fireEvent.keyDown(mainContainer, { key: "Escape", code: "Escape" });
-    }
-    
+    const mainContainer = screen.getByRole("main");
+    fireEvent.keyDown(mainContainer, { key: "Escape", code: "Escape" });
+
     expect(mockRouter.push).toHaveBeenCalledWith("/");
   });
 
   it("should blur input instead of going back when Escape is pressed while input is focused", async () => {
     const user = userEvent.setup();
     render(<ConnectPage />);
-    
+
     const input = screen.getByLabelText("Stellar wallet address input");
-    
+
     // Focus the input
     await user.click(input);
     expect(document.activeElement).toBe(input);
-    
+
     // Press Escape
     await user.keyboard("{Escape}");
-    
+
     // Router should not have been called
     expect(mockRouter.push).not.toHaveBeenCalled();
     // Input should be blurred
     expect(document.activeElement).not.toBe(input);
   });
-  
+
   it("should allow Tab to move freely through the dom elements", async () => {
     const user = userEvent.setup();
     render(<ConnectPage />);
-    
+
     const input = screen.getByLabelText("Stellar wallet address input");
     const pasteButton = screen.getByLabelText("Paste from clipboard");
     const freighterButton = screen.getByLabelText("Connect with Freighter wallet");
-    
+
     // Initial tab
     await user.tab();
-    
-    // Assert elements are reachable via sequential keyboard tabbing 
+
+    // Assert elements are reachable via sequential keyboard tabbing
     // (exact order depends on rendered components, but they should all be focusable)
     expect(input.tabIndex).toBe(0);
     expect(pasteButton.tabIndex).toBe(0);
