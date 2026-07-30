@@ -116,6 +116,9 @@ export class TransactionObserver {
       // If we got a response and it's successful:
       if (response && response.status === rpc.Api.GetTransactionStatus.SUCCESS) {
         this.clearTimers();
+        // Persist the confirmed hash in the stable field so it survives
+        // any subsequent resetTransaction() calls.
+        useTransactionStore.getState().setConfirmedTransactionHash(txHash);
         this.setState("confirmed");
       } else if (response && response.status === rpc.Api.GetTransactionStatus.FAILED) {
         this.clearTimers();
