@@ -315,8 +315,13 @@ export default function ConnectPage() {
     }
 
     // Validate Stellar address format
+    if (validationState === 'validating') {
+      setLocalError("Please wait while we validate your address...");
+      return;
+    }
+
     if (!isValid) {
-      setLocalError("Invalid wallet address. Please wait for validation.");
+      setLocalError("Invalid wallet address. Please check and try again.");
       setError("Invalid wallet address");
       return;
     }
@@ -401,7 +406,8 @@ export default function ConnectPage() {
     if (
       (e.key === "Enter" || e.key === " ") &&
       !isConnecting &&
-      walletAddress.trim()
+      walletAddress.trim() &&
+      isValid
     ) {
       e.preventDefault();
       handleConnect();
@@ -452,7 +458,7 @@ export default function ConnectPage() {
   };
 
   const handleAddressKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && walletAddress.trim()) {
+    if (e.key === "Enter" && walletAddress.trim() && isValid) {
       e.preventDefault();
       handleManualSubmit();
     }
