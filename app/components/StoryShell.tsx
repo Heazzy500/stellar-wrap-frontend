@@ -1,35 +1,31 @@
 "use client";
 
-import { type ReactNode, useEffect } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Home, Share2, ChevronRight, Palette } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { MuteToggle } from "./MuteToggle";
+import { ThemeSelector } from "./ThemeSelector";
 import {
   useReducedMotion,
   reducedMotionTransition,
 } from "@/app/hooks/useReducedMotion";
+import {
+  STORY_SEGMENT_COUNT,
+  getStorySegmentClassName,
+  getStorySegmentLabel,
+  getStorySegmentVisualState,
+} from "./storyShellProgress";
 
 interface StoryShellProps {
   children: ReactNode;
   activeSegment?: number;
 }
 
-const SEGMENT_LABELS = [
-  "Connect wallet",
-  "Top dapps",
-  "Transactions of Fury",
-  "Vibe check",
-  "Persona reveal",
-  "Share wrap",
-  "Complete",
-];
-
 export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
-  const segmentLabel =
-    SEGMENT_LABELS[activeSegment] ?? `Story segment ${activeSegment + 1}`;
+  const segmentLabel = getStorySegmentLabel(activeSegment);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -138,7 +134,9 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
         })}
       />
 
-      <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 overflow-x-auto">
+      {/* Top Controls */}
+      <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 overflow-x-auto gap-3">
+        {/* Home Button */}
         <motion.button
           type="button"
           initial={prefersReducedMotion ? false : { opacity: 0, x: -20 }}
@@ -147,8 +145,8 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
             delay: 0.2,
           })}
           onClick={() => router.push("/")}
-          className="group flex items-center gap-2 text-sm font-medium text-white/80"
-          aria-label="Go home"
+          className="group flex items-center gap-2 px-3 py-2 rounded-xl bg-black/50 border border-[#1DB954]/30 backdrop-blur-xl shrink-0"
+          aria-label="Go to home page"
         >
           <Home
             className="w-4 h-4 group-hover:scale-110 transition-transform"
@@ -163,14 +161,13 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
           transition={reducedMotionTransition(prefersReducedMotion, {
             delay: 0.3,
           })}
-          className="flex items-center gap-1.5"
+          className="flex items-center gap-1.5 shrink-0"
           role="progressbar"
           aria-valuenow={activeSegment + 1}
           aria-valuemin={1}
-          aria-valuemax={SEGMENT_LABELS.length}
-          aria-label={segmentLabel}
+          aria-valuemax={STORY_SEGMENT_COUNT}
         >
-          {[...Array(7)].map((_, i) => (
+          {[...Array(STORY_SEGMENT_COUNT)].map((_, i) => (
             <motion.div
               key={i}
               aria-hidden="true"
@@ -179,12 +176,12 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
               transition={reducedMotionTransition(prefersReducedMotion, {
                 delay: 0.4 + i * 0.05,
               })}
-              className={`h-1.5 rounded-full transition-all duration-500 ${
+              className={`h-1.5 rounded-full transition-all duration-500 origin-left ${
                 i === activeSegment
-                  ? "w-10 bg-[#1DB954] shadow-[0_0_12px_rgba(29,185,84,0.8)]"
+                  ? "w-12 sm:w-16 bg-[#1DB954] shadow-[0_0_12px_rgba(29,185,84,0.8)]"
                   : i < activeSegment
-                    ? "w-6 bg-[#1DB954]/50"
-                    : "w-6 bg-white/15"
+                    ? "w-6 sm:w-8 bg-[#1DB954]/50"
+                    : "w-6 sm:w-8 bg-white/15"
               }`}
             />
           ))}
@@ -192,6 +189,7 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
 
         <div className="flex items-center gap-2 shrink-0">
           <MuteToggle />
+          {/* Palette Button */}
           <motion.button
             type="button"
             initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}

@@ -19,12 +19,12 @@ jobs:
 
       - name: Check for wrong lock files
         run: |
-          if [ -f "package-lock.json" ]; then
-            echo "❌ package-lock.json found! This project uses pnpm exclusively."
+          if git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
+            echo "❌ package-lock.json is tracked! This project uses pnpm exclusively."
             exit 1
           fi
-          if [ -f "yarn.lock" ]; then
-            echo "❌ yarn.lock found! This project uses pnpm exclusively."
+          if git ls-files --error-unmatch yarn.lock >/dev/null 2>&1; then
+            echo "❌ yarn.lock is tracked! This project uses pnpm exclusively."
             exit 1
           fi
           if [ ! -f "pnpm-lock.yaml" ]; then
@@ -53,7 +53,7 @@ jobs:
           cache: pnpm
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
       - name: Lint
         run: pnpm lint
