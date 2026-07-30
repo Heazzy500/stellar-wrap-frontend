@@ -14,6 +14,9 @@ const customJestConfig = {
   },
   testMatch: [
     '<rootDir>/__tests__/**/*.[jt]s?(x)',
+    '**/__tests__/**/*.test.[jt]s?(x)',
+    '!**/__tests__/**/*.comprehensive.test.ts',
+    '!**/__tests__/**/*.edge.test.ts',
   ],
   collectCoverage: true,
   coverageReporters: ['text', 'html'],
