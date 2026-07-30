@@ -23,6 +23,11 @@ import { connectWalletConnect } from "../../utils/walletConnectManager";
 import { getHorizonServer } from "../../utils/stellarClient";
 import { SOUND_NAMES } from "../../utils/soundManager";
 import { useRouter } from "next/navigation";
+import {
+  DEMO_STELLAR_ADDRESS,
+  markDemoMode,
+  clearDemoMode,
+} from "@/app/data/demoAccount";
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -78,6 +83,9 @@ export default function ConnectPage() {
 
   // Load last-used address from localStorage on mount
   useEffect(() => {
+    // Returning to /connect always leaves demo mode; handleDemoMode re-arms it.
+    clearDemoMode();
+
     const saved = localStorage.getItem("lastUsedStellarAddress");
     if (saved) {
       setLastUsedAddress(saved);
@@ -366,10 +374,11 @@ export default function ConnectPage() {
       return;
     }
 
-    const demoAddress = "GDEMOADDRESSFORSTELLARWRAPDEMOPURPOSES12345678";
-    handleRawAddressChange(demoAddress);
+    // Demo mode is mock-only; the flag makes the loading screen skip Horizon.
+    markDemoMode();
+    handleRawAddressChange(DEMO_STELLAR_ADDRESS);
     setTimeout(() => {
-      setAddress(demoAddress);
+      setAddress(DEMO_STELLAR_ADDRESS);
       setStatus("loading");
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       router.push("/loading");
