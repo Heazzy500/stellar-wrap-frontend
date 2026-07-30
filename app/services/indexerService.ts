@@ -26,8 +26,10 @@ export async function indexAccount(
   const { bypassCache = false } = options ?? {};
   const cacheKey = getCacheKey(accountId, network, period);
 
+  let cached: Awaited<ReturnType<typeof getCacheEntry>> | undefined;
+
   if (!bypassCache) {
-    const cached = await getCacheEntry(cacheKey);
+    cached = await getCacheEntry(cacheKey);
 
     if (cached && isCacheValid(cached)) {
       return {
