@@ -28,17 +28,24 @@ jest.mock('../context/ThemeContext', () => ({
   },
 }));
 
-jest.mock('../store/wrapStore', () => ({
-  useWrapStore: () => ({
-    address: 'test-address',
-    network: 'mainnet',
-    result: {
-      username: 'testuser',
-      totalTransactions: 100,
-      persona: 'Explorer',
-      vibes: [{ label: 'Curious', percentage: 85 }],
+jest.mock('../store/wrapStore', () => {
+  let mockPeriod: string = 'yearly';
+  return {
+    useWrapStore: () => ({
+      address: 'test-address',
+      network: 'mainnet',
+      period: mockPeriod,
+      result: {
+        username: 'testuser',
+        totalTransactions: 100,
+        persona: 'Explorer',
+        vibes: [{ label: 'Curious', percentage: 85 }],
+      },
+    }),
+    __setMockPeriod: (p: string) => {
+      mockPeriod = p;
     },
-  }),
+  };
 }));
 
 jest.mock('../../utils/plausible', () => ({
@@ -157,5 +164,50 @@ describe('SharePageClient', () => {
     // X should NOT open WhatsApp URL
     expect(callUrl).not.toContain('wa.me');
     expect(callUrl).toContain('twitter.com');
+  });
+
+  it('should include period in share text for weekly', () => {
+    const { __setMockPeriod } = require('../store/wrapStore') as any;
+    __setMockPeriod('weekly');
+
+    render(<SharePageClient />);
+    const shareButton = screen.getByRole('button');
+    fireEvent.click(shareButton);
+    
+    const xButton = screen.getByText('x').closest('button');
+    fireEvent.click(xButton!);
+    
+    const callUrl = (global.window.open as jest.Mock).mock.calls[0][0];
+    expect(decodeURIComponent(callUrl)).toContain('weekly Stellar Wrapped');
+  });
+
+  it('should include period in share text for monthly', () => {
+    const { __setMockPeriod } = require('../store/wrapStore') as any;
+    __setMockPeriod('monthly');
+
+    render(<SharePageClient />);
+    const shareButton = screen.getByRole('button');
+    fireEvent.click(shareButton);
+    
+    const xButton = screen.getByText('x').closest('button');
+    fireEvent.click(xButton!);
+    
+    const callUrl = (global.window.open as jest.Mock).mock.calls[0][0];
+    expect(decodeURIComponent(callUrl)).toContain('monthly Stellar Wrapped');
+  });
+
+  it('should include period in share text for yearly', () => {
+    const { __setMockPeriod } = require('../store/wrapStore') as any;
+    __setMockPeriod('yearly');
+
+    render(<SharePageClient />);
+    const shareButton = screen.getByRole('button');
+    fireEvent.click(shareButton);
+    
+    const xButton = screen.getByText('x').closest('button');
+    fireEvent.click(xButton!);
+    
+    const callUrl = (global.window.open as jest.Mock).mock.calls[0][0];
+    expect(decodeURIComponent(callUrl)).toContain('yearly Stellar Wrapped');
   });
 });
