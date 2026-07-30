@@ -55,12 +55,25 @@ export async function indexAccount(
     }
   }
 
-  const result = await runIndexingCore(accountId, network, period, false);
-  await setCacheEntry(cacheKey, { result, timestamp: Date.now() });
-  return {
-    result,
-    fromCache: false,
-  };
+  try {
+    const result = await runIndexingCore(accountId, network, period, false);
+    await setCacheEntry(cacheKey, { result, timestamp: Date.now() });
+    return {
+      result,
+      fromCache: false,
+    };
+  } catch (error) {
+    if (cached) {
+      indexerWarn("Fresh indexing failed, using stale cache", error);
+      return {
+        result: cached.result,
+        fromCache: true,
+        cacheTimestamp: cached.timestamp,
+        refreshingInBackground: false,
+      };
+    }
+    throw error;
+  }
 }
 
 export { runIndexingCore } from "./indexerCore";
