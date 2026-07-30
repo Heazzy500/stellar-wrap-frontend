@@ -241,6 +241,8 @@ export default function ConnectPage() {
 
     const trimmedAddress = walletAddress.trim();
     setAddress(trimmedAddress);
+    setStatus("loading");
+    setError(null);
     saveAddressToLocalStorage(trimmedAddress);
     playSound(SOUND_NAMES.SLIDE_WHOOSH);
     fetchAccountPreview(walletAddress.trim());
@@ -267,7 +269,11 @@ export default function ConnectPage() {
         addressInputRef.current.focus();
       }
     } catch {
-      setError("Failed to paste from clipboard");
+      const pasteError =
+        "Clipboard access failed. Paste the address manually or allow clipboard access.";
+      setLocalError(pasteError);
+      setError(pasteError);
+      addressInputRef.current?.focus();
     }
   };
 
@@ -754,6 +760,16 @@ export default function ConnectPage() {
                   className="mb-6 p-4 bg-red-500/10 border-2 border-red-500/50 rounded-xl text-red-400 text-sm text-center font-medium"
                 >
                   ⚠️ {localError}
+                  {localError.includes("Freighter is not installed") && (
+                    <a
+                      href="https://www.freighter.app/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 underline font-bold"
+                    >
+                      Install or open Freighter
+                    </a>
+                  )}
                 </motion.div>
               )}
               {/* ── Network mismatch prompt ───────────────────────────── */}
