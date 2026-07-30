@@ -22,7 +22,7 @@ import { ProgressIndicator } from "@/app/components/ProgressIndicator";
 import { MuteToggle } from "@/app/components/MuteToggle";
 import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimeline";
 import { NotificationPrompt } from "@/app/components/NotificationPrompt";
->>>>>>> pr-325
+import { generatePersonaDescription } from "@/app/actions/generate-persona";
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string, enabled = true) => {
