@@ -22,11 +22,18 @@ interface ShareImageCardProps {
   themeColor: string;
   archetypeImage?: string | null; // e.g. '/archetypes/wizard.png'; null hides the image fallback.
   data?: ShareImageCardData;
-  archetypeImage?: string;
   shareUrl?: string;
 }
 
+export function ShareImageCard({
+  themeColor,
+  archetypeImage,
+  data,
+  shareUrl,
+}: ShareImageCardProps) {
+  const { persona, transactions, username, vibes = [] } = data ?? mockData;
   const topVibe = vibes[0];
+  // Derive image from persona name if not explicitly provided: "The Wizard" -> /archetypes/wizard.png
   const resolvedArchetypeImage =
     archetypeImage === undefined
       ? `/archetypes/${persona.toLowerCase().replace(/^the\s+/, "").replace(/\s+/g, "-")}.png`

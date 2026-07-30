@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Share2 } from "lucide-react";
+import { ExternalLink, Share2, Link2, Check } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { mockData } from "@/app/data/mockData";
 import { GOLDEN_USER } from "@/src/data/mockData";
 import { ProgressIndicator } from "@/app/components/ProgressIndicator";
@@ -20,7 +21,19 @@ import {
   TelegramIcon,
 } from "../components/SocialIcons";
 import { trackEvent } from "../../utils/plausible";
-import { useNativeShare } from "../../hooks/useNativeShare";
+import {
+  buildSharePreviewSearchParams,
+  hasSharePreviewParams,
+  parseSharePreviewParams,
+  type SharePreviewState,
+} from "@/app/utils/sharePreviewParams";
+import { getStellarExpertAccountUrl } from "@/app/utils/stellarExpert";
+import { isZeroActivityResult } from "@/app/utils/zeroActivity";
+import { ZeroActivityEmptyState } from "@/app/components/ZeroActivityEmptyState";
+import {
+  useReducedMotion,
+  reducedMotionTransition,
+} from "@/app/hooks/useReducedMotion";
 
 const SocialIcons = {
   X: XIcon,
@@ -31,6 +44,7 @@ const SocialIcons = {
 };
 
 export default function SharePageClient() {
+  const searchParams = useSearchParams();
   const [shareOpen, setShareOpen] = useState<boolean>(false);
   const [shareUrl, setShareUrl] = useState<string>("");
   const [cardFormat, setCardFormat] = useState<"square" | "stories">("square");
@@ -38,20 +52,37 @@ export default function SharePageClient() {
   const shareBtnRef = useRef<HTMLButtonElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement>(null!);
   const { color } = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const { address: walletAddress, network, result } = useWrapStore();
   const { isSupported: canNativeShare, share: nativeShare } = useNativeShare();
 
-  const username = result?.username ?? mockData.username;
-  const transactions = result?.totalTransactions ?? mockData.transactions;
-  const persona = result?.persona ?? mockData.persona;
-  const topVibe = result?.vibes[0]?.label ?? mockData.vibes[0].label;
-  const vibePercentage = result?.vibes[0]?.percentage ?? mockData.vibes[0].percentage;
+  const urlPreview = useMemo(
+    () => parseSharePreviewParams(searchParams),
+    [searchParams],
+  );
+  const isPublicPreview = hasSharePreviewParams(searchParams);
 
-  const stellarExpertUrl = walletAddress
-    ? network === "testnet"
-      ? `https://stellar.expert/explorer/testnet/account/${walletAddress}`
-      : `https://stellar.expert/explorer/public/account/${walletAddress}`
-    : null;
+  const storePreview = useMemo<SharePreviewState>(
+    () => ({
+      username: result?.username ?? mockData.username,
+      transactions: result?.totalTransactions ?? mockData.transactions,
+      persona: result?.persona ?? mockData.persona,
+      topVibe: result?.vibes[0]?.label ?? mockData.vibes[0].label,
+      vibePercentage: result?.vibes[0]?.percentage ?? mockData.vibes[0].percentage,
+    }),
+    [result],
+  );
+
+  const displayPreview = isPublicPreview ? urlPreview : storePreview;
+
+  const username = displayPreview.username;
+  const transactions = displayPreview.transactions;
+  const persona = displayPreview.persona;
+  const topVibe = displayPreview.topVibe;
+  const vibePercentage = displayPreview.vibePercentage;
+
+  const stellarExpertUrl = !isPublicPreview && walletAddress ? getStellarExpertAccountUrl(walletAddress, network) : null;
+  const showZeroActivity = isZeroActivityResult(result);
 
   const [themeColor] = useState<string>(() => {
     if (typeof window === "undefined") return themeColors.green.primary;
@@ -66,11 +97,36 @@ export default function SharePageClient() {
     return computedColor || themeColors[color].primary;
   });
 
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      setShareUrl(window.location.href);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const query = buildSharePreviewSearchParams(storePreview).toString();
+    const path = `${window.location.pathname}?${query}`;
+    setShareUrl(`${window.location.origin}${path}`);
+  }, [storePreview]);
+
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
+
+  const handleCopyLink = async () => {
+    const url = shareUrl || window.location.href;
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     }
-  }, []);
+  };
 
   const shareTitle = "Stellar Wrapped 2026";
   const shareText = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
@@ -110,8 +166,8 @@ export default function SharePageClient() {
 
   const handleShare = (platform: string) => {
     trackEvent("share_clicked", { platform });
-    const url = window.location.href;
-    const text = shareText;
+    const url = shareUrl || window.location.href;
+    const text = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
     let shareUrl = "";
 
     switch (platform) {
@@ -150,12 +206,54 @@ export default function SharePageClient() {
         setShareOpen(false);
       }
     };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && shareOpen) {
+        setShareOpen(false);
+        shareBtnRef.current?.focus();
+      }
+    };
+
     document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [shareOpen]);
+
+  useEffect(() => {
+    if (shareOpen) {
+      // Small delay to ensure the motion element is mounted before focusing
+      const timer = setTimeout(() => {
+        const firstButton = shareMenuRef.current?.querySelector("button");
+        firstButton?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
   }, [shareOpen]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
+      {showZeroActivity ? (
+        <div className="relative z-20 flex h-full items-center justify-center">
+          <ProgressIndicator currentStep={6} totalSteps={6} showNext={false} />
+          <ZeroActivityEmptyState />
+          {stellarExpertUrl && (
+            <a
+              href={stellarExpertUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-30 flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/10 text-white/60 hover:text-white/90 hover:border-white/30 transition-all text-xs font-medium"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+            >
+              <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              View full history on Stellar.expert
+            </a>
+          )}
+        </div>
+      ) : (
+        <>
       <div
         ref={shareImageRef}
         className="absolute"
@@ -184,9 +282,9 @@ export default function SharePageClient() {
 
       <motion.div
         className="absolute top-6 right-6 md:top-8 md:right-8 z-30"
-        initial={{ opacity: 0, x: 20 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={reducedMotionTransition(prefersReducedMotion, { delay: 0.2 })}
       >
         <MuteToggle />
       </motion.div>
@@ -198,9 +296,9 @@ export default function SharePageClient() {
           rel="noopener noreferrer"
           className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-30 flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/10 text-white/60 hover:text-white/90 hover:border-white/30 transition-all text-xs font-medium"
           style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-          initial={{ opacity: 0, x: 20 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={reducedMotionTransition(prefersReducedMotion, { delay: 0.4 })}
         >
           <ExternalLink className="w-3.5 h-3.5" />
           View full history on Stellar.expert
@@ -213,10 +311,10 @@ export default function SharePageClient() {
             {shareOpen && (
               <motion.div
                 ref={shareMenuRef}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, y: 10, scale: 0.95 }}
+                transition={reducedMotionTransition(prefersReducedMotion, { duration: 0.2 })}
                 className="absolute bottom-18 left-0 w-[200px] h-[350px] bg-[#060607] border border-[#232325] rounded-2xl shadow-2xl p-2 z-50 flex flex-col items-center justify-center gap-2"
                 style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.8)" }}
               >
@@ -277,27 +375,64 @@ export default function SharePageClient() {
                     Telegram
                   </span>
                 </button>
+
+                <button
+                  onClick={handleCopyLink}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleCopyLink();
+                    }
+                  }}
+                  className="flex items-center cursor-pointer pl-4 gap-3 p-2 w-42 h-15 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors"
+                  aria-live="polite"
+                  aria-label={copied ? "Link copied to clipboard" : "Copy link to clipboard"}
+                >
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6366f1]">
+                    {copied ? (
+                      <Check className="h-5 w-5 text-white" />
+                    ) : (
+                      <Link2 className="h-5 w-5 text-white" />
+                    )}
+                  </div>
+                  <span className="font-bold text-white tracking-wide">
+                    {copied ? "Copied!" : "Copy link"}
+                  </span>
+                </button>
+
+                {copyError && (
+                  <p className="text-xs text-red-400" aria-live="assertive">
+                    {copyError}
+                  </p>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
 
           <button
             ref={shareBtnRef}
-            onClick={handlePrimaryShare}
-            aria-label={canNativeShare ? "Share" : "Share options"}
-            aria-expanded={canNativeShare ? undefined : shareOpen}
-            aria-haspopup={canNativeShare ? undefined : "menu"}
+            type="button"
+            onClick={() => setShareOpen(!shareOpen)}
             className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
+            aria-label={shareOpen ? "Close share menu" : "Open share menu"}
+            aria-expanded={shareOpen}
+            aria-haspopup="menu"
           >
             <motion.div
               animate={{ rotate: shareOpen ? 50 : 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { type: "spring", stiffness: 260, damping: 20 }
+              }
             >
-              <Share2 className="h-5 w-5 sm:h-7 sm:w-7 cursor-pointer" />
+              <Share2 className="h-5 w-5 sm:h-7 sm:w-7 cursor-pointer" aria-hidden="true" />
             </motion.div>
           </button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

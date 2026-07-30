@@ -1,5 +1,5 @@
 import { motion } from "motion/react";
-import { Share2, Download, Twitter, Loader2, Sparkles, AlertCircle, Film, ImagePlay } from "lucide-react";
+import { Share2, Download, Twitter, Loader2, Sparkles, AlertCircle, Film, ImagePlay, ExternalLink } from "lucide-react";
 import { useState, RefObject, useEffect } from "react";
 import { downloadShareImage } from "../utils/imageExport";
 import { useWrapStore } from "@/app/store/wrapStore";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { useSound } from "../hooks/useSound";
 import { SOUND_NAMES } from "../utils/soundManager";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
+import { mintWrap } from "../utils/walletKit";
 interface ShareCardProps {
   username: string;
   transactions: number;
@@ -32,11 +33,14 @@ export function ShareCard({
   onFormatChange,
 }: ShareCardProps) {
   const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [usedMainThreadFallback, setUsedMainThreadFallback] = useState(false);
   const { address, network } = useWrapStore();
+const { address, network, period } = useWrapStore();
   const { playSound } = useSound();
   const isOnline = useOnlineStatus();
   
-  const { transactionState, transactionHash, transactionError, resetTransaction } = useTransactionStore();
+  const { transactionState, transactionHash, transactionError, resetTransaction, confirmingAttempt, confirmingTimedOut, setConfirmingAttempt, setConfirmingTimedOut } = useTransactionStore();
 
   const isMinting = [
     "building",
@@ -66,6 +70,9 @@ export function ShareCard({
     }
 
     if (transactionState === "failed" && transactionError) {
+      // transactionError is already mapped to a friendly message in contractBridge;
+      // keep the raw string in diagnostics for support/debugging.
+      console.error("[ShareCard] mint failed", { transactionError });
       toast.error("Minting failed", {
         description: transactionError,
       });
@@ -173,17 +180,42 @@ export function ShareCard({
 
     if (transactionState === "failed" || transactionState === "confirmed") {
       resetTransaction();
+      setConfirmingAttempt(null);
+      setConfirmingTimedOut(false);
     }
 
     // Transaction state observer
     const observer = (state: string, data?: unknown) => {
       console.log("Transaction state:", state, data);
-      
+
+      // Track per-tick confirming progress
+      if (
+        state === 'submitted' &&
+        data &&
+        typeof data === 'object' &&
+        'confirming' in data
+      ) {
+        const d = data as { attempt: number; maxAttempts: number };
+        setConfirmingAttempt(d.attempt);
+        return; // don't propagate as a state change — still "submitted" in the store
+      }
+
+      // Detect structured timeout payload
+      if (
+        state === 'failed' &&
+        data &&
+        typeof data === 'object' &&
+        'code' in data &&
+        (data as { code: string }).code === 'CONFIRMATION_TIMEOUT'
+      ) {
+        setConfirmingTimedOut(true);
+        setConfirmingAttempt(null);
+      }
+
       // Handle simulation results
       if (state === 'simulating' && data && typeof data === 'object' && 'simulation' in data) {
         const simulation = (data as { simulation: { success?: boolean; estimatedFee?: number } }).simulation;
         if (simulation?.success && simulation?.estimatedFee) {
-          // Show simulation success with fee estimate
           toast.info("Transaction simulation successful", {
             description: `Estimated fee: ${simulation.estimatedFee.toFixed(7)} XLM`,
           });
@@ -195,11 +227,13 @@ export function ShareCard({
       await mintWrap({
         userAddress: address,
         network: network || "testnet",
+        period,
+        archetype: persona,
         observer,
       });
     } catch (error) {
       // Errors are handled by transactionObserver setting state to 'failed'
-      // which triggers the useEffect to show a toast, so we just log here.
+      // which triggers the useEffect to show a toast, so we just log raw details here.
       console.error("Minting process caught error:", error);
     }
   };
@@ -213,13 +247,17 @@ export function ShareCard({
       case "signing":
         return "Awaiting wallet signature...";
       case "submitting":
-        return "Submitting transaction...";
+        return confirmingAttempt !== null
+          ? `Confirming… attempt ${confirmingAttempt} / 60`
+          : "Submitting transaction...";
       case "confirming":
-        return "Confirming transaction...";
+        return confirmingAttempt !== null
+          ? `Confirming… attempt ${confirmingAttempt} / 60`
+          : "Confirming transaction...";
       case "confirmed":
         return "Minted!";
       case "failed":
-        return "Retry Mint";
+        return confirmingTimedOut ? "Retry Mint" : "Retry Mint";
       default:
         return isOnline ? "Mint My Wrap" : "Mint unavailable offline";
     }
@@ -510,6 +548,63 @@ export function ShareCard({
                 </div>
               </motion.div>
             </div>
+
+          {/* Polling progress bar — shown while awaiting confirmation */}
+          {confirmingAttempt !== null && !confirmingTimedOut && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full mt-6 rounded-xl border border-white/10 bg-black/40 p-4"
+              aria-live="polite"
+              aria-label={`Confirming transaction, attempt ${confirmingAttempt} of 60`}
+            >
+              <div className="flex justify-between text-xs text-white/60 mb-2">
+                <span>Waiting for confirmation on-chain…</span>
+                <span>{confirmingAttempt} / 60</span>
+              </div>
+              <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: "var(--color-theme-primary)" }}
+                  animate={{ width: `${Math.round((confirmingAttempt / 60) * 100)}%` }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                />
+              </div>
+            </motion.div>
+          )}
+
+          {/* Timeout banner — shown when confirmation window expired */}
+          {confirmingTimedOut && (
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 space-y-3"
+              role="alert"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" aria-hidden="true" />
+                <div>
+                  <p className="text-sm font-bold text-amber-200">
+                    Confirmation is taking longer than expected
+                  </p>
+                  <p className="text-xs text-amber-200/70 mt-1">
+                    Your transaction may still go through — check the explorer before retrying to avoid a duplicate.
+                  </p>
+                </div>
+              </div>
+              {transactionHash && (
+                <a
+                  href={`https://stellar.expert/explorer/${network === "mainnet" ? "public" : "testnet"}/tx/${transactionHash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-300 hover:text-amber-100 transition-colors"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                  View transaction on Stellar.expert
+                </a>
+              )}
+            </motion.div>
+          )}
 
           {/* Mint Button below the card */}
           <motion.button

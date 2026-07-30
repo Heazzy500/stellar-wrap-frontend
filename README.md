@@ -39,6 +39,19 @@ In Web3, your on-chain history is your resume, your identity, and your reputatio
 4.  **Persona:** Based on your specific behavior, you get assigned a fun archetype (e.g., *"The Soroban Architect," "The DeFi Patron," "The Diamond Hand"*).
 5.  **Share:** Generate a beautiful, branded image card ready for one-click sharing to X (Twitter), Farcaster, etc.
 
+### 🧪 Demo Mode
+
+The **"try demo mode"** link on `/connect` walks through the full experience without a
+wallet. Demo mode is **mock-only**:
+
+- It uses the fixture address in [`app/data/demoAccount.ts`](app/data/demoAccount.ts) — a
+  real, checksum-valid Stellar public key, so address validation behaves normally.
+- Entering demo mode sets a session flag (`markDemoMode()`). The loading screen checks
+  `isDemoMode()` and serves generated wrap data, so **demo mode never queries Horizon or
+  the indexer**.
+- The flag is cleared whenever `/connect` mounts, so a subsequent real wallet connection
+  or manually entered address always runs against live data.
+
 ---
 
 ## 🏗️ Architecture Diagram
@@ -350,6 +363,13 @@ This project is designed to support the growth of the Stellar network by:
 
 ```bash
 npm install -g pnpm@9
+````
+
+Or, since this repo pins `packageManager: "pnpm@9.0.0"` in `package.json`, you can use Corepack (bundled with Node.js >= 16.9) instead, which installs the exact pinned version automatically:
+
+```bash
+corepack enable
+corepack prepare pnpm@9.0.0 --activate
 ```
 
 ### Environment variables

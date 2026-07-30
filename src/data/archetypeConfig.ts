@@ -27,6 +27,9 @@ const DEFAULT_STYLE: ArchetypeStyle = {
   icon: Sparkles,
 };
 
+export const DEFAULT_ARCHETYPE_DESCRIPTION =
+  "A unique on-chain journey that defies easy categorization — your Stellar activity writes its own story.";
+
 export const ARCHETYPES: Record<string, ArchetypeConfig> = {
   "The Wizard": {
     style: {
@@ -103,7 +106,7 @@ export function getArchetypeStyle(name: string): ArchetypeStyle {
 }
 
 export function getArchetypeDescription(name: string): string {
-  return ARCHETYPES[name]?.description ?? "";
+  return ARCHETYPES[name]?.description || DEFAULT_ARCHETYPE_DESCRIPTION;
 }
 
 export function archetypeImagePath(name: string): string {

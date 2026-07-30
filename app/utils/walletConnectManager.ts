@@ -19,16 +19,9 @@ export interface WalletConnectSession {
  */
 export async function connectWalletConnect(network: Network): Promise<string> {
   try {
-    // Dynamic import to handle client-side only
     if (typeof window === "undefined") {
       throw new Error("WalletConnect is not available on the server");
     }
-
-    // Use stellar-wallets-kit WalletConnect module
-    // Import dynamically to avoid errors if not used
-    const { getClient } = await import(
-      "@creit-tech/stellar-wallets-kit/stellar_wallets_kit"
-    );
 
     const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID;
     if (!projectId) {
@@ -37,23 +30,58 @@ export async function connectWalletConnect(network: Network): Promise<string> {
       );
     }
 
-    // Initialize client with WalletConnect
-    const client = await getClient({
-      projectId,
-      network: network === "mainnet" ? "PUBLIC" : "TESTNET",
+    const [
+      { StellarWalletsKit },
+      { WalletConnectModule, WALLET_CONNECT_ID, WalletConnectTargetChain },
+      { Networks },
+    ] = await Promise.all([
+      import("@creit-tech/stellar-wallets-kit/sdk"),
+      import("@creit-tech/stellar-wallets-kit/modules/wallet-connect"),
+      import("@creit-tech/stellar-wallets-kit/types"),
+    ]);
+
+    const kitNetwork =
+      network === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
+    const walletConnectChain =
+      network === "mainnet"
+        ? WalletConnectTargetChain.PUBLIC
+        : WalletConnectTargetChain.TESTNET;
+
+    StellarWalletsKit.init({
+      modules: [
+        new WalletConnectModule({
+          projectId,
+          metadata: {
+            name: "Stellar Wrapped",
+            description: "Your blockchain story told like never before",
+            icons: ["https://stellar.org/favicon.ico"],
+            url: window.location.origin,
+          },
+          allowedChains: [walletConnectChain],
+        }),
+      ],
+      selectedWalletId: WALLET_CONNECT_ID,
+      network: kitNetwork,
+      authModal: {
+        hideUnsupportedWallets: true,
+      },
     });
+    StellarWalletsKit.setNetwork(kitNetwork);
+    StellarWalletsKit.setWallet(WALLET_CONNECT_ID);
 
-    // Connect to WalletConnect
-    const publicKey = await client.connect();
+    const { address } = await StellarWalletsKit.authModal();
 
-    if (!publicKey) {
+    if (!address) {
       throw new Error("Failed to get public key from WalletConnect");
     }
 
-    return publicKey;
+    return address;
   } catch (error: unknown) {
     if (error instanceof Error) {
-      if (error.message?.includes("rejected") || error.message?.includes("cancelled")) {
+      if (
+        error.message?.includes("rejected") ||
+        error.message?.includes("cancelled")
+      ) {
         throw new Error("Connection rejected by user.");
       }
       throw error;
@@ -62,19 +90,8 @@ export async function connectWalletConnect(network: Network): Promise<string> {
   }
 }
 
-/**
- * Get QR code data URL for WalletConnect URI
- * Generate QR code from URI using qrcode library
- */
-export async function getQRCodeDataUrl(uri: string): Promise<string> {
-  try {
-    // Dynamic import - qrcode should be available
-    const QRCode = await import("qrcode");
-    return await QRCode.default.toDataURL(uri);
-  } catch {
-    console.warn("QR code generation not available");
-    return "";
-  }
+export async function getQRCodeDataUrl(_uri: string): Promise<string> {
+  return "";
 }
 
 /**
@@ -90,8 +107,7 @@ export async function initializeWalletConnectQR(
     );
   }
 
-  // This would be called to generate the initial QR code
-  // The actual URI comes from the WalletConnect client
+  // The active WalletConnect modal generates and displays the real QR code.
   const uri = `wc:${Math.random().toString(36).substr(2, 24)}@2?relay-protocol=irn&symKey=${Math.random().toString(36).substr(2, 32)}`;
   const qrCode = await getQRCodeDataUrl(uri);
 

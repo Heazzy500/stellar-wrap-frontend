@@ -2,7 +2,14 @@
 
 /**
  * AssetDisplay Component
- * Displays resolved asset with logo, name, and code
+ * Displays resolved asset with logo, name, and code.
+ *
+ * Fix #280 — stable icon dimensions + polished fallback:
+ *  - Icon slot is always rendered at the configured dimensions so the layout
+ *    never shifts regardless of load/error state.
+ *  - When the <Image> fails to load, an in-place initials badge replaces it
+ *    while keeping the same reserved size.
+ *  - AssetCard applies the same treatment to its own image.
  */
 
 import React, { useEffect, useState } from "react";
@@ -34,9 +41,116 @@ const SIZE_CONFIGS = {
   lg: { logo: 32, text: "text-base" },
 };
 
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
+
+/** Produce a 1- or 2-letter abbreviation for a given asset code. */
+function assetInitials(code: string): string {
+  const clean = code.replace(/[^a-zA-Z0-9]/g, "");
+  return (clean.slice(0, 2) || "??").toUpperCase();
+}
+
+/**
+ * Deterministic background colour derived from the asset code so the same
+ * asset always gets the same colour, which looks intentional rather than
+ * random.
+ */
+function initialsColor(code: string): string {
+  let hash = 0;
+  for (let i = 0; i < code.length; i++) {
+    hash = (hash * 31 + code.charCodeAt(i)) >>> 0;
+  }
+  const hue = hash % 360;
+  return `hsl(${hue} 52% 32%)`;
+}
+
+interface InitialsBadgeProps {
+  code: string;
+  size: number;
+  className?: string;
+}
+
+/**
+ * A compact, always-visible initials badge that occupies exactly the same
+ * dimensions as the <Image> it replaces, so the layout never shifts.
+ */
+const InitialsBadge: React.FC<InitialsBadgeProps> = ({
+  code,
+  size,
+  className = "",
+}) => (
+  <span
+    aria-label={`${code} icon`}
+    className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${className}`}
+    style={{
+      width: size,
+      height: size,
+      fontSize: Math.max(8, Math.floor(size * 0.4)),
+      backgroundColor: initialsColor(code),
+    }}
+  >
+    {assetInitials(code)}
+  </span>
+);
+
+// ---------------------------------------------------------------------------
+// AssetIconSlot — always reserves fixed dimensions; shows image or fallback
+// ---------------------------------------------------------------------------
+
+interface AssetIconSlotProps {
+  logo: string | undefined;
+  code: string;
+  size: number;
+  className?: string;
+}
+
+/**
+ * Renders the icon at a fixed size regardless of load/error state.
+ *
+ * States:
+ *  1. logo present & loads OK   → <Image>
+ *  2. logo present & fails      → <InitialsBadge> (same dimensions)
+ *  3. no logo                   → <InitialsBadge> immediately
+ */
+const AssetIconSlot: React.FC<AssetIconSlotProps> = ({
+  logo,
+  code,
+  size,
+  className = "",
+}) => {
+  const [imgError, setImgError] = useState(false);
+
+  // If the logo URL changes, reset the error flag
+  useEffect(() => {
+    setImgError(false);
+  }, [logo]);
+
+  if (!logo || imgError) {
+    return <InitialsBadge code={code} size={size} className={className} />;
+  }
+
+  return (
+    <Image
+      src={logo}
+      alt={code}
+      width={size}
+      height={size}
+      className={`rounded-full ${className}`}
+      onError={() => setImgError(true)}
+      // Prevent the image from collapsing its container before it loads
+      style={{ minWidth: size, minHeight: size }}
+    />
+  );
+};
+
+// ---------------------------------------------------------------------------
+// AssetDisplay
+// ---------------------------------------------------------------------------
+
 /**
  * AssetDisplay component
- * Resolves and displays asset metadata with logo and name
+ * Resolves and displays asset metadata with logo and name.
  */
 export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   code,
@@ -85,16 +199,20 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
     };
   }, [code, issuer]);
 
+  // Loading state — icon slot is a pulse skeleton at the reserved dimensions
   if (loading) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        <div
-          className="animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"
-          style={{
-            width: `${sizeConfig.logo}px`,
-            height: `${sizeConfig.logo}px`,
-          }}
-        />
+        {showLogo && (
+          <div
+            aria-hidden="true"
+            className="shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"
+            style={{
+              width: sizeConfig.logo,
+              height: sizeConfig.logo,
+            }}
+          />
+        )}
         {showCode && (
           <span className={`${sizeConfig.text} text-gray-400`}>Loading...</span>
         )}
@@ -102,9 +220,17 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
     );
   }
 
+  // Error / unresolved state — still reserve the icon slot to prevent shift
   if (error || !metadata) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
+        {showLogo && (
+          <InitialsBadge
+            code={code}
+            size={sizeConfig.logo}
+            className={logoClassName}
+          />
+        )}
         {showCode && (
           <span
             className={`${sizeConfig.text} text-gray-600 dark:text-gray-400`}
@@ -122,21 +248,13 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      {showLogo && metadata.logo && (
-        <div className={`relative ${logoClassName}`}>
-          <Image
-            src={metadata.logo}
-            alt={metadata.code}
-            width={sizeConfig.logo}
-            height={sizeConfig.logo}
-            className="rounded-full"
-            onError={(e) => {
-              // Fallback if image fails to load
-              const img = e.target as HTMLImageElement;
-              img.style.display = "none";
-            }}
-          />
-        </div>
+      {showLogo && (
+        <AssetIconSlot
+          logo={metadata.logo}
+          code={metadata.code}
+          size={sizeConfig.logo}
+          className={logoClassName}
+        />
       )}
       <span
         className={`${sizeConfig.text} font-medium text-gray-900 dark:text-gray-100`}
@@ -146,6 +264,10 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
     </div>
   );
 };
+
+// ---------------------------------------------------------------------------
+// AssetBadge
+// ---------------------------------------------------------------------------
 
 /**
  * Compact asset display (code only with optional logo)
@@ -158,8 +280,12 @@ export const AssetBadge: React.FC<Omit<AssetDisplayProps, "showFullName">> = (
   );
 };
 
+// ---------------------------------------------------------------------------
+// AssetCard
+// ---------------------------------------------------------------------------
+
 /**
- * Asset display with full metadata
+ * Asset display with full metadata and a stable icon slot.
  */
 export const AssetCard: React.FC<
   AssetDisplayProps & { showIssuer?: boolean }
@@ -194,7 +320,11 @@ export const AssetCard: React.FC<
   if (loading) {
     return (
       <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
-        <div className="h-8 w-8 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600" />
+        {/* Icon skeleton — fixed 32×32 so the layout doesn't shift */}
+        <div
+          aria-hidden="true"
+          className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600"
+        />
         <div className="space-y-1">
           <div className="h-4 w-24 animate-pulse rounded bg-gray-300 dark:bg-gray-600" />
           <div className="h-3 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
@@ -206,6 +336,8 @@ export const AssetCard: React.FC<
   if (!metadata) {
     return (
       <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+        {/* Reserve the icon slot even for the fallback state */}
+        <InitialsBadge code={props.code} size={32} />
         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
           {props.code}
         </span>
@@ -215,14 +347,8 @@ export const AssetCard: React.FC<
 
   return (
     <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
-      {props.showLogo && metadata.logo && (
-        <Image
-          src={metadata.logo}
-          alt={metadata.code}
-          width={32}
-          height={32}
-          className="rounded-full"
-        />
+      {props.showLogo && (
+        <AssetIconSlot logo={metadata.logo} code={metadata.code} size={32} />
       )}
       <div className="flex-1">
         <div className="font-medium text-gray-900 dark:text-gray-100">

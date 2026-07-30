@@ -1,7 +1,33 @@
 "use client";
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, Wallet, CheckCircle, XCircle, Copy, ChevronRight, QrCode } from "lucide-react";
+import { Horizon } from "stellar-sdk";
+import { useWrapStore } from "../../store/wrapStore";
+import { useTransactionStore } from "../../store/transactionStore";
+import { useMultiTimeframeStore } from "../../store/multiTimeframeStore";
+import { useSound } from "../../hooks/useSound";
+import { useOnlineStatus } from "../../hooks/useOnlineStatus";
+import { useStellarAddressValidation } from "../../../src/hooks/useStellarAddressValidation";
+import { ProgressIndicator } from "../../components/ProgressIndicator";
+import { MuteToggle } from "../../components/MuteToggle";
+import {
+  connectFreighter,
+  connectAlbedo,
+  connectXBull,
+  isXBullInstalled,
+  NetworkMismatchError,
+} from "../../utils/walletConnect";
+import { connectWalletConnect } from "../../utils/walletConnectManager";
+import { getHorizonServer } from "../../utils/stellarClient";
+import { SOUND_NAMES } from "../../utils/soundManager";
 import { useRouter } from "next/navigation";
+import {
+  DEMO_STELLAR_ADDRESS,
+  markDemoMode,
+  clearDemoMode,
+} from "@/app/data/demoAccount";
 
 export default function ConnectPage() {
   const router = useRouter();
@@ -21,6 +47,31 @@ export default function ConnectPage() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [lastUsedAddress, setLastUsedAddress] = useState<string | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewBalance, setPreviewBalance] = useState<string | null>(null);
+  const [previewTxCount, setPreviewTxCount] = useState<number | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  /**
+   * When set, the user's Freighter wallet is on a different network than the
+   * app expects. The object holds both sides so the UI can show an actionable
+   * switch-network prompt.
+   */
+  const [networkMismatch, setNetworkMismatch] = useState<{
+    expected: string;
+    actual: string;
+  } | null>(null);
+
+  // Last-used address (remembered across sessions so returning users can
+  // reconnect in one tap instead of re-typing their address).
+  const [lastUsedAddress, setLastUsedAddress] = useState<string | null>(null);
+
+  // Account preview shown after a manual address is entered and validated,
+  // before the user commits to continuing into the wrap flow.
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewBalance, setPreviewBalance] = useState<string>("0");
+  const [previewTxCount, setPreviewTxCount] = useState<number>(0);
 
   // Refs for focus management
   const mainContentRef = useRef<HTMLDivElement>(null);
@@ -32,6 +83,9 @@ export default function ConnectPage() {
 
   // Load last-used address from localStorage on mount
   useEffect(() => {
+    // Returning to /connect always leaves demo mode; handleDemoMode re-arms it.
+    clearDemoMode();
+
     const saved = localStorage.getItem("lastUsedStellarAddress");
     if (saved) {
       setLastUsedAddress(saved);
@@ -42,6 +96,67 @@ export default function ConnectPage() {
     }
   }, []);
 
+  /**
+   * Persist the most recently used wallet address to localStorage so it can
+   * be offered as a one-tap reconnect option on a future visit.
+   */
+  const saveAddressToLocalStorage = (address: string) => {
+    try {
+      localStorage.setItem("lastUsedStellarAddress", address);
+      setLastUsedAddress(address);
+    } catch {
+      // localStorage can throw in private-browsing / storage-full states;
+      // failing to remember the address is non-fatal, so we swallow it.
+    }
+  };
+
+  /**
+   * Clear the remembered last-used address (e.g. when the user explicitly
+   * chooses "Use a different wallet").
+   */
+  const clearSavedAddress = () => {
+    try {
+      localStorage.removeItem("lastUsedStellarAddress");
+    } catch {
+      // Non-fatal, see saveAddressToLocalStorage.
+    }
+    setLastUsedAddress(null);
+  };
+
+  /**
+   * Fetch a lightweight account preview (native XLM balance and a recent
+   * transaction count) for the given address, to show the user what they're
+   * about to wrap before they commit to continuing.
+   *
+   * Transaction count is derived from a single bounded page (most recent
+   * 200 transactions) rather than the true lifetime total, since Horizon
+   * does not expose a cheap total-count endpoint. This is an approximation
+   * ("recent activity"), not the account's full history size.
+   */
+  const fetchAccountPreview = async (address: string) => {
+    setShowPreview(true);
+    setPreviewLoading(true);
+    try {
+      const server = getHorizonServer(network === "testnet" ? "testnet" : "mainnet");
+      const account = await server.loadAccount(address);
+      const nativeBalance = account.balances.find(
+        (b): b is Horizon.HorizonApi.BalanceLineNative => b.asset_type === "native",
+      );
+      setPreviewBalance(nativeBalance ? nativeBalance.balance : "0");
+
+      const txPage = await server
+        .transactions()
+        .forAccount(address)
+        .limit(200)
+        .call();
+      setPreviewTxCount(txPage.records.length);
+    } catch (error) {
+      console.error("Failed to fetch account preview:", error);
+      setPreviewBalance("0");
+      setPreviewTxCount(0);
+    } finally {
+      setPreviewLoading(false);
+    }
   };
 
   const handleFreighterConnect = async () => {
@@ -52,6 +167,7 @@ export default function ConnectPage() {
 
     setIsConnecting(true);
     setLocalError(null);
+    setNetworkMismatch(null);
     setStatus("loading");
     // Reset all stores before connecting
     reset();
@@ -66,11 +182,17 @@ export default function ConnectPage() {
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       await fetchAccountPreview(publicKey);
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to connect wallet";
-      setError(errorMessage);
-      setLocalError(errorMessage);
-      setStatus("error");
+      if (error instanceof NetworkMismatchError) {
+        // Surface a targeted switch-network prompt instead of a generic error
+        setNetworkMismatch({ expected: error.expected, actual: error.actual });
+        setStatus("idle");
+      } else {
+        const msg =
+          error instanceof Error ? error.message : "Failed to connect wallet";
+        setError(msg);
+        setLocalError(msg);
+        setStatus("error");
+      }
     } finally {
       setIsConnecting(false);
     }
@@ -107,7 +229,6 @@ export default function ConnectPage() {
       setIsConnecting(false);
     }
   };
-
 
   const handleXBullConnect = async () => {
     if (!isOnline) {
@@ -180,7 +301,7 @@ export default function ConnectPage() {
     }
   };
 
-  const handleManualSubmit = (e?: React.FormEvent) => {
+  const handleManualSubmit = (e?: FormEvent) => {
     if (e) e.preventDefault();
 
     if (!isOnline) {
@@ -194,8 +315,13 @@ export default function ConnectPage() {
     }
 
     // Validate Stellar address format
+    if (validationState === 'validating') {
+      setLocalError("Please wait while we validate your address...");
+      return;
+    }
+
     if (!isValid) {
-      setLocalError("Invalid wallet address. Please wait for validation.");
+      setLocalError("Invalid wallet address. Please check and try again.");
       setError("Invalid wallet address");
       return;
     }
@@ -207,6 +333,8 @@ export default function ConnectPage() {
 
     const trimmedAddress = walletAddress.trim();
     setAddress(trimmedAddress);
+    setStatus("loading");
+    setError(null);
     saveAddressToLocalStorage(trimmedAddress);
     playSound(SOUND_NAMES.SLIDE_WHOOSH);
     fetchAccountPreview(walletAddress.trim());
@@ -216,7 +344,7 @@ export default function ConnectPage() {
     router.push("/loading");
   };
 
-  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAddressChange = (e: ChangeEvent<HTMLInputElement>) => {
     handleRawAddressChange(e.target.value);
     setLocalError(null);
     setError(null);
@@ -233,7 +361,11 @@ export default function ConnectPage() {
         addressInputRef.current.focus();
       }
     } catch {
-      setError("Failed to paste from clipboard");
+      const pasteError =
+        "Clipboard access failed. Paste the address manually or allow clipboard access.";
+      setLocalError(pasteError);
+      setError(pasteError);
+      addressInputRef.current?.focus();
     }
   };
 
@@ -247,10 +379,11 @@ export default function ConnectPage() {
       return;
     }
 
-    const demoAddress = "GDEMOADDRESSFORSTELLARWRAPDEMOPURPOSES12345678";
-    handleRawAddressChange(demoAddress);
+    // Demo mode is mock-only; the flag makes the loading screen skip Horizon.
+    markDemoMode();
+    handleRawAddressChange(DEMO_STELLAR_ADDRESS);
     setTimeout(() => {
-      setAddress(demoAddress);
+      setAddress(DEMO_STELLAR_ADDRESS);
       setStatus("loading");
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       router.push("/loading");
@@ -273,7 +406,8 @@ export default function ConnectPage() {
     if (
       (e.key === "Enter" || e.key === " ") &&
       !isConnecting &&
-      walletAddress.trim()
+      walletAddress.trim() &&
+      isValid
     ) {
       e.preventDefault();
       handleConnect();
@@ -324,7 +458,7 @@ export default function ConnectPage() {
   };
 
   const handleAddressKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter" && walletAddress.trim()) {
+    if (e.key === "Enter" && walletAddress.trim() && isValid) {
       e.preventDefault();
       handleManualSubmit();
     }
@@ -332,39 +466,24 @@ export default function ConnectPage() {
 
   // Keyboard navigation for the entire page
   const handlePageKeyDown = (e: KeyboardEvent) => {
-    // Handle Escape key to go back
+    // Handle Escape key to go back, except when inside the input where it should just blur
     if (e.key === "Escape") {
+      if (document.activeElement === addressInputRef.current) {
+        addressInputRef.current?.blur();
+        return;
+      }
       e.preventDefault();
       onBack();
     }
-
-    // Handle Tab key for focus trapping
-    if (e.key === "Tab" && mainContentRef.current) {
-      const focusableElements = mainContentRef.current.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
-      );
-
-      if (focusableElements.length > 0) {
-        const firstElement = focusableElements[0] as HTMLElement;
-        const lastElement = focusableElements[
-          focusableElements.length - 1
-        ] as HTMLElement;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    }
+    // Tab behavior is left un-intercepted intentionally.
+    // This allows the focus to escape into the browser chrome (e.g. URL bar),
+    // which is required for full-page accessibility compliance.
   };
 
   const errorId = localError ? "address-error" : undefined;
 
   return (
-    <div
+    <main
       ref={mainContentRef}
       tabIndex={-1}
       onKeyDown={handlePageKeyDown}
@@ -413,43 +532,45 @@ export default function ConnectPage() {
         }}
       />
 
-      {/* Back button */}
-      <motion.button
-        ref={backButtonRef}
-        onClick={onBack}
-        onKeyDown={handleBackKeyDown}
-        className="absolute top-6 left-6 md:top-8 md:left-8 z-20 group focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black focus:rounded-xl"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
-        whileHover={{ scale: 1.05 }}
-        whileTap={{ scale: 0.95 }}
-        tabIndex={0}
-        aria-label="Go back to previous page"
-        role="button"
-      >
-        <div
-          className="flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/20"
-          style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+      <nav aria-label="Primary">
+        {/* Back button */}
+        <motion.button
+          ref={backButtonRef}
+          onClick={onBack}
+          onKeyDown={handleBackKeyDown}
+          className="absolute top-6 left-6 md:top-8 md:left-8 z-20 group focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black focus:rounded-xl"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          tabIndex={0}
+          aria-label="Go back to previous page"
+          role="button"
         >
-          <ArrowLeft
-            className="w-5 h-5 text-white group-hover:text-white/80 transition-colors"
-            aria-hidden="true"
-          />
-          <span className="text-sm font-black text-white/80 group-hover:text-white transition-colors hidden sm:inline">
-            BACK
-          </span>
-        </div>
-      </motion.button>
+          <div
+            className="flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/20"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+          >
+            <ArrowLeft
+              className="w-5 h-5 text-white group-hover:text-white/80 transition-colors"
+              aria-hidden="true"
+            />
+            <span className="text-sm font-black text-white/80 group-hover:text-white transition-colors hidden sm:inline">
+              BACK
+            </span>
+          </div>
+        </motion.button>
 
-      <motion.div
-        className="absolute top-6 right-6 md:top-8 md:right-8 z-20"
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <MuteToggle />
-      </motion.div>
+        <motion.div
+          className="absolute top-6 right-6 md:top-8 md:right-8 z-20"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <MuteToggle />
+        </motion.div>
+      </nav>
 
       {/* Main content */}
       <div className="relative z-10 max-w-2xl w-full mx-auto px-4 sm:px-6 md:px-8">
@@ -733,6 +854,53 @@ export default function ConnectPage() {
                   className="mb-6 p-4 bg-red-500/10 border-2 border-red-500/50 rounded-xl text-red-400 text-sm text-center font-medium"
                 >
                   ⚠️ {localError}
+                  {localError.includes("Freighter is not installed") && (
+                    <a
+                      href="https://www.freighter.app/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ml-2 underline font-bold"
+                    >
+                      Install or open Freighter
+                    </a>
+                  )}
+                </motion.div>
+              )}
+              {/* ── Network mismatch prompt ───────────────────────────── */}
+              {networkMismatch && (
+                <motion.div
+                  data-testid="network-mismatch-prompt"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="mb-6 p-4 bg-yellow-500/10 border-2 border-yellow-500/50 rounded-xl text-yellow-300 text-sm font-medium"
+                >
+                  <p className="font-bold mb-1">⚠️ Wallet network mismatch</p>
+                  <p className="text-yellow-400/80 text-xs mb-3">
+                    Freighter is connected to{" "}
+                    <span className="font-bold text-yellow-300">
+                      {networkMismatch.actual}
+                    </span>
+                    , but this app is set to{" "}
+                    <span className="font-bold text-yellow-300">
+                      {networkMismatch.expected}
+                    </span>
+                    . Please switch your Freighter wallet to{" "}
+                    <span className="font-bold text-yellow-300">
+                      {networkMismatch.expected}
+                    </span>{" "}
+                    and try again.
+                  </p>
+                  <button
+                    data-testid="network-mismatch-retry"
+                    onClick={() => {
+                      setNetworkMismatch(null);
+                      handleFreighterConnect();
+                    }}
+                    className="w-full px-4 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500/50 text-yellow-200 font-bold text-xs hover:bg-yellow-500/30 transition-colors focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                  >
+                    I&apos;ve switched — try again
+                  </button>
                 </motion.div>
               )}
               {!isOnline && !localError && (
@@ -747,8 +915,8 @@ export default function ConnectPage() {
               )}
             </AnimatePresence>
 
-            <AnimatePresence mode="wait">
-              {showPreview && (
+            <AnimatePresence mode="wait" initial={false}>
+              {showPreview ? (
                 <motion.div
                   key="preview"
                   initial={{ opacity: 0, y: 10 }}
@@ -756,11 +924,15 @@ export default function ConnectPage() {
                   exit={{ opacity: 0, y: -10 }}
                   className="mb-6 p-6 bg-theme-primary/10 border-2 border-theme-primary/50 rounded-xl"
                 >
-                  <h3 className="text-sm font-bold text-white/80 mb-4 tracking-wide">ACCOUNT SUMMARY</h3>
+                  <h2 className="text-sm font-bold text-white/80 mb-4 tracking-wide">
+                    ACCOUNT SUMMARY
+                  </h2>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-white/60 text-sm">Network</span>
-                      <span className="text-white font-bold">{network === "testnet" ? "Testnet" : "Mainnet"}</span>
+                      <span className="text-white font-bold">
+                        {network === "testnet" ? "Testnet" : "Mainnet"}
+                      </span>
                     </div>
                     {previewLoading ? (
                       <>
@@ -796,73 +968,81 @@ export default function ConnectPage() {
                     <ChevronRight className="w-4 h-4" />
                   </motion.button>
                 </motion.div>
-              )}
-            </AnimatePresence>
-
-            {!showPreview && (
-              <motion.button
-                ref={connectButtonRef}
-                onClick={handleConnect}
-              onKeyDown={handleConnectKeyDown}
-              disabled={!isOnline || !walletAddress.trim() || isConnecting || !isValid}
-              className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
-              whileHover={{
-                scale: !isOnline || !walletAddress.trim() || isConnecting || !isValid ? 1 : 1.02,
-              }}
-              whileTap={{
-                scale: !isOnline || !walletAddress.trim() || isConnecting || !isValid ? 1 : 0.98,
-              }}
-              tabIndex={0}
-              aria-label={
-                !isOnline
-                  ? "Indexing unavailable offline"
-                  : isConnecting
-                    ? "Connecting wallet"
-                    : "Start wrapping process"
-              }
-              aria-disabled={!isOnline || !walletAddress.trim() || isConnecting || !isValid}
-              role="button"
-            >
-              <motion.div
-                className="absolute -inset-1 rounded-xl blur-lg"
-                style={{
-                  backgroundColor: "rgba(var(--color-theme-primary-rgb), 0.4)",
-                }}
-                animate={{
-                  opacity: [0.5, 0.8, 0.5],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                }}
-              />
-
-              <div
-                className="relative px-8 py-5 rounded-xl font-black text-lg sm:text-xl tracking-tight transition-all duration-200 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
-                style={{
-                  backgroundColor: isConnecting
-                    ? "rgba(var(--color-theme-primary-rgb), 0.5)"
-                    : "var(--color-theme-primary)",
-                  color: "#000000",
-                  cursor:
+              ) : (
+                <motion.button
+                  key="manual-connect"
+                  ref={connectButtonRef}
+                  onClick={handleConnect}
+                  onKeyDown={handleConnectKeyDown}
+                  disabled={
                     !isOnline || !walletAddress.trim() || isConnecting || !isValid
-                      ? "not-allowed"
-                      : "pointer",
-                }}
-              >
-                {!isOnline ? (
-                  "OFFLINE"
-                ) : isConnecting ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                    <span>CONNECTING...</span>
-                  </>
-                ) : (
-                  "START WRAPPING"
-                )}
-              </div>
-            </motion.button>
-            )}
+                  }
+                  className="w-full relative group disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none"
+                  whileHover={{
+                    scale:
+                      !isOnline || !walletAddress.trim() || isConnecting || !isValid
+                        ? 1
+                        : 1.02,
+                  }}
+                  whileTap={{
+                    scale:
+                      !isOnline || !walletAddress.trim() || isConnecting || !isValid
+                        ? 1
+                        : 0.98,
+                  }}
+                  tabIndex={0}
+                  aria-label={
+                    !isOnline
+                      ? "Indexing unavailable offline"
+                      : isConnecting
+                        ? "Connecting wallet"
+                        : "Start wrapping process"
+                  }
+                  aria-disabled={
+                    !isOnline || !walletAddress.trim() || isConnecting || !isValid
+                  }
+                  role="button"
+                >
+                  <motion.div
+                    className="absolute -inset-1 rounded-xl blur-lg"
+                    style={{
+                      backgroundColor: "rgba(var(--color-theme-primary-rgb), 0.4)",
+                    }}
+                    animate={{
+                      opacity: [0.5, 0.8, 0.5],
+                    }}
+                    transition={{
+                      duration: 2,
+                      repeat: Infinity,
+                    }}
+                  />
+
+                  <div
+                    className="relative px-8 py-5 rounded-xl font-black text-lg sm:text-xl tracking-tight transition-all duration-200 flex items-center justify-center gap-3 focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
+                    style={{
+                      backgroundColor: isConnecting
+                        ? "rgba(var(--color-theme-primary-rgb), 0.5)"
+                        : "var(--color-theme-primary)",
+                      color: "#000000",
+                      cursor:
+                        !isOnline || !walletAddress.trim() || isConnecting || !isValid
+                          ? "not-allowed"
+                          : "pointer",
+                    }}
+                  >
+                    {!isOnline ? (
+                      "OFFLINE"
+                    ) : isConnecting ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        <span>CONNECTING...</span>
+                      </>
+                    ) : (
+                      "START WRAPPING"
+                    )}
+                  </div>
+                </motion.button>
+              )}
             </AnimatePresence>
 
             {/* Wallet Connect Options */}
@@ -1032,6 +1212,6 @@ export default function ConnectPage() {
           </div>
         </motion.div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -19,6 +19,7 @@ jest.mock('@/app/utils/indexerEventEmitter', () => ({
       emitStepComplete: jest.fn(),
       emitIndexingComplete: jest.fn(),
       emitStepError: jest.fn(),
+      emitMetricsUpdate: jest.fn(),
       on: jest.fn(),
       off: jest.fn(),
       removeAllListeners: jest.fn(),
@@ -131,8 +132,8 @@ describe('IndexerService - indexAccount', () => {
       ];
 
       transactionsCallMock
-        .mockResolvedValueOnce({ records: mockTransactions })
-        .mockResolvedValueOnce({ records: [] });
+        .mockResolvedValueOnce({ records: mockTransactions, _links: { next: { href: 'abc' } } })
+        .mockResolvedValueOnce({ records: [], _links: { next: null } });
 
       const result = await indexAccount('GABCDEF123456789', 'mainnet', 'monthly');
 
@@ -141,7 +142,7 @@ describe('IndexerService - indexAccount', () => {
     }, 15000);
 
     it('should stop fetching when no more records', async () => {
-      transactionsCallMock.mockResolvedValue({ records: [] });
+      transactionsCallMock.mockResolvedValue({ records: [], _links: { next: null } });
 
       await indexAccount('GABCDEF123456789', 'mainnet', 'monthly');
 
@@ -247,7 +248,7 @@ describe('IndexerService - indexAccount', () => {
       (getCacheEntry as jest.Mock).mockResolvedValue(null);
       (isCacheValid as jest.Mock).mockReturnValue(false);
 
-      transactionsCallMock.mockResolvedValue({ records: [] });
+      transactionsCallMock.mockResolvedValue({ records: [], _links: { next: null } });
 
       await indexAccount('GABCDEF123456789', 'mainnet', 'monthly');
 
@@ -257,7 +258,7 @@ describe('IndexerService - indexAccount', () => {
 
   describe('Network Support', () => {
     it('should work with mainnet', async () => {
-      transactionsCallMock.mockResolvedValue({ records: [] });
+      transactionsCallMock.mockResolvedValue({ records: [], _links: { next: null } });
 
       const result = await indexAccount('GABCDEF123456789', 'mainnet', 'monthly');
 
@@ -266,7 +267,7 @@ describe('IndexerService - indexAccount', () => {
     }, 15000);
 
     it('should work with testnet', async () => {
-      transactionsCallMock.mockResolvedValue({ records: [] });
+      transactionsCallMock.mockResolvedValue({ records: [], _links: { next: null } });
 
       const result = await indexAccount('GABCDEF123456789', 'testnet', 'monthly');
 
@@ -280,7 +281,7 @@ describe('IndexerService - indexAccount', () => {
       const periods = ['weekly', 'monthly', 'yearly'] as const;
       
       for (const period of periods) {
-        transactionsCallMock.mockResolvedValue({ records: [] });
+        transactionsCallMock.mockResolvedValue({ records: [], _links: { next: null } });
         const result = await indexAccount('GABCDEF123456789', 'mainnet', period);
         expect(result).toBeDefined();
       }
@@ -310,7 +311,7 @@ describe('IndexerService - indexAccount', () => {
       };
 
       transactionsCallMock
-        .mockResolvedValueOnce({ records: [recentTx, oldTx] })
+        .mockResolvedValueOnce({ records: [recentTx, oldTx], _links: { next: { href: 'next' } } })
         .mockResolvedValueOnce({ records: [] });
 
       const result = await indexAccount('GABCDEF123456789', 'mainnet', 'weekly');
@@ -341,7 +342,7 @@ describe('IndexerService - indexAccount', () => {
       };
 
       transactionsCallMock
-        .mockResolvedValueOnce({ records: [recentTx, oldTx] })
+        .mockResolvedValueOnce({ records: [recentTx, oldTx], _links: { next: { href: 'next' } } })
         .mockResolvedValueOnce({ records: [] });
 
       const result = await indexAccount('GABCDEF123456789', 'mainnet', 'biweekly');
@@ -371,7 +372,7 @@ describe('IndexerService - indexAccount', () => {
       };
 
       transactionsCallMock
-        .mockResolvedValueOnce({ records: [recentTx, oldTx] })
+        .mockResolvedValueOnce({ records: [recentTx, oldTx], _links: { next: { href: 'next' } } })
         .mockResolvedValueOnce({ records: [] });
 
       const result = await indexAccount('GABCDEF123456789', 'mainnet', 'monthly');
@@ -393,7 +394,7 @@ describe('IndexerService - indexAccount', () => {
       };
 
       transactionsCallMock
-        .mockResolvedValueOnce({ records: [boundaryTx] })
+        .mockResolvedValueOnce({ records: [boundaryTx], _links: { next: { href: 'next' } } })
         .mockResolvedValueOnce({ records: [] });
 
       const result = await indexAccount('GABCDEF123456789', 'mainnet', 'weekly');

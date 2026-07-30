@@ -21,28 +21,45 @@ interface WrapResult {
     dapps: DappData[]; vibes: VibeSlice[]; persona: string; personaDescription: string;
 }
 
+interface CacheMeta {
+    fromCache: boolean;
+    cacheTimestamp?: number;
+    refreshingInBackground?: boolean;
+    offline?: boolean;
+}
+
 interface WrapStoreState {
     address: string | null; period: WrapPeriod; network: Network;
     status: WrapStatus; error: string | null; result: WrapResult | null;
+    cacheMeta: CacheMeta | null;
     setAddress: (address: string | null) => void;
     setPeriod: (period: WrapPeriod) => void;
     setNetwork: (network: Network) => void;
     setStatus: (status: WrapStatus) => void;
     setError: (error: string | null) => void;
     setResult: (result: WrapResult | null) => void;
+    setCacheMeta: (meta: CacheMeta | null) => void;
     reset: () => void;
 }
 
 const useWrapStore = create<WrapStoreState>((set) => ({
     address: null, period: 'yearly', network: 'mainnet' as Network,
-    status: 'idle', error: null, result: null,
+    status: 'idle', error: null, result: null, cacheMeta: null,
     setAddress: (address) => set({ address }),
     setPeriod: (period) => set({ period }),
-    setNetwork: (network) => set({ network }),
+    setNetwork: (network) =>
+        set({
+            network,
+            result: null,
+            cacheMeta: null,
+            status: 'idle',
+            error: null,
+        }),
     setStatus: (status) => set({ status }),
     setError: (error) => set({ error }),
     setResult: (result) => set({ result }),
-    reset: () => set({ address: null, period: 'yearly', network: 'mainnet' as Network, status: 'idle', error: null, result: null }),
+    setCacheMeta: (cacheMeta) => set({ cacheMeta }),
+    reset: () => set({ address: null, period: 'yearly', network: 'mainnet' as Network, status: 'idle', error: null, result: null, cacheMeta: null }),
 }));
 
 // ─── Test Helpers ───────────────────────────────────────────────────────────
@@ -115,6 +132,33 @@ section('setNetwork');
 
     useWrapStore.getState().setNetwork('mainnet');
     assert(useWrapStore.getState().network === 'mainnet', 'setNetwork back to mainnet');
+}
+
+// ─── setNetwork clears network-sensitive state ──────────────────────────────
+
+section('setNetwork clears result and cache metadata');
+{
+    useWrapStore.getState().setAddress('GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7');
+    useWrapStore.getState().setPeriod('weekly');
+    useWrapStore.getState().setNetwork('mainnet');
+    useWrapStore.getState().setStatus('ready');
+    useWrapStore.getState().setResult(mockResult);
+    useWrapStore.getState().setCacheMeta({ fromCache: true, cacheTimestamp: Date.now() });
+    useWrapStore.getState().setError('stale network error');
+
+    useWrapStore.getState().setNetwork('testnet');
+    const state = useWrapStore.getState();
+
+    assert(state.network === 'testnet', 'network switched to testnet');
+    assert(state.result === null, 'result cleared on network change');
+    assert(state.cacheMeta === null, 'cacheMeta cleared on network change');
+    assert(state.status === 'idle', 'status reset to idle on network change');
+    assert(state.error === null, 'error cleared on network change');
+    assert(state.period === 'weekly', 'period preference preserved on network change');
+    assert(
+        state.address === 'GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN7',
+        'address preference preserved on network change',
+    );
 }
 
 // ─── setStatus ──────────────────────────────────────────────────────────────

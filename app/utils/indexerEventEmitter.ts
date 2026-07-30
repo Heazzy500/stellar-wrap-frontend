@@ -96,10 +96,11 @@ export class IndexerEventEmitter extends EventEmitter {
 
   /**
    * Connect emitter to Zustand store (call once during app initialization)
-   * Safe to call multiple times - will only connect once
+   * Safe to call multiple times - will only connect once per session.
+   * Call {@link reset} between loading sessions so listeners are not duplicated.
    */
   connectToStore(): void {
-    // Prevent duplicate listener registration
+    // Prevent duplicate listener registration across repeated sessions
     if (this.isConnected) {
       return;
     }
@@ -127,7 +128,7 @@ export class IndexerEventEmitter extends EventEmitter {
       store.getState().setIndexingError(step, message, recoverable);
     });
 
-    this.on("indexing-complete", ({ _data }) => {
+    this.on("indexing-complete", () => {
       store.getState().clearPersistedIndexingState();
     });
 
@@ -139,6 +140,13 @@ export class IndexerEventEmitter extends EventEmitter {
   }
 
   /**
+   * Whether store listeners are currently attached.
+   */
+  isStoreConnected(): boolean {
+    return this.isConnected;
+  }
+
+  /**
    * Disconnect store listeners (cleanup)
    */
   disconnectFromStore(): void {
@@ -147,7 +155,8 @@ export class IndexerEventEmitter extends EventEmitter {
   }
 
   /**
-   * Remove all listeners and reset connection (cleanup)
+   * Remove all listeners and reset connection so the next session can
+   * safely call {@link connectToStore} without duplicate store updates.
    */
   reset(): void {
     this.removeAllListeners();

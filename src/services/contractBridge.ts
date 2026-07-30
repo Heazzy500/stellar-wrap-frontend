@@ -15,7 +15,8 @@ import {
   isPlaceholderContractAddress,
   PlaceholderContractAddressError,
 } from '../../config/contracts';
-import { buildContractArgs, type ContractStatsInput } from '../utils/contractArgsBuilder';
+import { buildMintWrapArgs, type MintWrapArgsInput, buildContractArgs, type ContractStatsInput } from '../utils/contractArgsBuilder';
+import { mapContractError } from '../../app/utils/contractErrors';
 
 export type TransactionState =
   | 'pending'
@@ -29,7 +30,10 @@ export type TransactionObserver = (state: TransactionState, data?: unknown) => v
 
 export interface MintWrapOptions {
   accountAddress: string;
-  stats: ContractStatsInput;
+  period: string;
+  archetype: string;
+  dataHash: Uint8Array;
+  signature: Uint8Array;
   network: Network;
   observer?: TransactionObserver;
 }
@@ -141,9 +145,28 @@ async function waitForConfirmation(
   let attempts = 0;
 
   while (attempts < MAX_CONFIRMATION_ATTEMPTS) {
-    if (Date.now() - startTime > TRANSACTION_TIMEOUT) {
+    const elapsedMs = Date.now() - startTime;
+
+    if (elapsedMs > TRANSACTION_TIMEOUT) {
+      // Emit a structured timeout payload so the UI can show actionable copy
+      // without resubmitting automatically.
+      emitState(observer, 'failed', {
+        code: 'CONFIRMATION_TIMEOUT',
+        transactionHash,
+        elapsedMs,
+        attempts,
+      });
       throw new Error('Transaction confirmation timeout');
     }
+
+    // Emit per-tick confirming progress (1-based attempt for display)
+    emitState(observer, 'submitted', {
+      confirming: true,
+      attempt: attempts + 1,
+      maxAttempts: MAX_CONFIRMATION_ATTEMPTS,
+      elapsedMs,
+      transactionHash,
+    });
 
     try {
       const response = await server.getTransaction(transactionHash);
@@ -164,6 +187,9 @@ async function waitForConfirmation(
       if (error instanceof Error && error.message.includes('Transaction failed')) {
         throw error;
       }
+      if (error instanceof Error && error.message.includes('confirmation timeout')) {
+        throw error;
+      }
       console.warn(`Polling attempt ${attempts + 1} failed:`, error);
     }
 
@@ -171,25 +197,48 @@ async function waitForConfirmation(
     await new Promise((resolve) => setTimeout(resolve, CONFIRMATION_POLL_INTERVAL));
   }
 
+  // Max attempts exhausted — treat the same as a timeout
+  emitState(observer, 'failed', {
+    code: 'CONFIRMATION_TIMEOUT',
+    transactionHash,
+    elapsedMs: Date.now() - startTime,
+    attempts,
+  });
   throw new Error(
     `Transaction not confirmed after ${MAX_CONFIRMATION_ATTEMPTS} attempts`,
   );
 }
 
+/**
+ * Map SDK / host errors to concise user-facing copy.
+ * Raw details stay available via `mapContractError(...).raw` for logs.
+ */
 function parseContractError(error: unknown): string {
+  const mapped = mapContractError(error);
+  // Always keep raw details in diagnostics/logs
+  if (mapped.code !== 'Unknown') {
+    console.warn('[contractBridge] contract error', {
+      code: mapped.code,
+      numericCode: mapped.numericCode,
+      raw: mapped.raw,
+    });
+    return mapped.userMessage;
+  }
+
   if (error instanceof Error) {
     const message = error.message;
     if (message.includes('insufficient_fee') || message.includes('fee')) {
       return 'Insufficient transaction fee. Please try again.';
-    }
-    if (message.includes('HostError') || message.includes('ContractError')) {
-      return `Contract error: ${message}`;
     }
     if (message.includes('User declined') || message.includes('rejected')) {
       return 'Transaction was rejected by user';
     }
     if (message.includes('network') || message.includes('timeout')) {
       return 'Network error. Please check your connection and try again.';
+    }
+    if (message.includes('HostError') || message.includes('ContractError') || message.includes('Error(Contract')) {
+      console.warn('[contractBridge] unmapped host error', mapped.raw);
+      return mapped.userMessage;
     }
     return message;
   }
@@ -200,7 +249,7 @@ function parseContractError(error: unknown): string {
 
 async function buildMintTransaction(
   accountAddress: string,
-  stats: ContractStatsInput,
+  mintArgsInput: Omit<MintWrapArgsInput, 'accountAddress'>,
   network: Network,
 ): Promise<{ transaction: Transaction; contract: Contract }> {
   let contractAddress: string;
@@ -236,7 +285,7 @@ async function buildMintTransaction(
     );
   }
 
-  const argsResult = buildContractArgs(stats, accountAddress);
+  const argsResult = buildMintWrapArgs({ accountAddress, ...mintArgsInput });
   if (!argsResult.success) {
     throw new Error(
       `Failed to build contract arguments: ${argsResult.errors.join(', ')}`,
@@ -521,14 +570,18 @@ async function submitTransaction(
 }
 
 export async function mintWrap(options: MintWrapOptions): Promise<MintResult> {
-  const { accountAddress, stats, network, observer } = options;
+  const { accountAddress, period, archetype, dataHash, signature, network, observer } = options;
 
   emitState(observer, 'pending');
 
   const startTime = Date.now();
 
   try {
-    const { transaction } = await buildMintTransaction(accountAddress, stats, network);
+    const { transaction } = await buildMintTransaction(
+    accountAddress,
+    { period, archetype, dataHash, signature },
+    network,
+  );
 
     const server = createSorobanServer(network);
 

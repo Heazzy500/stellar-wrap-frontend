@@ -343,3 +343,157 @@ export function logContractArgs(
     console.groupEnd();
   }
 }
+// ─── mint_wrap Argument Builder ─────────────────────────────────────────────
+
+/**
+ * Input required to build arguments for the `mint_wrap` contract call.
+ *
+ * IMPORTANT: `dataHash` and `signature` must be produced by a trusted
+ * backend/attestation service that hashes the verified stats payload and
+ * signs it server-side. This builder does NOT compute or fabricate them —
+ * without server-side signing, any client could mint an arbitrary
+ * archetype/period for itself. See PR notes for the outstanding backend
+ * work this depends on.
+ */
+export interface MintWrapArgsInput {
+  accountAddress: string;
+  period: string;
+  archetype: string;
+  dataHash: Uint8Array;
+  signature: Uint8Array;
+}
+
+/**
+ * Validates input before building mint_wrap ScVal args.
+ */
+export function validateMintWrapInput(input: MintWrapArgsInput): string[] {
+  const errors: string[] = [];
+
+  if (!input || typeof input !== "object") {
+    return ["Mint wrap input must be a non-null object"];
+  }
+
+  if (
+    typeof input.accountAddress !== "string" ||
+    input.accountAddress.trim().length === 0
+  ) {
+    errors.push("accountAddress must be a non-empty string");
+  }
+
+  if (typeof input.period !== "string" || input.period.trim().length === 0) {
+    errors.push(
+      'period must be a non-empty string (e.g. "weekly", "monthly", "yearly")',
+    );
+  }
+
+  if (
+    typeof input.archetype !== "string" ||
+    input.archetype.trim().length === 0
+  ) {
+    errors.push("archetype must be a non-empty string (the persona label)");
+  }
+
+  if (!(input.dataHash instanceof Uint8Array) || input.dataHash.length === 0) {
+    errors.push(
+      "dataHash must be a non-empty byte array produced by the backend signing service",
+    );
+  }
+
+  if (
+    !(input.signature instanceof Uint8Array) ||
+    input.signature.length === 0
+  ) {
+    errors.push(
+      "signature must be a non-empty byte array produced by the backend signing service",
+    );
+  }
+
+  return errors;
+}
+
+/**
+ * Builds ordered ScVal arguments for the `mint_wrap` contract function.
+ *
+ * Argument order (matches deployed contract signature):
+ *   0: user      → ScVal.scvAddress
+ *   1: period    → ScVal.scvString
+ *   2: archetype → ScVal.scvString
+ *   3: data_hash → ScVal.scvBytes
+ *   4: signature → ScVal.scvBytes
+ *
+ * @example
+ * ```ts
+ * const result = buildMintWrapArgs({
+ *   accountAddress: 'GABC...XYZ',
+ *   period: 'monthly',
+ *   archetype: 'The DeFi Patron',
+ *   dataHash: attestation.dataHash,
+ *   signature: attestation.signature,
+ * });
+ *
+ * if (result.success) {
+ *   contract.call('mint_wrap', ...result.data.args);
+ * }
+ * ```
+ */
+export function buildMintWrapArgs(input: MintWrapArgsInput): BuildArgsResult {
+  const validationErrors = validateMintWrapInput(input);
+  if (validationErrors.length > 0) {
+    return { success: false, errors: validationErrors };
+  }
+
+  const errors: string[] = [];
+  const args: xdr.ScVal[] = [];
+  const argDescriptions: string[] = [];
+
+  const userVal = unwrap(addressToScVal(input.accountAddress), "user", errors);
+  if (userVal) {
+    args.push(userVal);
+    argDescriptions.push(`user: ${input.accountAddress}`);
+  }
+
+  const periodVal = unwrap(toScVal(input.period, "string"), "period", errors);
+  if (periodVal) {
+    args.push(periodVal);
+    argDescriptions.push(`period: "${input.period}" (string)`);
+  }
+
+  const archetypeVal = unwrap(
+    toScVal(input.archetype, "string"),
+    "archetype",
+    errors,
+  );
+  if (archetypeVal) {
+    args.push(archetypeVal);
+    argDescriptions.push(`archetype: "${input.archetype}" (string)`);
+  }
+
+  const dataHashVal = unwrap(
+    toScVal(input.dataHash, "bytes"),
+    "data_hash",
+    errors,
+  );
+  if (dataHashVal) {
+    args.push(dataHashVal);
+    argDescriptions.push(`data_hash: <${input.dataHash.length} bytes>`);
+  }
+
+  const signatureVal = unwrap(
+    toScVal(input.signature, "bytes"),
+    "signature",
+    errors,
+  );
+  if (signatureVal) {
+    args.push(signatureVal);
+    argDescriptions.push(`signature: <${input.signature.length} bytes>`);
+  }
+
+  if (errors.length > 0) {
+    return { success: false, errors };
+  }
+
+  return {
+    success: true,
+    data: { args, argDescriptions },
+  };
+}
