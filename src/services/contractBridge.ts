@@ -145,9 +145,28 @@ async function waitForConfirmation(
   let attempts = 0;
 
   while (attempts < MAX_CONFIRMATION_ATTEMPTS) {
-    if (Date.now() - startTime > TRANSACTION_TIMEOUT) {
+    const elapsedMs = Date.now() - startTime;
+
+    if (elapsedMs > TRANSACTION_TIMEOUT) {
+      // Emit a structured timeout payload so the UI can show actionable copy
+      // without resubmitting automatically.
+      emitState(observer, 'failed', {
+        code: 'CONFIRMATION_TIMEOUT',
+        transactionHash,
+        elapsedMs,
+        attempts,
+      });
       throw new Error('Transaction confirmation timeout');
     }
+
+    // Emit per-tick confirming progress (1-based attempt for display)
+    emitState(observer, 'submitted', {
+      confirming: true,
+      attempt: attempts + 1,
+      maxAttempts: MAX_CONFIRMATION_ATTEMPTS,
+      elapsedMs,
+      transactionHash,
+    });
 
     try {
       const response = await server.getTransaction(transactionHash);
@@ -168,6 +187,9 @@ async function waitForConfirmation(
       if (error instanceof Error && error.message.includes('Transaction failed')) {
         throw error;
       }
+      if (error instanceof Error && error.message.includes('confirmation timeout')) {
+        throw error;
+      }
       console.warn(`Polling attempt ${attempts + 1} failed:`, error);
     }
 
@@ -175,6 +197,13 @@ async function waitForConfirmation(
     await new Promise((resolve) => setTimeout(resolve, CONFIRMATION_POLL_INTERVAL));
   }
 
+  // Max attempts exhausted — treat the same as a timeout
+  emitState(observer, 'failed', {
+    code: 'CONFIRMATION_TIMEOUT',
+    transactionHash,
+    elapsedMs: Date.now() - startTime,
+    attempts,
+  });
   throw new Error(
     `Transaction not confirmed after ${MAX_CONFIRMATION_ATTEMPTS} attempts`,
   );
