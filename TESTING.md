@@ -45,6 +45,16 @@ npm run test:watch
 npm run test:coverage
 ```
 
+## Type Checking
+
+Run the TypeScript compiler in `--noEmit` mode to catch type errors without emitting build output:
+
+```bash
+pnpm typecheck
+```
+
+This runs automatically in CI on every pull request.
+
 ## Test Infrastructure
 
 ### Framework
