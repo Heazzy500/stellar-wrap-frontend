@@ -27,6 +27,13 @@ import {
   parseSharePreviewParams,
   type SharePreviewState,
 } from "@/app/utils/sharePreviewParams";
+import { getStellarExpertAccountUrl } from "@/app/utils/stellarExpert";
+import { isZeroActivityResult } from "@/app/utils/zeroActivity";
+import { ZeroActivityEmptyState } from "@/app/components/ZeroActivityEmptyState";
+import {
+  useReducedMotion,
+  reducedMotionTransition,
+} from "@/app/hooks/useReducedMotion";
 
 const SocialIcons = {
   X: XIcon,
@@ -45,6 +52,7 @@ export default function SharePageClient() {
   const shareBtnRef = useRef<HTMLButtonElement | null>(null);
   const shareImageRef = useRef<HTMLDivElement>(null!);
   const { color } = useTheme();
+  const prefersReducedMotion = useReducedMotion();
   const { address: walletAddress, network, result } = useWrapStore();
 
   const urlPreview = useMemo(
@@ -72,12 +80,8 @@ export default function SharePageClient() {
   const topVibe = displayPreview.topVibe;
   const vibePercentage = displayPreview.vibePercentage;
 
-  const stellarExpertUrl =
-    !isPublicPreview && walletAddress
-      ? network === "testnet"
-        ? `https://stellar.expert/explorer/testnet/account/${walletAddress}`
-        : `https://stellar.expert/explorer/public/account/${walletAddress}`
-      : null;
+  const stellarExpertUrl = !isPublicPreview && walletAddress ? getStellarExpertAccountUrl(walletAddress, network) : null;
+  const showZeroActivity = isZeroActivityResult(result);
 
   const [themeColor] = useState<string>(() => {
     if (typeof window === "undefined") return themeColors.green.primary;
@@ -170,6 +174,25 @@ export default function SharePageClient() {
 
   return (
     <div className="relative w-full h-screen overflow-hidden">
+      {showZeroActivity ? (
+        <div className="relative z-20 flex h-full items-center justify-center">
+          <ProgressIndicator currentStep={6} totalSteps={6} showNext={false} />
+          <ZeroActivityEmptyState />
+          {stellarExpertUrl && (
+            <a
+              href={stellarExpertUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-30 flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/10 text-white/60 hover:text-white/90 hover:border-white/30 transition-all text-xs font-medium"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+            >
+              <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              View full history on Stellar.expert
+            </a>
+          )}
+        </div>
+      ) : (
+        <>
       <div
         ref={shareImageRef}
         className="absolute"
@@ -198,9 +221,9 @@ export default function SharePageClient() {
 
       <motion.div
         className="absolute top-6 right-6 md:top-8 md:right-8 z-30"
-        initial={{ opacity: 0, x: 20 }}
+        initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
-        transition={{ delay: 0.2 }}
+        transition={reducedMotionTransition(prefersReducedMotion, { delay: 0.2 })}
       >
         <MuteToggle />
       </motion.div>
@@ -212,9 +235,9 @@ export default function SharePageClient() {
           rel="noopener noreferrer"
           className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-30 flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/10 text-white/60 hover:text-white/90 hover:border-white/30 transition-all text-xs font-medium"
           style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
-          initial={{ opacity: 0, x: 20 }}
+          initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.4 }}
+          transition={reducedMotionTransition(prefersReducedMotion, { delay: 0.4 })}
         >
           <ExternalLink className="w-3.5 h-3.5" />
           View full history on Stellar.expert
@@ -227,10 +250,10 @@ export default function SharePageClient() {
             {shareOpen && (
               <motion.div
                 ref={shareMenuRef}
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 10, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                transition={{ duration: 0.2 }}
+                exit={prefersReducedMotion ? undefined : { opacity: 0, y: 10, scale: 0.95 }}
+                transition={reducedMotionTransition(prefersReducedMotion, { duration: 0.2 })}
                 className="absolute bottom-18 left-0 w-[200px] h-[350px] bg-[#060607] border border-[#232325] rounded-2xl shadow-2xl p-2 z-50 flex flex-col items-center justify-center gap-2"
                 style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.8)" }}
               >
@@ -306,13 +329,19 @@ export default function SharePageClient() {
           >
             <motion.div
               animate={{ rotate: shareOpen ? 50 : 0 }}
-              transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              transition={
+                prefersReducedMotion
+                  ? { duration: 0 }
+                  : { type: "spring", stiffness: 260, damping: 20 }
+              }
             >
               <Share2 className="h-5 w-5 sm:h-7 sm:w-7 cursor-pointer" aria-hidden="true" />
             </motion.div>
           </button>
         </div>
       </div>
+        </>
+      )}
     </div>
   );
 }

@@ -3,14 +3,22 @@
 import React, { JSX, useCallback, useEffect, useRef, useState } from "react";
 import { PersonaRarityChart } from "@/app/components/PersonaRarityChart";
 import { motion, useAnimation, AnimatePresence } from "framer-motion";
-import { Home, Share2, ChevronRight, X } from "lucide-react";
+import { Home, Share2, ChevronRight, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { readStreamableValue } from "ai/rsc";
 import { getArchetypeDescription } from "@/data/archetypeConfig";
+import {
+  useReducedMotion,
+  reducedMotionTransition,
+} from "@/app/hooks/useReducedMotion";
+import { isZeroActivityResult } from "@/app/utils/zeroActivity";
+import { ZeroActivityEmptyState } from "@/app/components/ZeroActivityEmptyState";
+import { getStellarExpertAccountUrl } from "@/app/utils/stellarExpert";
 
 // Removed theme system - using standard CSS variables from globals.css
-const useConfetti = (color?: string) => {
+const useConfetti = (color?: string, enabled = true) => {
   return async () => {
+    if (!enabled) return;
     // canvas-confetti (~40 KB) is loaded on demand — only when the card reveal
     // animation fires — so it never enters the initial landing-page bundle.
     const confetti = (await import("canvas-confetti")).default;
@@ -36,23 +44,36 @@ const useConfetti = (color?: string) => {
   };
 };
 
-type GlowingStarProps = { className?: string; delay?: number };
+type GlowingStarProps = {
+  className?: string;
+  delay?: number;
+  reducedMotion?: boolean;
+};
 const GlowingStar: React.FC<GlowingStarProps> = ({
   className = "",
   delay = 0,
+  reducedMotion = false,
 }) => (
   <motion.div
     initial={{ opacity: 0.2, scale: 0.8 }}
-    animate={{
-      opacity: [0.4, 1, 0.4],
-      scale: [0.8, 1.2, 0.8],
-      boxShadow: [
-        "0 0 5px var(--accent)",
-        "0 0 15px var(--accent-light)",
-        "0 0 5px var(--accent)",
-      ],
-    }}
-    transition={{ duration: 3, repeat: Infinity, delay }}
+    animate={
+      reducedMotion
+        ? { opacity: 0.7, scale: 1 }
+        : {
+            opacity: [0.4, 1, 0.4],
+            scale: [0.8, 1.2, 0.8],
+            boxShadow: [
+              "0 0 5px var(--accent)",
+              "0 0 15px var(--accent-light)",
+              "0 0 5px var(--accent)",
+            ],
+          }
+    }
+    transition={reducedMotionTransition(reducedMotion, {
+      duration: 3,
+      repeat: Infinity,
+      delay,
+    })}
     className={`absolute h-1.5 w-1.5 rounded-full ${className}`}
     style={{ backgroundColor: "var(--color-theme-primary)" }}
   />
@@ -127,6 +148,7 @@ const SocialIcons = {
 
 export default function ArchetypeReveal(): JSX.Element {
   const controls: ReturnType<typeof useAnimation> = useAnimation();
+  const prefersReducedMotion = useReducedMotion();
   const [isFlipped, setIsFlipped] = useState<boolean>(false);
   const [streamedDescription, setStreamedDescription] = useState<string>("");
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
@@ -141,7 +163,9 @@ export default function ArchetypeReveal(): JSX.Element {
   const tooltipRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
-  const { result } = useWrapStore();
+  const { result, address, network } = useWrapStore();
+  const stellarExpertUrl = getStellarExpertAccountUrl(address, network);
+  const showZeroActivity = isZeroActivityResult(result);
   const notificationStore = useNotificationStore();
   const [showNotifPrompt, setShowNotifPrompt] = useState<boolean>(true);
   const archetypeKey = result?.persona || "The Wizard";
@@ -256,7 +280,7 @@ export default function ArchetypeReveal(): JSX.Element {
     };
   }, [shareOpen, showTooltip]);
 
-  const triggerConfetti = useConfetti();
+  const triggerConfetti = useConfetti(undefined, !prefersReducedMotion);
 
   const runRevealAnimation = useCallback(async () => {
     setIsFlipped(false);
@@ -269,24 +293,31 @@ export default function ArchetypeReveal(): JSX.Element {
       y: 0,
       scale: 1,
       opacity: 1,
-      transition: { duration: 0.8, type: "spring" },
+      transition: prefersReducedMotion
+        ? { duration: 0 }
+        : { duration: 0.8, type: "spring" },
     });
 
     playSound(SOUND_NAMES.CARD_FLIP);
-    await controls.start({
-      x: [0, -4, 4, -4, 4, 0],
-      rotateZ: [0, -1, 1, -1, 1, 0],
-      transition: { duration: 0.4 },
-    });
+
+    if (!prefersReducedMotion) {
+      await controls.start({
+        x: [0, -4, 4, -4, 4, 0],
+        rotateZ: [0, -1, 1, -1, 1, 0],
+        transition: { duration: 0.4 },
+      });
+    }
 
     setIsFlipped(true);
     await triggerConfetti();
 
     await controls.start({
       rotateY: 180,
-      transition: { duration: 0.8, ease: "easeInOut" },
+      transition: prefersReducedMotion
+        ? { duration: 0 }
+        : { duration: 0.8, ease: "easeInOut" },
     });
-  }, [controls, playSound, triggerConfetti]);
+  }, [controls, playSound, prefersReducedMotion, triggerConfetti]);
 
   useEffect(() => {
     runRevealAnimation();
@@ -327,6 +358,30 @@ export default function ArchetypeReveal(): JSX.Element {
     setShareOpen(false);
   };
 
+  if (showZeroActivity) {
+    return (
+      <div
+        className="w-full bg-[#020202] md:min-h-screen flex items-center justify-center"
+        style={{ WebkitTapHighlightColor: "transparent", touchAction: "pan-y" }}
+      >
+        <ProgressIndicator currentStep={5} totalSteps={6} showNext={false} />
+        <ZeroActivityEmptyState />
+        {stellarExpertUrl && (
+          <a
+            href={stellarExpertUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-6 left-6 z-30 flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/10 text-white/60 hover:text-white/90 hover:border-white/30 transition-all text-xs font-medium"
+            style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+          >
+            <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+            View history on Stellar.expert
+          </a>
+        )}
+      </div>
+    );
+  }
+
   return (
     <>
       <div
@@ -349,7 +404,7 @@ export default function ArchetypeReveal(): JSX.Element {
               style={{ background: "var(--accent-dark)" }}
             />
 
-            {[...Array(20)].map((_, i) => (
+            {!prefersReducedMotion && [...Array(20)].map((_, i) => (
               <motion.div
                 key={i}
                 className="absolute left-1/2 top-1/2 rounded-full border"
@@ -459,10 +514,12 @@ export default function ArchetypeReveal(): JSX.Element {
             <GlowingStar
               className="-top-6 sm:-top-12 left-4 sm:left-10"
               delay={0.2}
+              reducedMotion={prefersReducedMotion}
             />
             <GlowingStar
               className="-top-6 sm:-top-12 right-4 sm:right-10"
               delay={0.5}
+              reducedMotion={prefersReducedMotion}
             />
 
             <motion.div
@@ -521,18 +578,22 @@ export default function ArchetypeReveal(): JSX.Element {
                 <GlowingStar
                   className="top-1/4 left-8 sm:left-16"
                   delay={0.1}
+                  reducedMotion={prefersReducedMotion}
                 />
                 <GlowingStar
                   className="bottom-1/4 left-12 sm:left-24"
                   delay={0.8}
+                  reducedMotion={prefersReducedMotion}
                 />
                 <GlowingStar
                   className="top-1/3 right-10 sm:right-20"
                   delay={0.4}
+                  reducedMotion={prefersReducedMotion}
                 />
                 <GlowingStar
                   className="bottom-1/3 right-8 sm:right-16"
                   delay={1.2}
+                  reducedMotion={prefersReducedMotion}
                 />
 
                 <div
@@ -760,6 +821,21 @@ export default function ArchetypeReveal(): JSX.Element {
             </div>
           </div>
 
+          {/* Transaction history explorer — hidden when address is missing */}
+          {stellarExpertUrl && (
+            <a
+              href={stellarExpertUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="absolute bottom-6 left-6 md:bottom-8 md:left-8 z-30 flex items-center gap-2 px-4 py-3 rounded-xl backdrop-blur-xl border border-white/10 text-white/60 hover:text-white/90 hover:border-white/30 transition-all text-xs font-medium"
+              style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
+              data-testid="persona-stellar-expert-link"
+            >
+              <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+              View history on Stellar.expert
+            </a>
+          )}
+
           {/* Skip/Next Button - Absolute positioned like share page */}
           <Link href="/share" aria-label="Go to share step">
             <motion.button
@@ -771,11 +847,13 @@ export default function ArchetypeReveal(): JSX.Element {
               }}
               className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-30 group"
               aria-label="Go to share step"
-              initial={{ opacity: 0, scale: 0.8 }}
+              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 1 }}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
+              transition={reducedMotionTransition(prefersReducedMotion, {
+                delay: 1,
+              })}
+              whileHover={prefersReducedMotion ? undefined : { scale: 1.1 }}
+              whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
               aria-label="Next step"
             >
               <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5">
