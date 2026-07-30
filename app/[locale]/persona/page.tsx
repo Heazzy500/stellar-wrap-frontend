@@ -14,6 +14,15 @@ import {
 import { isZeroActivityResult } from "@/app/utils/zeroActivity";
 import { ZeroActivityEmptyState } from "@/app/components/ZeroActivityEmptyState";
 import { getStellarExpertAccountUrl } from "@/app/utils/stellarExpert";
+import { useWrapStore } from "@/app/store/wrapStore";
+import { useNotificationStore } from "@/app/store/notificationStore";
+import { useSound } from "@/app/hooks/useSound";
+import { SOUND_NAMES } from "@/app/utils/soundManager";
+import { ProgressIndicator } from "@/app/components/ProgressIndicator";
+import { MuteToggle } from "@/app/components/MuteToggle";
+import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimeline";
+import { NotificationPrompt } from "@/app/components/NotificationPrompt";
+>>>>>>> pr-325
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string, enabled = true) => {
@@ -189,6 +198,8 @@ export default function ArchetypeReveal(): JSX.Element {
 
   // Generate persona description on mount if not already streamed
   useEffect(() => {
+    let cancelled = false;
+
     const generatePersona = async () => {
       if (streamedDescription || !result) return;
 
@@ -207,12 +218,14 @@ export default function ArchetypeReveal(): JSX.Element {
 
         let fullText = "";
         for await (const chunk of readStreamableValue(response)) {
+          if (cancelled) break;
           if (chunk) {
             fullText += chunk;
             setStreamedDescription(fullText);
           }
         }
       } catch (error) {
+        if (cancelled) return;
         console.error("Failed to generate persona:", error);
         // Fall back to existing description
         setStreamedDescription(result?.personaDescription || data.description);
@@ -220,6 +233,10 @@ export default function ArchetypeReveal(): JSX.Element {
     };
 
     generatePersona();
+
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [result]);
 

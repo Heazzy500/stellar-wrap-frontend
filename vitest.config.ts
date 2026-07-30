@@ -8,8 +8,9 @@ export default defineConfig({
     include: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
   },
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./"),
-    },
+    alias: [
+      { find: "@/data", replacement: path.resolve(__dirname, "./src/data") },
+      { find: "@", replacement: path.resolve(__dirname, "./") },
+    ],
   },
 });
