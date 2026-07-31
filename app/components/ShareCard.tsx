@@ -2,12 +2,19 @@ import { motion } from "motion/react";
 import { Share2, Download, Twitter, Loader2, Sparkles, AlertCircle, Film, ImagePlay, ExternalLink } from "lucide-react";
 import { useState, RefObject, useEffect } from "react";
 import { downloadShareImage } from "../utils/imageExport";
+import {
+  downloadAnimatedGif,
+  downloadAnimatedVideo,
+  ShareAnimationData,
+  AnimationExportProgress,
+} from "../utils/animationExport";
 import { useWrapStore } from "@/app/store/wrapStore";
 import { useTransactionStore } from "@/app/store/transactionStore";
 import { toast } from "sonner";
 import { useSound } from "../hooks/useSound";
 import { SOUND_NAMES } from "../utils/soundManager";
 import { useOnlineStatus } from "../hooks/useOnlineStatus";
+import { useTheme } from "@/app/context/ThemeContext";
 import { mintWrap } from "../utils/walletKit";
 interface ShareCardProps {
   username: string;
@@ -35,8 +42,10 @@ export function ShareCard({
   const [isDownloading, setIsDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
   const [usedMainThreadFallback, setUsedMainThreadFallback] = useState(false);
-  const { address, network } = useWrapStore();
-const { address, network, period } = useWrapStore();
+  const [exportLabel, setExportLabel] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState<AnimationExportProgress | null>(null);
+  const { address, network, period } = useWrapStore();
+  const { mode } = useTheme();
   const { playSound } = useSound();
   const isOnline = useOnlineStatus();
   
@@ -315,129 +324,13 @@ const { address, network, period } = useWrapStore();
                 }}
               />
 
-              <div
-                className="relative aspect-square rounded-[40px] overflow-hidden border backdrop-blur-xl"
-                style={{
-                  borderColor: mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-                  background: mode === 'dark' 
-                    ? `linear-gradient(to bottom right, rgba(var(--color-theme-primary-rgb), 0.2), rgba(0, 0, 0, 0.8))`
-                    : `linear-gradient(to bottom right, rgba(var(--color-theme-primary-rgb), 0.1), rgba(255, 255, 255, 0.95))`,
-                }}
-                style={{ perspective: 2000 }}
-              >
-                {/* Card header */}
-                <div className="p-8">
-                  <div className="flex items-center gap-3 mb-6">
-                    <motion.div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: "var(--color-theme-primary)" }}
-                      animate={{
-                        opacity: [0.5, 1, 0.5],
-                      }}
-                      transition={{
-                        duration: 2,
-                        repeat: Infinity,
-                      }}
-                    />
-                    <span className="text-sm font-black tracking-[0.2em]" style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }}>
-                      STELLAR WRAPPED 2026
-                    </span>
-                  </div>
-                  <h2 className="text-3xl font-black mb-2" style={{ color: mode === 'dark' ? '#ffffff' : '#1a1a1a' }}>
-                    @{username}
-                  </h2>
-                </div>
-
-                {/* Stats */}
-                <div className="px-8 space-y-4">
-                  <motion.div
-                    className="backdrop-blur-sm rounded-2xl p-6 border"
-                    style={{ 
-                      backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
-                    }}
-                    initial={{ x: -50, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                  >
-                    <p className="text-sm font-bold mb-2" style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }}>
-                      Total Transactions
-                    </p>
-                    <p className="text-6xl font-black" style={{ color: mode === 'dark' ? '#ffffff' : '#1a1a1a' }}>
-                      {transactions}
-                    </p>
-                  </motion.div>
-
-                  <motion.div
-                    className="backdrop-blur-sm rounded-2xl p-6 border"
-                    style={{ 
-                      backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
-                    }}
-                    initial={{ x: -50, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.6 }}
-                  >
-                    <p className="text-sm font-bold mb-2" style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }}>
-                      Persona
-                    </p>
-                    <p
-                      className="text-3xl font-black"
-                      style={{
-                        background: mode === 'dark'
-                          ? `linear-gradient(to right, #ffffff, var(--color-theme-primary))`
-                          : `linear-gradient(to right, #1a1a1a, var(--color-theme-primary))`,
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                      }}
-                    >
-                      {persona}
-                    </p>
-                  </motion.div>
-
-                  <motion.div
-                    className="backdrop-blur-sm rounded-2xl p-6 border"
-                    style={{ 
-                      backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'
-                    }}
-                    initial={{ x: -50, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    transition={{ delay: 0.7 }}
-                  >
-                    <p className="text-sm font-bold mb-2" style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }}>
-                      Top Vibe
-                    </p>
-                    <p className="text-2xl font-black" style={{ color: mode === 'dark' ? '#ffffff' : '#1a1a1a' }}>
-                      {vibePercentage}% {topVibe}
-                    </p>
-                  </motion.div>
-                </div>
-
-                {/* Footer */}
-                <div className="absolute bottom-8 left-8 right-8 flex items-center justify-between">
-                  <div className="text-xs font-black" style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)' }}>
-                    stellar.org/wrapped
-                  </div>
-                  <motion.div
-                    className="w-10 h-10 rounded-xl backdrop-blur-sm flex items-center justify-center border"
-                    style={{ 
-                      backgroundColor: mode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
-                      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'
-                    }}
-                    animate={{
-                      opacity: [0.5, 0.8, 0.5],
-                    }}
-                    transition={{
-                      duration: 3,
-                      repeat: Infinity,
-                    }}
-                  />
-
                   <div
-                    className="relative w-full aspect-square rounded-[40px] overflow-hidden border border-white/20 backdrop-blur-xl"
+                    className="relative aspect-square rounded-[40px] overflow-hidden border backdrop-blur-xl"
                     style={{
-                      background: `linear-gradient(to bottom right, rgba(var(--color-theme-primary-rgb), 0.2), rgba(0, 0, 0, 0.8))`,
+                      borderColor: mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                      background: mode === 'dark' 
+                        ? `linear-gradient(to bottom right, rgba(var(--color-theme-primary-rgb), 0.2), rgba(0, 0, 0, 0.8))`
+                        : `linear-gradient(to bottom right, rgba(var(--color-theme-primary-rgb), 0.1), rgba(255, 255, 255, 0.95))`,
                     }}
                   >
                     {/* Card header */}
@@ -546,8 +439,6 @@ const { address, network, period } = useWrapStore();
                     </div>
                   </div>
                 </div>
-              </motion.div>
-            </div>
 
           {/* Polling progress bar — shown while awaiting confirmation */}
           {confirmingAttempt !== null && !confirmingTimedOut && (
@@ -633,6 +524,11 @@ const { address, network, period } = useWrapStore();
               }}
             >
               {isMinting ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : mintFailed ? (
+                <AlertCircle className="w-6 h-6 text-red-500" />
+              ) : (
+                <Sparkles className="w-6 h-6" />
               )}
               <span className={`text-lg sm:text-2xl font-black tracking-tight ${mintFailed ? "text-red-100" : ""} truncate`}>
                 {getMintButtonText()}
@@ -662,21 +558,21 @@ const { address, network, period } = useWrapStore();
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5 }}
           >
+            <h3 className="text-7xl font-black mb-1 tracking-tight leading-none" style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.8)' }}>
+              SHARE
+            </h3>
+            <h3
+              className="text-8xl font-black mb-6 tracking-tight leading-none"
+              style={{
+                background: mode === 'dark'
+                  ? `linear-gradient(to right, #ffffff, var(--color-theme-primary))`
+                  : `linear-gradient(to right, #1a1a1a, var(--color-theme-primary))`,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+              }}
             >
-              <span className="block text-7xl text-white/90 mb-1">
-                SHARE
-              </span>
-              <span
-                className="block text-8xl mb-6"
-                style={{
-                  background: `linear-gradient(to right, #ffffff, var(--color-theme-primary))`,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                }}
-              >
-                YOUR WRAP
-              </span>
-            </h1>
+              YOUR WRAP
+            </h3>
 
             {/* Format Toggle */}
             <motion.div

@@ -10,4 +10,4 @@ const nextConfig: NextConfig = {
   // Keep any existing configuration options you already have here
 };
 
-export default withBundleAnalyzer(withNextIntl(nextConfig));
+export default withNextIntl(withBundleAnalyzer(nextConfig));
