@@ -14,6 +14,7 @@ import {
   PersistedIndexingState,
   IndexingMetrics,
 } from "@/app/types/indexing";
+import { horizonIndexer } from "@/src/services/horizonIndexer";
 
 const PERSISTENCE_KEY = "stellar-wrap-indexing-state";
 const PERSISTENCE_TIMEOUT = 5 * 60 * 1000;
@@ -226,6 +227,10 @@ export const useWrapStore = create<WrapStoreState>()(
         // Drop previous network's result/cache so stale wrap data cannot leak across networks.
         // Keep intentional preferences (period, address).
         resetCache();
+        // Clear Horizon response cache to prevent stale network data
+        horizonIndexer.clearCache();
+        // Cancel any in-flight indexing operation
+        get().cancelIndexing();
         set({
           network,
           ...syncContractState(network),
