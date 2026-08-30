@@ -3,7 +3,12 @@
  * Events are only tracked if NEXT_PUBLIC_PLAUSIBLE_DOMAIN is set
  */
 
-export type PlausibleEventName = 'wrap_started' | 'wrap_completed' | 'share_clicked';
+export type PlausibleEventName =
+  | 'wrap_started'
+  | 'wrap_completed'
+  | 'share_clicked'
+  | 'share_completed'
+  | 'share_cancelled';
 
 interface PlausibleWindow extends Window {
   plausible?: (eventName: string, options?: Record<string, any>) => void;

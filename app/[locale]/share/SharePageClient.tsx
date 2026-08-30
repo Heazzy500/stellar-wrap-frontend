@@ -54,6 +54,7 @@ export default function SharePageClient() {
   const { color } = useTheme();
   const prefersReducedMotion = useReducedMotion();
   const { address: walletAddress, network, result } = useWrapStore();
+  const { isSupported: canNativeShare, share: nativeShare } = useNativeShare();
 
   const urlPreview = useMemo(
     () => parseSharePreviewParams(searchParams),
@@ -125,6 +126,42 @@ export default function SharePageClient() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
+  };
+
+  const shareTitle = "Stellar Wrapped 2026";
+  const shareText = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
+
+  /**
+   * Primary share button. Prefers the native share sheet when the browser
+   * supports it (mobile), and falls back to the social menu otherwise.
+   */
+  const handlePrimaryShare = async () => {
+    if (!canNativeShare) {
+      setShareOpen((open) => !open);
+      return;
+    }
+
+    trackEvent("share_clicked", { platform: "native" });
+
+    const outcome = await nativeShare({
+      title: shareTitle,
+      text: shareText,
+      url: window.location.href,
+    });
+
+    if (outcome === "shared") {
+      trackEvent("share_completed", { platform: "native" });
+      return;
+    }
+
+    if (outcome === "cancelled") {
+      // User dismissed the share sheet — expected, so no error surfaces.
+      trackEvent("share_cancelled", { platform: "native" });
+      return;
+    }
+
+    // Unsupported payload or a genuine failure: fall back to the social menu.
+    setShareOpen(true);
   };
 
   const handleShare = (platform: string) => {

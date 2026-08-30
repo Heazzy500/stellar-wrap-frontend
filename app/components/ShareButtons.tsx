@@ -3,6 +3,8 @@
 import { motion } from 'motion/react';
 import { Share2, X, Link2, Check } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { useNativeShare } from '../hooks/useNativeShare';
+import { trackEvent } from '../utils/plausible';
 
 interface ShareButtonsProps {
   title: string;
@@ -102,7 +104,7 @@ export function ShareButtons({
   const toggleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      setIsOpen(!isOpen);
+      void handlePrimaryShare();
     }
     if (e.key === "Escape" && isOpen) {
       setIsOpen(false);
@@ -121,6 +123,24 @@ export function ShareButtons({
         // Silently ignore share cancellation or errors from native share
       }
     }
+
+    trackEvent('share_clicked', { platform: 'native' });
+
+    const outcome = await nativeShare({ title, text, url: shareUrl });
+
+    if (outcome === 'shared') {
+      trackEvent('share_completed', { platform: 'native' });
+      return;
+    }
+
+    if (outcome === 'cancelled') {
+      // User dismissed the share sheet — expected, so no error surfaces.
+      trackEvent('share_cancelled', { platform: 'native' });
+      return;
+    }
+
+    // Unsupported payload or a genuine failure: fall back to the social menu.
+    setIsOpen(true);
   };
 
   return (
@@ -304,7 +324,7 @@ export function ShareButtons({
 
         {/* Main share button */}
         <motion.button
-          onClick={() => setIsOpen(!isOpen)}
+          onClick={handlePrimaryShare}
           onKeyDown={toggleKeyDown}
           className="w-14 h-14 sm:w-16 sm:h-16 rounded-full flex items-center justify-center backdrop-blur-xl border group relative overflow-hidden"
           style={{
@@ -313,7 +333,9 @@ export function ShareButtons({
           }}
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          aria-expanded={isOpen}
+          aria-label={canNativeShare ? 'Share' : 'Share options'}
+          aria-expanded={canNativeShare ? undefined : isOpen}
+          aria-haspopup={canNativeShare ? undefined : 'menu'}
         >
           <motion.div
             className="absolute inset-0  from-transparent via-white/10 to-transparent"
