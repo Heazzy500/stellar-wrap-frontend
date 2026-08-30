@@ -43,5 +43,10 @@ export default defineConfig({
         deviceScaleFactor: 1,
       },
     },
+    {
+      name: "a11y-chromium",
+      testMatch: /a11y\/.*\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"], channel: "chrome" },
+    },
   ],
 });

@@ -47,11 +47,6 @@ export default function ConnectPage() {
 
   const [isConnecting, setIsConnecting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [lastUsedAddress, setLastUsedAddress] = useState<string | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewBalance, setPreviewBalance] = useState<string | null>(null);
-  const [previewTxCount, setPreviewTxCount] = useState<number | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
   /**
    * When set, the user's Freighter wallet is on a different network than the
    * app expects. The object holds both sides so the UI can show an actionable

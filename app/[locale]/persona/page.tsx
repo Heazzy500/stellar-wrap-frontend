@@ -6,7 +6,7 @@ import { motion, useAnimation, AnimatePresence } from "framer-motion";
 import { Home, Share2, ChevronRight, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { readStreamableValue } from "ai/rsc";
-import { getArchetypeDescription } from "@/data/archetypeConfig";
+import { getArchetypeDescription } from "@/src/data/archetypeConfig";
 import {
   useReducedMotion,
   reducedMotionTransition,
@@ -824,6 +824,7 @@ export default function ArchetypeReveal(): JSX.Element {
                 onKeyDown={toggleShareKeyDown}
                 className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
                 aria-expanded={shareOpen}
+                aria-label="Share this wrap"
               >
                 <motion.div
                   animate={{ rotate: shareOpen ? 50 : 0 }}
@@ -871,7 +872,6 @@ export default function ArchetypeReveal(): JSX.Element {
               })}
               whileHover={prefersReducedMotion ? undefined : { scale: 1.1 }}
               whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
-              aria-label="Next step"
             >
               <div className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5">
                 <ChevronRight
@@ -882,6 +882,7 @@ export default function ArchetypeReveal(): JSX.Element {
             </motion.button>
           </Link>
         </div>
+      </main>
       </div>
     </>
   );

@@ -5,20 +5,22 @@ import { useCallback, useEffect, useMemo } from "react";
 import { Home, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { ProgressIndicator } from "../components/ProgressIndicator";
-import { StepProgressDisplay } from "../components/StepProgressDisplay";
-import { CacheStatusBadge } from "../components/CacheStatusBadge";
-import { MuteToggle } from "../components/MuteToggle";
-import { ProgressRecoveryBanner } from "../components/ProgressRecoveryBanner";
-import { useWrapStore, type WrapResult } from "../store/wrapStore";
+import { ProgressIndicator } from "../../components/ProgressIndicator";
+import { StepProgressDisplay } from "../../components/StepProgressDisplay";
+import { CacheStatusBadge } from "../../components/CacheStatusBadge";
+import { MuteToggle } from "../../components/MuteToggle";
+import { ProgressRecoveryBanner } from "../../components/ProgressRecoveryBanner";
+import { useWrapStore, type WrapResult } from "../../store/wrapStore";
 
-import { useSound } from "../hooks/useSound";
-import { useReducedMotion, reducedMotionTransition } from "../hooks/useReducedMotion";
-import { SOUND_NAMES } from "../utils/soundManager";
-import { indexAccount } from "../services/indexerService";
-import { IndexerEventEmitter } from "../utils/indexerEventEmitter";
-import { isZeroActivityResult } from "../utils/zeroActivity";
-import { ZeroActivityEmptyState } from "../components/ZeroActivityEmptyState";
+import { useSound } from "../../hooks/useSound";
+import { useReducedMotion, reducedMotionTransition } from "../../hooks/useReducedMotion";
+import { SOUND_NAMES } from "../../utils/soundManager";
+import { indexAccount } from "../../services/indexerService";
+import { IndexerEventEmitter } from "../../utils/indexerEventEmitter";
+import { isZeroActivityResult } from "../../utils/zeroActivity";
+import { beginIndexingAbortScope, abortIndexingRequests, clearIndexingAbortScope } from "../../utils/indexingAbort";
+import { trackEvent } from "../../utils/plausible";
+import { ZeroActivityEmptyState } from "../../components/ZeroActivityEmptyState";
 
 // Sensitive logs: use indexerDebug — never log wallet addresses in production
 // (see docs/sensitive-logging.md)
@@ -298,7 +300,6 @@ export default function LoadingScreen() {
         transition={reducedMotionTransition(prefersReducedMotion, { delay: 0.2 })}
         whileHover={prefersReducedMotion ? undefined : { scale: 1.05 }}
         whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
-        aria-label="Go home"
       >
         <div
           className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-xl backdrop-blur-xl border border-white/20"
@@ -343,7 +344,6 @@ export default function LoadingScreen() {
         transition={reducedMotionTransition(prefersReducedMotion, { delay: 1 })}
         whileHover={prefersReducedMotion ? undefined : { scale: 1.1 }}
         whileTap={prefersReducedMotion ? undefined : { scale: 0.95 }}
-        aria-label="Skip"
       >
         <div className="flex flex-col items-center gap-2">
           <div className="relative">
