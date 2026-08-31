@@ -1,6 +1,6 @@
 @import "tailwindcss";
-
 :root {
+  color-scheme: dark;
   /* Dark mode (default) */
   --background: #191414;
   --foreground: #ededed;
@@ -17,6 +17,7 @@
 
 /* Light mode */
 :root.light {
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #1a1a1a;
   --color-theme-background: #f5f5f5;
@@ -25,6 +26,7 @@
 /* Utility class for theme background */
 .bg-theme-background {
   background-color: var(--color-theme-background);
+  transition: background-color 200ms ease, color 200ms ease;
 }
 
 body {
@@ -34,6 +36,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 200ms ease, color 200ms ease;
+}
+
+::selection {
+  background-color: var(--color-theme-primary);
+  color: #ffffff;
 }
 
 *:focus-visible {
