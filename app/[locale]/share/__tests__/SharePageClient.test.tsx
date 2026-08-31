@@ -28,24 +28,22 @@ jest.mock('../context/ThemeContext', () => ({
   },
 }));
 
-jest.mock('../store/wrapStore', () => {
-  let mockPeriod: string = 'yearly';
-  return {
-    useWrapStore: () => ({
-      address: 'test-address',
-      network: 'mainnet',
-      period: mockPeriod,
-      result: {
-        username: 'testuser',
-        totalTransactions: 100,
-        persona: 'Explorer',
-        vibes: [{ label: 'Curious', percentage: 85 }],
-      },
-    }),
-    __setMockPeriod: (p: string) => {
-      mockPeriod = p;
+let mockPeriod = 'yearly';
+jest.mock('../store/wrapStore', () => ({
+  useWrapStore: () => ({
+    address: 'test-address',
+    network: 'mainnet',
+    period: mockPeriod,
+    result: {
+      username: 'testuser',
+      totalTransactions: 100,
+      persona: 'Explorer',
+      vibes: [{ label: 'Curious', percentage: 85 }],
     },
-  };
+  }),
+  __setMockPeriod: (p: string) => {
+    mockPeriod = p;
+  },
 }));
 
 jest.mock('../../utils/plausible', () => ({

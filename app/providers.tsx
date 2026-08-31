@@ -2,6 +2,10 @@
 
 import { ThemeProvider } from "./context/ThemeContext";
 import { useEffect } from "react";
+import { ServiceWorkerManager } from "./components/ServiceWorkerManager";
+import { OfflineWrapHydrator } from "./components/OfflineWrapHydrator";
+import { OfflineBanner } from "./components/OfflineBanner";
+import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -10,6 +14,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
     // landing-page bundle.  They are only loaded here, client-side, after
     // the user's first interaction with the app.
     if (typeof window !== "undefined") {
+      void import("./utils/walletKit").then(({ initWalletKit }) => {
         initWalletKit();
       });
     }

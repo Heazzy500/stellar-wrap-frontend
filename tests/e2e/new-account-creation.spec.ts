@@ -480,5 +480,27 @@ test.describe("New Account Creation / Onboarding User Journey", () => {
       await page.keyboard.press("Escape");
       await expect(page).toHaveURL(/\/(en)?(\/)?$/);
     });
+
+    test("Switching locale changes copy on /connect route across en, es, and fr", async ({ page }) => {
+      await setupCustomHorizonMocks(page);
+
+      // English
+      await page.goto("/en/connect");
+      await expect(page.getByRole("heading", { name: /CONNECT WALLET/i })).toBeVisible();
+      await expect(page.getByText("STELLAR ADDRESS")).toBeVisible();
+      await expect(page.getByRole("button", { name: /Connect with Freighter wallet/i })).toBeVisible();
+
+      // Spanish
+      await page.goto("/es/connect");
+      await expect(page.getByRole("heading", { name: /CONECTAR BILLETERA/i })).toBeVisible();
+      await expect(page.getByText("DIRECCIÓN STELLAR")).toBeVisible();
+      await expect(page.getByRole("button", { name: /Conectar con la billetera Freighter/i })).toBeVisible();
+
+      // French
+      await page.goto("/fr/connect");
+      await expect(page.getByRole("heading", { name: /CONNECTER LE PORTEFEUILLE/i })).toBeVisible();
+      await expect(page.getByText("ADRESSE STELLAR")).toBeVisible();
+      await expect(page.getByRole("button", { name: /Se connecter avec le portefeuille Freighter/i })).toBeVisible();
+    });
   });
 });
