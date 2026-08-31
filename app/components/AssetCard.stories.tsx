@@ -43,7 +43,7 @@ const meta: Meta<typeof AssetCard> = {
 };
 
 export default meta;
-type Story = StoryObj<typeof AssetCard>;
+type Story = StoryObj<{ typeof AssetCard> ;
 
 export const Primary: Story = {};
 
@@ -86,7 +86,7 @@ export const LongIssuer: Story = {
   args: {
     asset: {
       code: "SRT",
-      issuer: "GAAAAABBBBCCCCCDDDDEEEEEFFFFGGGHHHIIIIJJJJ",
+      issuer: "GAAAABBBBCCCCCDDDEEEEFFFGGGGHHIIIIJ",
       name: "Super Long Token Name That Should Truncate Gracefully",
       domain: "example.com",
       isNative: false,
@@ -106,8 +106,8 @@ export const Interactive: Story = {
   render: (args) => (
     <div className="w-full max-w-sm space-y-4">
       <AssetCard {...args} />
-      <AssetCard {...args} asset={{ ...args.asset, code: "ETH", name: "Ethereum" }} />
-      <AssetCard {...args} asset={{ ...args.asset, code: "XLM", name: "Stellar" }} />
+      <AssetCard {...args} asset={ ...args.asset, code: "ETH", name: "Ethereum" }} />
+      <AssetCard {...args} asset={ ...args.asset, code: "XLM", name: "Stellar" }} />
     </div>
   ),
 };
