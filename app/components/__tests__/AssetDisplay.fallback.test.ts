@@ -43,7 +43,7 @@ function shouldShowFallback(logo: string | undefined, imgError: boolean): boolea
 }
 
 // --------------------------------------------------------------------------
-// SIJE_COFFIGS mirror -- logo sizes must stay constant regardless of state
+// SIZE_CONFIGS mirror -- logo sizes must stay constant regardless of state
 // --------------------------------------------------------------------------
 
 const SIZE_CONFIGS = {
@@ -211,12 +211,12 @@ describe("InitialsBadge font-size calculation", () => {
 });
 
 // --------------------------------------------------------------------------
-// A,ny - mirrors the labels/contrast logic used by AssetIconSlot
+// A11y - mirrors the labels/contrast logic used by AssetIconSlot
 // --------------------------------------------------------------------------
 
 /** Accessible label for the fallback badge (used for role="img" aria-label). */
 function getAssetBadgeA11yLabel(code: string, name?: string): string {
-  const cleanCode = code.toUpperCase();
+  const cleanCode = code.trim().toUpperCase();
   if (name && name.trim().length > 0) {
     return `${name.trim()} (${cleanCode})`;
   }
@@ -289,6 +289,11 @@ describe("getAssetBadgeA11yLabel", () => {
 
   it("uppercases the code", () => {
     expect(getAssetBadgeA11yLabel("usdc")).toBe("USDC");
+  });
+
+  it("trims whitespace from code", () => {
+    expect(getAssetBadgeA11yLabel("  xlm  ")).toBe("XLM");
+    expect(getAssetBadgeA11yLabel("  eth  ", "Ethereum")).toBe("Ethereum (ETH)");
   });
 });
 
