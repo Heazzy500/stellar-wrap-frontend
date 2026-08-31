@@ -37,8 +37,10 @@ class AssetCacheService {
     try {
       const stored = localStorage.getItem(this.STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored);
-        this.memoryCache = this.filterValidEntries(parsed);
+        const parsed: unknown = JSON.parse(stored);
+        if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+          this.memoryCache = this.filterValidEntries(parsed as AssetCache);
+        }
       }
     } catch (error) {
       console.error("Failed to initialize asset cache from storage:", error);
@@ -52,9 +54,9 @@ class AssetCacheService {
     try {
       const stored = localStorage.getItem(this.ASSET_LIST_STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored);
+        const parsed: unknown = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          this.assetList = parsed.filter((item): boolean => typeof item === "string");
+          this.assetList = parsed.filter((item: unknown): item is string => typeof item === "string");
         }
       }
     } catch (error) {
