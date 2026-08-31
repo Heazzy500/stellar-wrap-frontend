@@ -445,6 +445,13 @@ const meta = {
   component: AssetCard,
   parameters: {
     layout: "centered",
+    viewport: {
+      viewports: {
+        mobile: { name: "Mobile", styles: { width: "375px", height: "667px" } },
+        tablet: { name: "Tablet", styles: { width: "768px", height: "1024px" } },
+        desktop: { name: "Desktop", styles: { width: "1280px", height: "800px" } },
+      },
+    },
   },
   decorators: [
     (Story) => (
@@ -475,6 +482,19 @@ export const Primary: Story = {
     variant: "primary",
     showIssuer: true,
   },
+};
+
+export const DarkMode: Story = {
+  args: {
+    ...Primary.args,
+  },
+  decorators: [
+    (Story) => (
+      <div className="dark">
+        <Story />
+      </div>
+    ),
+  ],
 };
 
 export const Secondary: Story = {
