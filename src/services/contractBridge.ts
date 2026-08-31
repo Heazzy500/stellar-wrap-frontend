@@ -400,7 +400,131 @@ function getSimulationCacheKey(transaction: Transaction, accountAddress: string)
   // Use transaction hash or XDR as cache key
   try {
     const xdr = transaction.toXDR();
-    return `${accountAddress}:${xdr}`;
+    return `${accountAddress}:${Date.now()}`;
+  }
+}
+
+async function simulateTransaction(
+  transaction: Transaction,
+  network: Network,
+  observer?: TransactionObserver,
+): Promise<SimulationResult> {
+  const cacheKey = getSimulationCacheKey(transaction, transaction.source);
+  const cached = simulationCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < SIMULATION_CACHE_DURATION) {
+    return cached.result;
+  }
+
+  const server = createSorobanServer(network);
+  emitState(observer, 'simulating', { simulation: true });
+
+  try {
+    const simulation = await withTimeout(
+      server.simulateTransaction(transaction),
+      RPC_REQUEST_TIMEOUT,
+      'Soroban simulate transaction',
+    );
+
+    if (simulation.error) {
+      const result: SimulationResult = { success: false, error: simulation.error };
+      simulationCache.set(cacheKey, { result, timestamp: Date.now() });
+      return result;
+    }
+
+    const cost = simulation.cost ? {
+      cpuInsns: Number(simulation.cost.cpuInsns) || 0,
+      memBytes: Number(simulation.cost.memBytes) || 0,
+    } : undefined;
+
+    const footprint = simulation.footprint ? {
+      readOnly: simulation.footprint.readOnly.map((key) => key.toXDR('base64')),
+      readWrite: simulation.footprint.readWrite.map((key) => key.toXDR('base64')),
+    } : undefined;
+
+    const result: SimulationResult = {
+      success: true,
+      cost,
+      footprint,
+      result: simulation.result,
+      estimatedFee: calculateEstimatedFee({ cost }),
+      requiresRestore: Boolean(simulation.restorePreamble),
+    };
+
+    simulationCache.set(cacheKey, { result, timestamp: Date.now() });
+    return result;
+  } catch (error) {
+    const result: SimulationResult = { success: false, error: parseContractError(error) };
+    simulationCache.set(cacheKey, { result, timestamp: Date.now() });
+    return result;
+  }
+}
+
+export async function executeMintWrap(options: MintWrapOptions): Promise<MintResult> {
+  const { accountAddress, period, archetype, dataHash, signature, network, observer } = options;
+
+  emitState(observer, 'pending', { accountAddress, network });
+
+  try {
+    const { transaction } = await buildMintTransaction(
+      accountAddress,
+      { period, archetype, dataHash, signature },
+      network,
+    );
+
+    const simulation = await simulateTransaction(transaction, network, observer);
+
+    if (!simulation.success || simulation.estimatedFee === undefined) {
+      throw new Error(simulation.error || 'Transaction simulation failed');
+    }
+
+    const feeStroops = Math.ceil(simulation.estimatedFee * 10000000);
+    transaction.fee = String(feeStroops);
+
+    const balanceCheck = await validateAccountBalance(accountAddress, network, feeStroops / 10000000);
+    if (!balanceCheck.sufficient) {
+      throw new Error(
+        `Insufficient balance: need ${formatStellarAmount(balanceCheck.required)} XLM, ` +
+        `have ${formatStellarAmount(balanceCheck.balance)} XLM`,
+      );
+    }
+
+    emitState(observer, 'signed', { simulation });
+
+    const signedXdr = await signTransaction(transaction.toXDR(), {
+      networkPassphrase: getNetworkPassphrase(network),
+    });
+
+    const server = createSorobanServer(network);
+    const response = await withTimeout(
+      server.sendTransaction(signedXdr),
+      TRANSACTION_SUBMIT_TIMEOUT,
+      'Soroban submit transaction',
+    );
+
+    if (response.status === 'ERROR' || !response.hash) {
+      throw new Error('Transaction was rejected or failed to submit');
+    }
+
+    emitState(observer, 'submitted', { transactionHash: response.hash });
+
+    const { ledger } = await waitForConfirmation(server, response.hash, observer, Date.now());
+
+    return {
+      transactionHash: response.hash,
+      ledger,
+      state: 'confirmed',
+    };
+  } catch (error) {
+    const mappedError: TransactionError = {
+      message: parseContractError(error),
+      state: 'failed',
+      originalError: error,
+    };
+    emitState(observer, 'failed', mappedError);
+    throw mappedError;
+  }
+}
+ss}:${xdr}`;
   } catch {
     // Fallback to account address + timestamp if we can't get XDR
     return `${accountAddress}:${Date.now()}`;
