@@ -14,6 +14,11 @@ import {
   PersistedIndexingState,
   IndexingMetrics,
 } from "@/app/types/indexing";
+import {
+  OptimisticNetworkSwitchState,
+  OptimisticNetworkSwitchActions,
+  NetworkSwitchFailureReason,
+} from "@/app/types/networkSwitch";
 import { horizonIndexer } from "@/src/services/horizonIndexer";
 
 const PERSISTENCE_KEY = "stellar-wrap-indexing-state";
@@ -124,7 +129,18 @@ const initialIndexingState = {
   },
 };
 
-interface WrapStoreState {
+const initialOptimisticSwitchState: OptimisticNetworkSwitchState = {
+  phase: "idle",
+  previousNetwork: null,
+  optimisticNetwork: null,
+  switchError: null,
+  failureReason: null,
+  switchAttempt: 0,
+};
+
+interface WrapStoreState
+  extends OptimisticNetworkSwitchState,
+    OptimisticNetworkSwitchActions {
   address: string | null;
   period: WrapPeriod;
   network: Network;
@@ -221,6 +237,8 @@ export const useWrapStore = create<WrapStoreState>()(
       isRefreshing: false,
       // Indexing initial state
       ...initialIndexingState,
+      // Optimistic network switch initial state
+      ...initialOptimisticSwitchState,
       setAddress: (address) => set({ address }),
       setPeriod: (period) => set({ period }),
       setNetwork: (network) => {
@@ -261,6 +279,7 @@ export const useWrapStore = create<WrapStoreState>()(
           refreshToken: 0,
           isRefreshing: false,
           ...initialIndexingState,
+          ...initialOptimisticSwitchState,
         }),
 
       // Indexing actions
@@ -510,6 +529,69 @@ export const useWrapStore = create<WrapStoreState>()(
             ...metrics,
           },
         }));
+      },
+
+      // ─── Optimistic network switch actions ───────────────────────────────────
+
+      beginOptimisticSwitch: (newNetwork: Network) => {
+        const { network, switchAttempt } = get();
+        set({
+          previousNetwork: network,
+          optimisticNetwork: newNetwork,
+          phase: "switching",
+          switchError: null,
+          failureReason: null,
+          switchAttempt: switchAttempt + 1,
+          // Apply the optimistic network update to the UI immediately.
+          network: newNetwork,
+          ...syncContractState(newNetwork),
+        });
+      },
+
+      commitNetworkSwitch: () => {
+        set({
+          phase: "committed",
+          previousNetwork: null,
+          optimisticNetwork: null,
+          switchError: null,
+          failureReason: null,
+        });
+      },
+
+      rollbackNetworkSwitch: (
+        reason: NetworkSwitchFailureReason,
+        errorMessage: string,
+      ) => {
+        const { previousNetwork } = get();
+        if (previousNetwork === null) {
+          // Nothing to roll back – guard against double-calls.
+          return;
+        }
+        // Restore the previous network in the UI and reset dependent state.
+        resetCache();
+        horizonIndexer.clearCache();
+        get().cancelIndexing();
+        set({
+          phase: "rolled-back",
+          network: previousNetwork,
+          ...syncContractState(previousNetwork),
+          result: null,
+          cacheMeta: null,
+          status: "idle",
+          error: null,
+          switchError: errorMessage,
+          failureReason: reason,
+          previousNetwork: null,
+          optimisticNetwork: null,
+        });
+      },
+
+      clearNetworkSwitchError: () => {
+        set({
+          phase: "idle",
+          switchError: null,
+          failureReason: null,
+        });
       },
     }),
     {
