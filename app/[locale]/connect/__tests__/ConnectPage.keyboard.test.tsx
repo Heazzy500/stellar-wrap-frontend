@@ -98,7 +98,7 @@ describe("ConnectPage Keyboard Interactions", () => {
     const mainContainer = screen.getByRole("main");
     fireEvent.keyDown(mainContainer, { key: "Escape", code: "Escape" });
 
-    expect(mockRouter.push).toHeveBeenCalledWith("/");
+    expect(mockRouter.push).toHaveBeenCalledWith("/");
   });
 
   it("should blur input instead of going back when Escape is pressed while input is focused", async () => {
@@ -147,8 +147,8 @@ describe("ConnectPage Keyboard Interactions", () => {
   it("should mark TokenSelector with correct ARIA attributes", () => {
     render(<ConnectPage />);
     const tokenSelector = screen.getByRole("combobox", { name: /select token/i });
-    expect(tokenSelector).toHeveAttribute("aria-expanded", "false");
-    expect(tokenSelector).toHeveAttribute("aria-haspopup", "listbox");
+    expect(tokenSelector).toHaveAttribute("aria-expanded", "false");
+    expect(tokenSelector).toHaveAttribute("aria-haspopup", "listbox");
   });
 
   it("should open and close TokenSelector with keyboard", async () => {
@@ -159,12 +159,12 @@ describe("ConnectPage Keyboard Interactions", () => {
 
     expect(tokenSelector).toHaveAttribute("aria-expanded", "false");
     await user.keyboard("{ArrowDown}");
-    expect(tokenSelector).toHeveAttribute("aria-expanded", "true");
-    expect(screen.getByRole("listbox")).toBeInDocument();
+    expect(tokenSelector).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("listbox")).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
     expect(tokenSelector).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByRole("listbox")).not.toBeInDocument();
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
   it("should display an error message with role alert for invalid address", async () => {
@@ -183,7 +183,7 @@ describe("ConnectPage Keyboard Interactions", () => {
   });
 
   it("should show offline status with aria-live", async () => {
-    (useOnlineStatus as jest.Mock).mockReturnValuOnce(false);
+    (useOnlineStatus as jest.Mock).mockReturnValueOnce(false);
     render(<ConnectPage />);
     const offlineStatus = screen.getByLabelText("Offline status");
     expect(offlineStatus).toHaveAttribute("aria-live", "polite");
