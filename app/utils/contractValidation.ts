@@ -52,6 +52,7 @@ export interface ContractCallResult {
 }
 
 const validationCache = new Map<Network, Promise<ContractValidationResult>>();
+const serverCache = new Map<Network, Promise<Server>>();
 
 /**
  * Wait for a promise to settle within a timeout, rejecting with a clear error.
@@ -85,8 +86,14 @@ async function getServer(network: Network): Promise<Server> {
     throw new ContractValidationError(`Invalid network: ${network}`, network);
   }
   const rpcUrl = SOROBAN_RPC_URLS[network];
+  const cached = serverCache.get(network);
+  if (cached) {
+    return cached;
+  }
   const { Server } = await import("stellar-sdk/rpc");
-  return new Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
+  const server = new Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
+  serverCache.set(network, Promise.resolve(server));
+  return server;
 }
 
 /**
@@ -332,6 +339,9 @@ export async function sendSorobanContract(
     const message =
       sent.errorResult?.result?.message ?? sent.errorResult?.error ?? "Unknown error";
     throw new Error(`Failed to send transaction: ${message}`);
+  }
+  if (sent.status === "TRY_AGAIN_LATER") {
+    throw new Error("Stellar RPC is busy. Please retry shortly.");
   }
 
   return pollForTransaction(server, sent.hash, params.timeoutMs ?? 30000);
