@@ -526,7 +526,7 @@ export const useWrapStore = create<WrapStoreState>()(
         result: state.result,
         status: state.status,
         cacheMeta: state.cacheMeta,
-        assetList: state.assetList,
+        assetList: Array.isArray(state.assetList) ? state.assetList : [],
       }),
       storage: createJSONStorage(() =>
         typeof window !== "undefined"
