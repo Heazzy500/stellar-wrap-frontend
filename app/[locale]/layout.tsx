@@ -5,6 +5,7 @@ import Script from 'next/script';
 import { routing } from '../../i18n/routing';
 import { ReactNode } from 'react';
 import { ThemeProvider } from '../context/ThemeContext';
+import { QueryProvider } from '../context/QueryProvider';
 import { SkipNavigation } from '@/app/components/SkipNavigation';
 
 type Props = {
@@ -42,7 +43,7 @@ export default async function LocaleLayout({ children, params }: Props) {
         <SkipNavigation />
         <NextIntlClientProvider messages={messages}>
           <ThemeProvider> {/* <-- Wrap here so everything inside has access to useTheme */}
-            {children}
+            <QueryProvider>{children}</QueryProvider>
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>
