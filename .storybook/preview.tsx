@@ -30,7 +30,7 @@ const preview: Preview = {
         date: /Date$/i,
       },
     },
-    a119: { test: "todo" },
+    a11y: { test: "todo" },
   },
   decorators: [
     (Story, context) => {
