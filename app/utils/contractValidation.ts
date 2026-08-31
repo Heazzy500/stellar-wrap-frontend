@@ -18,7 +18,7 @@ import {
   nativeToScVal,
 } from "stellar-sdk";
 import type { Server } from "stellar-sdk/rpc";
-import { getPublicKey, signTransaction } from "@stellar/freighter-api";
+import { getPublicKey, isConnected, signTransaction } from "@stellar/freighter-api";
 
 /** Result of validating a contract on a network */
 export interface ContractValidationResult {
@@ -51,7 +51,7 @@ export interface ContractCallResult {
   result: unknown;
 }
 
-const validationCache = new Map<Network, ContractValidationResult>();
+const validationCache = new Map<Network, Promise<ContractValidationResult>>();
 
 /**
  * Wait for a promise to settle within a timeout, rejecting with a clear error.
@@ -60,15 +60,15 @@ async function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
   errorMessage?: string
-}): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  const timeout = new Promise<never>((t, reject) => {
+): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
     timeoutId = setTimeout(() => reject(new Error(errorMessage ?? `Operation timed out after ${ms}ms`)), ms);
   });
   try {
     return await Promise.race([promise, timeout]);
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId) clearTimeout(timeoutId);
   }
 }
 
@@ -95,6 +95,10 @@ async function getServer(network: Network): Promise<Server> {
  */
 export async function connectFreighter(): Promise<string> {
   try {
+    const connected = await isConnected();
+    if (!connected) {
+      throw new Error("Freighter is not connected or unlocked.");
+    }
     const publicKey = await getPublicKey();
     if (!publicKey) {
       throw new Error("Freighter returned an empty public key.");
@@ -113,24 +117,29 @@ export async function connectFreighter(): Promise<string> {
  */
 export function toStroops(amount: string | number): string {
   const amountStr = typeof amount === "number" ? amount.toFixed(7) : amount;
-  if (!/^\d+(\.\d{1,7})?$/.test(amountStr)) {
+  const negative = amountStr.startsWith("-");
+  const normalized = negative ? amountStr.slice(1) : amountStr;
+  if (!/^\d+(\.\d{1,7})?$/.test(normalized)) {
     throw new Error(`Invalid amount '${amountStr}'. Maximum 7 decimal places are supported.`);
   }
   const [wholePart, fractionPart = ""] = amountStr.split(".");
   const paddedFraction = fractionPart.padEnd(7, "0");
-  return ((BigInt(wholePart) * 10000000n) + BigInt(paddedFraction)).toString();
+  const value = (BigInt(wholePart) * 10000000n) + BigInt(paddedFraction);
+  return (negative ? -value : value).toString();
 }
 
 /**
  * Convert stroops to a human-readable Stellar amount string.
  */
-export function fromStroops(stroops: string | bigInt): string {
+export function fromStroops(stroops: string | bigint): string {
   const value = BigInt(stroops);
-  const whole = value / 10000000n;
-  const fraction = value % 10000000n;
-  if (fraction === 0n) return whole.toString();
+  const negative = value < 0n;
+  const abs = negative ? -value : value;
+  const whole = abs / 10000000n;
+  const fraction = abs % 10000000n;
+  if (fraction === 0n) return `${negative ? "-" : ""}${whole.toString()}`;
   const fractionStr = fraction.toString().padStart(7, "0").replace(/0+$/, "");
-  return `${whole.toString()}.${fractionStr}`;
+  return `${negative ? "-" : ""}${whole.toString()}.${fractionStr}`;
 }
 
 /**
@@ -183,31 +192,35 @@ export async function validateContractOnNetwork(
 
   const address = getContractAddress(network);
 
-  try {
-    const server = await getServer(network);
-    await withTimeout(
-      server.getContractWasmByContractId(address),
-      30000,
-      `Timed out validating contract on ${network}`
-    );
-    const result: ContractValidationResult = { exists: true, deployed: true };
-    validationCache.set(network, result);
-    return result;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (
-      message.includes("not found") ||
-      message.includes("cannot be found") ||
-      message.includes("NotFound")
-    ) {
-      throw new ContractNotFoundError(network, err);
+  const validationPromise: Promise<ContractValidationResult> = (async () => {
+    try {
+      const server = await getServer(network);
+      await withTimeout(
+        server.getContractWasmByContractId(address),
+        30000,
+        `Timed out validating contract on ${network}`
+      );
+      return { exists: true, deployed: true };
+    } catch (err) {
+      validationCache.delete(network);
+      const message = err instanceof Error ? err.message : String(err);
+      if (
+        message.includes("not found") ||
+        message.includes("cannot be found") ||
+        message.includes("NotFound")
+      ) {
+        throw new ContractNotFoundError(network, err);
+      }
+      throw new ContractValidationError(
+        `Contract validation failed on ${network}: ${message}`,
+        network,
+        err
+      );
     }
-    throw new ContractValidationError(
-      `Contract validation failed on ${network}: ${message}`,
-      network,
-      err
-    );
-  }
+  })();
+
+  validationCache.set(network, validationPromise);
+  return validationPromise;
 }
 
 /**
@@ -234,7 +247,11 @@ export async function simulateSorobanContract(
 ): Promise<SimulationResult> {
   const publicKey = params.publicKey ?? (await connectFreighter());
   const server = await getServer(params.network);
-  const account = await server.getAccount(publicKey);
+  const account = await withTimeout(
+    server.getAccount(publicKey),
+    params.timeoutMs ?? 30000,
+    "Fetching account timed out"
+  );
 
   const contractAddress = getContractAddress(params.network);
   const scVals = params.args.map((arg) => nativeToScVal(arg));
@@ -297,12 +314,11 @@ export async function sendSorobanContract(
       "Signing transaction timed out"
     );
   } catch (err) {
-    if (err instanceof Error && err.message.includes("User rejected")) {
-      throw err;
+    const message = err instanceof Error ? err.message : String(err);
+    if (/rejected|declined|cancel/i.test(message)) {
+      throw new Error("User rejected the transaction signature.");
     }
-    throw new Error(
-      `User rejected the transaction signature: ${err instanceof Error ? err.message : String(err)}`
-    );
+    throw new Error(`Failed to sign transaction: ${message}`);
   }
 
   const server = await getServer(params.network);
