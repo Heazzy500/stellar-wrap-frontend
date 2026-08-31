@@ -24,6 +24,7 @@ import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimel
 import { NotificationPrompt } from "@/app/components/NotificationPrompt";
 import { generatePersonaDescription } from "@/app/actions/generate-persona";
 import { AssetList } from "@/app/components/AssetList";
+import { CsvExportButton } from "@/app/components/CsvExportButton";
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string, enabled = true) => {
@@ -714,6 +715,11 @@ export default function ArchetypeReveal(): JSX.Element {
               transition={{ delay: 1.6 }}
             >
               <AssetList showSelection={false} />
+              
+              {/* CSV Export Button */}
+              <div className="mt-4 flex justify-center">
+                <CsvExportButton />
+              </div>
             </motion.div>
           )}
 
