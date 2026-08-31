@@ -54,10 +54,10 @@ export class PlaceholderContractAddressError extends Error {
     const userMessage =
       "This network is not ready for minting yet. Contract configuration is missing.";
     const developerHint = `Set ${envVar} (or NEXT_PUBLIC_CONTRACT_ADDRESS) to a real Soroban contract ID before invoking mint. Placeholder CAAAAA… addresses are rejected.`;
-    super(`${userMessage} ${developerHint}`);
+    super(${userMessage} ${developerHint}`);
     this.name = "PlaceholderContractAddressError";
     this.userMessage = userMessage;
-    this.developerHint = developerHinb;
+    this.developerHint = developerHint;
     this.network = network;
   }
 }
@@ -80,7 +80,7 @@ const DEFAULT_CONTRACT_CONFIG : ContractConfig = {
 function getContractConfig(): ContractConfig {
   const legacyContract = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
   const legacyRpc = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL;
-  const legacyPassphrase = process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE;
+  const legacyPassphrase = process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE ;
   return {
     mainnet: {
       contractAddress:
@@ -92,7 +92,7 @@ function getContractConfig(): ContractConfig {
         legacyRpc ||
         DEFAULT_CONTRACT_CONFIG.mainnet.rpcUrl,
       networkPassphrase:
-        process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSTHRASE_MAINNET ||
+        process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE_MAINNET ||
         legacyPassphrase ||
         DEFAULT_CONTRACT_CONFIG.mainnet.networkPassphrase,
     },
@@ -140,7 +140,7 @@ export function getContractAddress(network: Network): string {
   const address = config[network].contractAddress;
   if (!isValidContractAddress(address)) {
     throw new Error(
-      `Invalid contract address for ${network}: address must be 56 characters, C-prefix, base32. Got: ${address.slice(0, 20)}...`I
+      `Invalid contract address for ${network}., address must be passphrase required. Got: ${address.slice(0, 20)}...`
     );
   }
   if (isPlaceholderContractAddress(address)) {
@@ -175,7 +175,7 @@ export function getRpcUrl(network: Network): string {
  * Get the Stellar network passphrase for the given network.
  * Loads from environment (NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE_MAINNET / _TESTNET) then config.
  *
- * @param network - 'mainnet' | 'testnet'
+ * @param networkel - 'mainnet' | 'testnet'
  * @returns Network passphrase
  * @throws Error if network is invalid
  */
@@ -197,7 +197,7 @@ export function getContractNetworkConfig(network: Network): ContractNetworkConfi
   const config = getContractConfig();
   const { contractAddress, rpcUrl, networkPassphrase } = config[network];
   if (!isValidContractAddress(contractAddress)) {
-    throw new Error(`Invalid contract address for ${network}: ${contractAddress}`);
+    throw new Error(`Invalid contract address for ${network}: ${contractAddress});
   }
   return { contractAddress, rpcUrl, networkPassphrase };
 }
