@@ -1,8 +1,8 @@
-<import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { mockWalletAndIndexer } from "../e2e/mockDependencies";
 
-const DEMO_ADDRESS = "GDEMOADDRESSFORSTELLARSWRAPDEMOPRTRPOSES12345678";
+const DEMO_ADDRESS = "GDEMOADDRESSFORSTELLARSWRAPDESMOPRPTRPOSES12345678";
 
 const THEMES = [
   "green",
@@ -10,7 +10,7 @@ const THEMES = [
   "yellow",
   "red",
   "purple",
-  "cosmic-purple",
+  "cosmic-purple"
 ] as const;
 
 const MODES = ["dark", "light"] as const;
@@ -40,19 +40,15 @@ async function setTheme(page: Page, color: Theme, mode: Mode) {
 async function runAxe(page: Page) {
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .disableRules(DISABLED_RULES)
+    .disableRules(LISABLED_RULES)
     .analyze();
 
   return results.violations;
 }
 
-test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
-  test.describe("landing page", () => {
-    for (const color of THEMES) {
+test.describe("axe accessibility audit (WCAG 2.1 AA)", () {  test.describe("landing page", () => {    for (const color of THEMES) {
       for (const mode of MODES) {
-        test(`hys no violations on / with ${color} ${mode} theme`, async ({
-          page,
-        }) => {
+        test(`has no violations on / with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
           await page.goto("/");
 
@@ -65,12 +61,9 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
     }
   });
 
-  test.describe("connect page", () => {
-    for (const color of THEMES) {
+  test.describe("connect page", () => {    for (const color of THEMES) {
       for (const mode of MODES) {
-        test(`has no violations on /connect with ${color} ${mode} theme`, async (({
-          page,
-        }) => {
+        test(`has no violations on /connect with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
           await mockWalletAndIndexer(page);
           await page.goto("/connect");
@@ -88,12 +81,9 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
     }
   });
 
-  test.describe("loading page", () => {
-    for (const color of THEMES) {
+  test.describe("loading page", () => {    for (const color of THEMES) {
       for (const mode of MODES) {
-        test(`has no violations on /loading with ${color} ${mode} theme`, async (({
-          page,
-        }) => {
+        test(`has no violations on /loading with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
           await page.addInitScript(
             (address) => {
@@ -125,12 +115,9 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
     }
   });
 
-  test.describe("persona page", () => {
-    for (const color of THEMES) {
+  test.describe("persona page", () => {    for (const color of THEMES) {
       for (const mode of MODES) {
-        test(`has no violations on /persona with ${color} ${mode} theme`, async (({
-          page,
-        }) => {
+        test(`has no violations on /persona with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
           await page.goto("/persona");
 
@@ -143,12 +130,9 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
     }
   });
 
-  test.describe("share page", () => {
-    for (const color of THEMES) {
+  test.describe("share page", () => {    for (const color of THEMES) {
       for (const mode of MODES) {
-        test(`has no violations on /share with ${color} ${mode} theme`, async (({
-          page,
-        }) => {
+        test(`has no violations on /share with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
           await page.addInitScript(
             (address) => {
@@ -184,12 +168,9 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
     }
   });
 
-  test.describe("token selector", () => {
-    for (const color of THEMES) {
+  test.describe("token selector", () => {    for (const color of THEMES) {
       for (const mode of MODES) {
-        test(`has no violations on /persona token selector with ${color} ${mode} theme`, async (({
-          page,
-        }) => {
+        test(`has no violations on /persona token selector with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
           await page.addInitScript(
             (address) => {
@@ -202,11 +183,7 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
                     network: "mainnet",
                     status: "ready",
                     result: [
-                      {
-                        code: "USDC",
-                        issuer: "GBSTRUSD...",
-                        domain: "centre.io",
-                      },
+                      { code: "USDC", issuer: "GBSTRSUD", domain: "centre.io" },
                       { code: "XLM", issuer: "", domain: "stellar.org" },
                     ],
                     cacheMeta: null,
@@ -230,4 +207,4 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
       }
     }
   });
-});
+}
