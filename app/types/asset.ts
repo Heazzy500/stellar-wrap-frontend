@@ -49,3 +49,8 @@ export interface AssetResolutionResult {
   metadata?: AssetMetadata;
   error?: string;
 }
+
+/**
+ * Variants for the AssetCard component, used for Storybook stories.
+ */
+export type AssetCardVariant = 'primary' | 'secondary' | 'disabled' | 'loading';
