@@ -12,6 +12,7 @@ import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useStellarAddressValidation } from "../../../src/hooks/useStellarAddressValidation";
 import { ProgressIndicator } from "../../components/ProgressIndicator";
 import { MuteToggle } from "../../components/MuteToggle";
+import { ConnectWalletButton } from "../../components/ConnectWalletButton";
 import {
   connectFreighter,
   connectAlbedo,
@@ -73,7 +74,6 @@ export default function ConnectPage() {
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const connectButtonRef = useRef<HTMLButtonElement>(null);
-  const freighterButtonRef = useRef<HTMLButtonElement>(null);
   const demoButtonRef = useRef<HTMLButtonElement>(null);
 
   // Load last-used address from localStorage on mount
@@ -406,35 +406,6 @@ export default function ConnectPage() {
     ) {
       e.preventDefault();
       handleConnect();
-    }
-  };
-
-  const handleFreighterKeyDown = (e: KeyboardEvent) => {
-    if ((e.key === "Enter" || e.key === " ") && !isConnecting) {
-      e.preventDefault();
-      handleFreighterConnect();
-    }
-  };
-
-  const handleAlbedoKeyDown = (e: KeyboardEvent) => {
-    if ((e.key === "Enter" || e.key === " ") && !isConnecting) {
-      e.preventDefault();
-      handleAlbedoConnect();
-    }
-  };
-
-
-  const handleXBullKeyDown = (e: KeyboardEvent) => {
-    if ((e.key === "Enter" || e.key === " ") && !isConnecting) {
-      e.preventDefault();
-      handleXBullConnect();
-    }
-  };
-
-  const handleWalletConnectKeyDown = (e: KeyboardEvent) => {
-    if ((e.key === "Enter" || e.key === " ") && !isConnecting) {
-      e.preventDefault();
-      handleWalletConnectConnect();
     }
   };
 
@@ -1045,134 +1016,37 @@ export default function ConnectPage() {
               <p className="text-center text-sm font-medium text-white/50 mb-4">
                 or connect with
               </p>
-              <motion.button
-                ref={freighterButtonRef}
-                onClick={handleFreighterConnect}
-                onKeyDown={handleFreighterKeyDown}
-                disabled={!isOnline || isConnecting}
-                className="w-full px-6 py-4 bg-transparent border-2 rounded-xl font-bold text-white/70 hover:text-white transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
-                style={{
-                  borderColor: "rgba(var(--color-theme-primary-rgb), 0.3)",
-                }}
-                whileHover={{ scale: !isOnline || isConnecting ? 1 : 1.02 }}
-                whileTap={{ scale: !isOnline || isConnecting ? 1 : 0.98 }}
-                tabIndex={0}
-                aria-label="Connect with Freighter wallet"
-                aria-disabled={!isOnline || isConnecting}
-                role="button"
-              >
-                {isConnecting ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-                    <span>Connecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Wallet
-                      className="w-5 h-5"
-                      style={{ color: "var(--color-theme-primary)" }}
-                      aria-hidden="true"
-                    />
-                    <span>Connect with Freighter</span>
-                  </>
-                )}
-              </motion.button>
+              <ConnectWalletButton
+                walletName="Freighter"
+                icon={<Wallet className="w-5 h-5" />}
+                onConnect={handleFreighterConnect}
+                isConnecting={isConnecting}
+                disabled={!isOnline}
+              />
 
-              <motion.button
-                onClick={handleAlbedoConnect}
-                onKeyDown={handleAlbedoKeyDown}
-                disabled={!isOnline || isConnecting}
-                className="w-full px-6 py-4 bg-transparent border-2 rounded-xl font-bold text-white/70 hover:text-white transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
-                style={{
-                  borderColor: "rgba(var(--color-theme-primary-rgb), 0.3)",
-                }}
-                whileHover={{ scale: !isOnline || isConnecting ? 1 : 1.02 }}
-                whileTap={{ scale: !isOnline || isConnecting ? 1 : 0.98 }}
-                tabIndex={0}
-                aria-label="Connect with Albedo wallet"
-                aria-disabled={!isOnline || isConnecting}
-                role="button"
-              >
-                {isConnecting ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-                    <span>Connecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Wallet
-                      className="w-5 h-5"
-                      style={{ color: "var(--color-theme-primary)" }}
-                      aria-hidden="true"
-                    />
-                    <span>Connect with Albedo</span>
-                  </>
-                )}
-              </motion.button>
+              <ConnectWalletButton
+                walletName="Albedo"
+                icon={<Wallet className="w-5 h-5" />}
+                onConnect={handleAlbedoConnect}
+                isConnecting={isConnecting}
+                disabled={!isOnline}
+              />
 
-              <motion.button
-                onClick={handleXBullConnect}
-                onKeyDown={handleXBullKeyDown}
-                disabled={!isOnline || isConnecting}
-                className="w-full px-6 py-4 bg-transparent border-2 rounded-xl font-bold text-white/70 hover:text-white transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
-                style={{
-                  borderColor: "rgba(var(--color-theme-primary-rgb), 0.3)",
-                }}
-                whileHover={{ scale: !isOnline || isConnecting ? 1 : 1.02 }}
-                whileTap={{ scale: !isOnline || isConnecting ? 1 : 0.98 }}
-                tabIndex={0}
-                aria-label="Connect with xBull wallet"
-                aria-disabled={!isOnline || isConnecting}
-                role="button"
-              >
-                {isConnecting ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-                    <span>Connecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <Wallet
-                      className="w-5 h-5"
-                      style={{ color: "var(--color-theme-primary)" }}
-                      aria-hidden="true"
-                    />
-                    <span>Connect with xBull</span>
-                  </>
-                )}
-              </motion.button>
+              <ConnectWalletButton
+                walletName="xBull"
+                icon={<Wallet className="w-5 h-5" />}
+                onConnect={handleXBullConnect}
+                isConnecting={isConnecting}
+                disabled={!isOnline}
+              />
 
-              <motion.button
-                onClick={handleWalletConnectConnect}
-                onKeyDown={handleWalletConnectKeyDown}
-                disabled={!isOnline || isConnecting}
-                className="w-full px-6 py-4 bg-transparent border-2 rounded-xl font-bold text-white/70 hover:text-white transition-all flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-theme-primary focus:ring-offset-2 focus:ring-offset-black"
-                style={{
-                  borderColor: "rgba(var(--color-theme-primary-rgb), 0.3)",
-                }}
-                whileHover={{ scale: !isOnline || isConnecting ? 1 : 1.02 }}
-                whileTap={{ scale: !isOnline || isConnecting ? 1 : 0.98 }}
-                tabIndex={0}
-                aria-label="Connect with WalletConnect mobile wallets"
-                aria-disabled={!isOnline || isConnecting}
-                role="button"
-              >
-                {isConnecting ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
-                    <span>Connecting...</span>
-                  </>
-                ) : (
-                  <>
-                    <QrCode
-                      className="w-5 h-5"
-                      style={{ color: "var(--color-theme-primary)" }}
-                      aria-hidden="true"
-                    />
-                    <span>Connect with WalletConnect</span>
-                  </>
-                )}
-              </motion.button>
+              <ConnectWalletButton
+                walletName="WalletConnect"
+                icon={<QrCode className="w-5 h-5" />}
+                onConnect={handleWalletConnectConnect}
+                isConnecting={isConnecting}
+                disabled={!isOnline}
+              />
             </div>
 
             <div className="mt-6 pt-6 border-t border-white/10">
