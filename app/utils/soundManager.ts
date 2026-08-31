@@ -123,8 +123,13 @@ class SoundManager {
     if (typeof window === "undefined") return null;
     
     if (!this.audioContext) {
-      // eslint-disable-next-line
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // webkitAudioContext is a vendor-prefixed fallback for older Safari/iOS browsers
+      const AudioContextCtor =
+        window.AudioContext ||
+        (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+      if (AudioContextCtor) {
+        this.audioContext = new AudioContextCtor();
+      }
     }
     
     return this.audioContext;

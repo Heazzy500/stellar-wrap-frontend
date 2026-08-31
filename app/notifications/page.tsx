@@ -98,7 +98,7 @@ export default function NotificationsPage() {
         store.setSyncStatus("error");
         setSyncPending(true);
       });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `store` is a stable Zustand reference; including it would cause infinite re-fetches on every store update
   }, [address]);
 
   if (!address) {

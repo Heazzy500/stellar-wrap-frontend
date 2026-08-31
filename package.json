@@ -60,6 +60,7 @@
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
+    "@eslint-community/eslint-plugin-eslint-comments": "^4.7.2",
     "@lhci/cli": "^0.14.0",
     "@next/bundle-analyzer": "^16.1.4",
     "@playwright/test": "^1.61.1",

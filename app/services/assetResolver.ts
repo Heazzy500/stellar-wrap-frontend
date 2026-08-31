@@ -19,8 +19,7 @@ export interface ResolveAssetOptions {
 }
 
 // Note: Type definition kept for future use with Horizon API responses
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface HorizonAsset {
+interface _HorizonAsset {
   asset_code: string;
   asset_issuer: string;
   num_accounts: number;

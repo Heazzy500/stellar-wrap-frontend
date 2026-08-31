@@ -279,7 +279,7 @@ export default function TransactionsOfFury() {
     } catch {
       // ignore
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // parentRef is a React ref object; refs are stable and intentionally excluded from deps
   }, [scrollKey]);
 
   useEffect(() => {
@@ -322,8 +322,8 @@ export default function TransactionsOfFury() {
   useEffect(() => {
     // Ensure virtualizer recomputes after expansions (variable height changes).
     virtualizer.measure();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [expandedIds, virtualizer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `virtualizer` is recreated each render by useVirtualizer; adding it to deps would cause an infinite loop
+  }, [expandedIds]);
 
   const [visibleRange, setVisibleRange] = useState({
     from: 0,
