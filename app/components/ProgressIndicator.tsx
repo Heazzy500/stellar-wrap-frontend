@@ -1,11 +1,14 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Home } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, KeyboardEvent } from "react";
+import { useState, useEffect, lazy, Suspense, KeyboardEvent } from "react";
 import { useSound } from "../hooks/useSound";
 import { SOUND_NAMES } from "../utils/soundManager";
+
+const HomeIcon = lazy(() =>
+  import("lucide-react").then((module) => ({ default: module.Home })),
+);
 
 interface ProgressIndicatorProps {
   currentStep: number;
@@ -156,10 +159,12 @@ export function ProgressIndicator({
           className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-xl backdrop-blur-xl border border-white/20"
           style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
         >
-          <Home
-            className="w-4 h-4 md:w-5 md:h-5 text-white/80 group-hover:text-white transition-colors"
-            aria-hidden="true"
-          />
+          <Suspense fallback={<div className="w-4 h-4 md:w-5 md:h-5" aria-hidden="true" />}>
+            <HomeIcon
+              className="w-4 h-4 md:w-5 md:h-5 text-white/80 group-hover:text-white transition-colors"
+              aria-hidden="true"
+            />
+          </Suspense>
           <span className="text-xs md:text-sm font-black text-white/80 group-hover:text-white transition-colors hidden sm:inline">
             HOME
           </span>
