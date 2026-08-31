@@ -54,13 +54,16 @@ const AssetCard: React.FC<AssetCardProps> = ({
     "transition-all",
     "duration-200",
     "ease-in-out",
-    variant === "primary"
-      ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-background)] hover:border-[var(--color-theme-primary)] hover:shadow-md"
-      : "border-gray-300 bg-transparent hover:border-[var(--color-theme-primary)] hover:bg-[rgba(var(--color-theme-primary-rgb),0.05)]",
+    variant === "primary" ? (disabled
+      ? "border-[var(--color-theme-primary)] bg-[var(--color-theme-background)]"
+      : "border-[var(--color-theme-primary)] bg-[var(--color-theme-background)] hover:border-[var(--color-theme-primary)] hover:shadow-md")
+      : (disabled
+        ? "border-gray-300 bg-transparent"
+        : "border-gray-300 bg-transparent hover:border-[var(--color-theme-primary)] hover:bg-[rgba(var(--color-theme-primary-rgb),0.05)]"),
     selected ? "ring-2 ring-[var(--color-theme-primary)]" : "",
     disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer",
     loading ? "pointer-events-none" : "",
-    "active:scale-[.98]" : "",
+    !disabled && !loading ? "active:scale-[.98]" : "",
     className,
   ]
     .filter(Boolean)
@@ -108,19 +111,19 @@ const AssetCard: React.FC<AssetCardProps> = ({
       tabIndex={disabled ? -1 : 0}
       aria-disabled={disabled || undefined}
       aria-pressed={selected}
-      aria-label={`$asset.name} (${asset.code})`}
+      aria-label={" ${asset.name} (${asset.code})"}
       onClick={handleClick}
       onKeyDown={handleKeyDown}
     >
       {showLogo ? (
         <img
           src={asset.logo}
-          alt={`${asset.code} logo`}
+          alt={"${asset.code} logo"}
           className="h-12 w-12 shrink-0 rounded-lg object-contain"
           loading="lazy"
         />
       ) : (
-        <span className={iconWrapperClasses} aria-hidden="true">
+        <span className={showLogo ? "iconWrapperClasses" : "iconWrapperClasses"} aria-hidden="true">
           {asset.code.charAt(0)}
         </span>
       )
@@ -141,13 +144,14 @@ const AssetCard: React.FC<AssetCardProps> = ({
       </div>
       {selected && (
         <span
-          className="flex h-5 w-5 shrink-0 full rounded-full bg-[var(--color-theme-primary)] text-white text-sm font-bold"
+          className="flex h-5 w-5 shrink-0 rounded-full bg-[var(--color-theme-primary)] text-white text-sm font-bold"
           aria-label="Selected"
           role="img"
         >
-          ✓
+          ℓ
         </span>
-      )}
+      )
+      }
     </div>
   );
 };
