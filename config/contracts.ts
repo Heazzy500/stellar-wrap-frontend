@@ -3,6 +3,20 @@
  * Supports per-network addresses with environment variable overrides.
  */
 
+import {
+  Account,
+  BASE_FEE,
+  Operation,
+  Server,
+  TransactionBuilder,
+  xdr,
+} from "@stellar/stellar-sdk";
+import {
+  getPublicKey,
+  isConnected,
+  signTransaction,
+} from "@stellar/freighter-api";
+
 import { Network, isValidNetwork } from "../src/config";
 
 /** Contract config for a single network */
@@ -53,8 +67,8 @@ export class PlaceholderContractAddressError extends Error {
     const envVar = getContractAddressEnvHint(network);
     const userMessage =
       "This network is not ready for minting yet. Contract configuration is missing.";
-    const developerHint = `Set ${envVar} (or NEXT_PUBLIC_CONTRACT_ADDRESS) to a real Soroban contract ID before invoking mint. Placeholder CAAAAA… addresses are rejected.`;
-    super(${userMessage} ${developerHint}`);
+    const developerHint = `Set ${envVar} (or NEXT_PUBLIC_CONTRACT_ADDRESS) to a real Soroban contract ID before invoking mint. Placeholder CAAAAA... addresses are rejected.`;
+    super(`${userMessage} ${developerHint}`);
     this.name = "PlaceholderContractAddressError";
     this.userMessage = userMessage;
     this.developerHint = developerHint;
@@ -80,7 +94,7 @@ const DEFAULT_CONTRACT_CONFIG : ContractConfig = {
 function getContractConfig(): ContractConfig {
   const legacyContract = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
   const legacyRpc = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL;
-  const legacyPassphrase = process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE ;
+  const legacyPassphrase = process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE;
   return {
     mainnet: {
       contractAddress:
@@ -106,7 +120,7 @@ function getContractConfig(): ContractConfig {
         legacyRpc ||
         DEFAULT_CONTRACT_CONFIG.testnet.rpcUrl,
       networkPassphrase:
-        process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE_TESTNET ||
+        process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSHRASE_TESTNET ||
         legacyPassphrase ||
         DEFAULT_CONTRACT_CONFIG.testnet.networkPassphrase,
     },
@@ -175,7 +189,7 @@ export function getRpcUrl(network: Network): string {
  * Get the Stellar network passphrase for the given network.
  * Loads from environment (NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE_MAINNET / _TESTNET) then config.
  *
- * @param networkel - 'mainnet' | 'testnet'
+ * @param network - 'mainnet' | 'testnet'
  * @returns Network passphrase
  * @throws Error if network is invalid
  */
@@ -197,7 +211,172 @@ export function getContractNetworkConfig(network: Network): ContractNetworkConfi
   const config = getContractConfig();
   const { contractAddress, rpcUrl, networkPassphrase } = config[network];
   if (!isValidContractAddress(contractAddress)) {
-    throw new Error(`Invalid contract address for ${network}: ${contractAddress});
+    throw new Error(`Invalid contract address for ${network}: ${contractAddress}`);
   }
   return { contractAddress, rpcUrl, networkPassphrase };
+}
+
+/*
+ * --------------------------------------------------------------------------------------------------------
+ * Soroban contract interaction helpers for Multi-sig Setup
+ * --------------------------------------------------------------------------------------------------------
+ */
+
+/**
+ * Parse a Stellar amount (e.g., "12.3456789") to stroops (bigint).
+ */
+export function parseStellarAmount(amount: string): bigint {
+  const trimmed = amount.trim();
+  if (!/^\d+(\.\d{1,7})?$/.test(trimmed)) {
+    throw new Error(`Invalid Stellar amount format: ${amount}`);
+  }
+  const [whole, fraction = ""] = trimmed.split(".");
+  return BigInt(whole) * 10000000n + BigInt(fraction.padEnd(7, "0"));
+}
+
+/**
+ * Format stroops to a Stellar amount string with up to 7 decimals.
+ */
+export function formatStellarAmount(stroops: bigint): string {
+  const whole = stroops / 10000000n;
+  const fraction = stroops % 10000000n;
+  if (fraction === 0n) return whole.toString();
+  return `${whole}.${fraction.toString().padStart(7, "0").replace(/0+$/, "")}`;
+}
+
+/**
+ * Wraps a promise with a timeout, rejecting after `ms` milliseconds.
+ */
+export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`Request timed out after ${ms}ms`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
+/**
+ * Checks that Freighter is installed, connected, and returns the public key.
+ */
+export async function getFreighterPublicKey(): Promise<string> {
+  if (typeof window === "undefined") {
+    throw new Error("Freighter can only be used in a browser environment.");
+  }
+  const connected = await isConnected();
+  if (!connected) {
+    throw new Error("Freighter wallet is not connected.");
+  }
+  return getPublicKey();
+}
+
+/**
+ * Create a Soroban RPC Server instance for the given network.
+ */
+export function getSorobanServer(network: Network): Server {
+  const rpcUrl = getRpcUrl(network);
+  return new Server(rpcUrl, { allowHttp: rpcUrl.startsWith("http://") });
+}
+
+export interface SorobanInvocation {
+  /** Contract method to call */
+  method: string;
+  /** SCVal arguments */
+  args: xdr.ScVal[];
+  /** Source account public key */
+  source: string;
+}
+
+/**
+ * Simulate a Soroban contract invocation and return the result SCVal.
+ */
+export async function simulateSorobanCall(
+  invocation: SorobanInvocation,
+  network: Network),
+): Promise<xdr.ScVal> {
+  const server = getSorobanServer(network);
+  const contractAddress = getContractAddress(network);
+  const networkPassphrase = getNetworkPassphrase(network);
+
+  const source = new Account(invocation.source, "0");
+  const tx = new TransactionBuilder(source, {
+    fee: BASE_FEE,
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: contractAddress,
+        function: invocation.method,
+        args: invocation.args,
+      }),
+    )
+    .setTimeout(30)
+    .build();
+
+  const simulation = await withTimeout(server.simulateTransaction(tx), 30000);
+
+  if (!simulation) {
+    throw new Error("Soroban simulation failed: no result returned.");
+  }
+  if (simulation.error) {
+    throw new Error(`Soroban simulation error: ${simulation.error}`);
+  }
+  if (!simulation.result) {
+    throw new Error("Soroban simulation returned no result.");
+  }
+  return simulation.result.retval;
+}
+
+/**
+ * Simulate, sign (via Freighter), and submit a Soroban contract invocation.
+ * Returns the transaction hash.
+ */
+export async function sendSorobanCall(
+  invocation: SorobanInvocation,
+  network: Network),
+): Promise<string> {
+  const server = getSorobanServer(network);
+  const contractAddress = getContractAddress(network);
+  const networkPassphrase = getNetworkPassphrase(network);
+
+  const publicKey = await getFreighterPublicKey();
+  const account = await server.getAccount(publicKey);
+  const tx = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: contractAddress,
+        function: invocation.method,
+        args: invocation.args,
+      }),
+    )
+    .setTimeout(30)
+    .build();
+
+  try {
+    const signedXdr = await signTransaction(tx.toXDR(), networkPassphrase, {
+      accountToSign: publicKey,
+    });
+    const response = await withTimeout(server.sendTransaction(signedXdr), 30000);
+    if (!response.hash) {
+      throw new Error("Transaction submission did not return a hash.");
+    }
+    return response.hash;
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("User rejected")) {
+      throw new Error("Transaction signature rejected by user.");
+    }
+    throw error;
+  }
 }
