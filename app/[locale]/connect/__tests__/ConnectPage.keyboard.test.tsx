@@ -31,6 +31,13 @@ jest.mock("@/app/store/multiTimeframeStore", () => ({
   })),
 }));
 
+jest.mock("@/app/store/walletStore", () => ({
+  useWalletStore: jest.fn(() => ({
+    connect: jest.fn(),
+    disconnect: jest.fn(),
+  })),
+}));
+
 jest.mock("@/src/hooks/useStellarAddressValidation", () => ({
   useStellarAddressValidation: jest.fn(() => ({
     address: "",
