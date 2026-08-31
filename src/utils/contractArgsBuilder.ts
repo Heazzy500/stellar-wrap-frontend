@@ -379,7 +379,7 @@ export function buildContractArgsAsMap(
 // ─── Soroban RPC Execution ──────────────────────────────────────────────────
 export interface SorobanInvokeOptions {
   rpcUrl: string;
-  publicKey: string;
+  publicKey?: string;
   contractId: string;
   method: string;
   args: xdr.ScVal[];
@@ -413,6 +413,49 @@ async function withTimeout<T>(
   }
 }
 
+/**
+ * Polls the Soroban RPC server until a submitted transaction reaches a
+ * terminal state or the deadline expires.
+ */
+async function waitForSorobanTransaction(
+  server: SorobanRpc.Server,
+  hash: string,
+  timeoutMs: number,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  let delayMs = 500;
+
+  while (Date.now() < deadline) {
+    const response = await withTimeout(
+      throttledRpcCall(() => server.getTransaction(hash)),
+      Math.min(timeoutMs, 10_000),
+      "Fetching transaction status",
+    );
+
+    if (response.status === "SUCCESS") {
+      return response.status;
+    }
+
+    if (response.status === "FAILED") {
+      throw new Error(`Soroban transaction failed: ${hash}`);
+    }
+
+    const remainingMs = deadline - Date.now();
+    if (remainingMs <= 0) {
+      break;
+    }
+
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, Math.min(delayMs, remainingMs)),
+    );
+    delayMs = Math.min(delayMs * 2, 5_000);
+  }
+
+  throw new Error(
+    `Timed out waiting for transaction ${hash} after ${timeoutMs}ms`,
+  );
+}
+
 export async function invokeSorobanContract(
   options: SorobanInvokeOptions,
 ): Promise<SorobanInvokeResult> {
@@ -426,9 +469,10 @@ export async function invokeSorobanContract(
     timeoutMs = 30_000,
   } = options;
 
+  const resolvedPublicKey = publicKey ?? (await getFreighterPublicKey());
   const server = new SorobanRpc.Server(rpcUrl, { allowHttp: true });
   const source = await withTimeout(
-    throttledRpcCall(() => server.getAccount(publicKey)),
+    throttledRpcCall(() => server.getAccount(resolvedPublicKey)),
     timeoutMs,
     "Fetching account",
   );
@@ -481,6 +525,23 @@ export async function invokeSorobanContract(
     timeoutMs,
     "Sending transaction",
   );
+
+  if (response.status === "PENDING" || response.status === "DUPLICATE") {
+    const finalStatus = await waitForSorobanTransaction(
+      server,
+      response.hash,
+      timeoutMs,
+    );
+
+    return {
+      hash: response.hash,
+      status: finalStatus,
+    };
+  }
+
+  if (response.status === "ERROR") {
+    throw new Error(`Soroban send transaction failed: ${response.hash}`);
+  }
 
   return {
     hash: response.hash,
