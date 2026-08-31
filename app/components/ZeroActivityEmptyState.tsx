@@ -37,7 +37,7 @@ export function ZeroActivityEmptyState({
 
   return (
     <div
-      className={`relative z-20 flex flex-col items-center justify-center text-center px-6 py-12 max-w-lg mx-auto ${className}`}
+      className={`relative z-20 flex w-full flex-col items-center justify-center text-center px-6 py-12 max-w-lg mx-auto ${className}}}`
       data-testid="zero-activity-empty-state"
       role="status"
       aria-live="polite"
@@ -49,25 +49,25 @@ export function ZeroActivityEmptyState({
         <Inbox className="h-8 w-8 text-white/70" />
       </div>
 
-      <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-3">
+      <h2 className="text-2xl sm-text-3xl font-black text-white tracking-tight mb-3">
         No activity in this period
       </h2>
-      <p className="text-sm sm:text-base text-white/60 mb-8 leading-relaxed">
-        This account is valid, but we found zero transactions for the {label} on{" "}
-        <span className="text-white/80 font-semibold">{network}</span>. Try a
+      <p className="w-full break-words text-sm sm-text-base text-white/60 mb-8 leading-relaxed">
+        This account is valid, but we found zero transactions for the {label} on{
+        <span className="text-white/80 font-semibold"{network}</span>. Try a
         wider window or switch networks — no mock stats here.
       </p>
 
-      <div className="flex flex-col sm:flex-row flex-wrap items-stretch justify-center gap-3 w-full">
+      <div className="flex flex-col sm-flex-row flex-wrap items-stretch justify-center gap-3 w-full">
         <button
           type="button"
           onClick={() => {
             setPeriod(nextPeriod);
             startFresh("/loading");
           }}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
+          className="inline-flex min-w-0 w-full items-center justify-center gap-2 whitespace-normal rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors sm-w-auto"
         >
-          <CalendarRange className="h-4 w-4" aria-hidden="true" />
+          <CalendarRange className="h-4 w-4 shrink-0" aria-hidden="true" />
           Try {PERIOD_LABELS[nextPeriod]}
         </button>
 
@@ -77,9 +77,9 @@ export function ZeroActivityEmptyState({
             setNetwork(otherNetwork);
             startFresh("/loading");
           }}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors"
+          className="inline-flex min-w-0 w-full items-center justify-center gap-2 whitespace-normal rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-sm font-semibold text-white hover:bg-white/10 transition-colors sm-w-auto"
         >
-          <Globe2 className="h-4 w-4" aria-hidden="true" />
+          <Globe2 className="h-4 w-4 shrink-0" aria-hidden="true" />
           Switch to {otherNetwork}
         </button>
 
@@ -89,9 +89,9 @@ export function ZeroActivityEmptyState({
             reset();
             router.push("/connect");
           }}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--color-theme-primary)]/40 bg-[var(--color-theme-primary)]/15 px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--color-theme-primary)]/25 transition-colors"
+          className="inline-flex min-w-0 w-full items-center justify-center gap-2 whitespace-normal rounded-xl border border-[var(--color-theme-primary)]/40 bg-[var(--color-theme-primary)]/15 px-4 py-3 text-sm font-semibold text-white hover:bg-[var(--color-theme-primary)]/25 transition-colors sm-w-auto"
         >
-          <RefreshCw className="h-4 w-4" aria-hidden="true" />
+          <RefreshCw className="h-4 w-4 shrink-0" aria-hidden="true" />
           Change wallet
         </button>
       </div>
