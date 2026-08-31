@@ -649,6 +649,8 @@ export default function ArchetypeReveal(): JSX.Element {
               {showTooltip && (
                 <motion.div
                   ref={tooltipRef}
+                  role="tooltip"
+                  id="archetype-tooltip"
                   initial={{ opacity: 0, scale: 0.95, y: -10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -661,9 +663,9 @@ export default function ArchetypeReveal(): JSX.Element {
                       className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1 hover:bg-white/10 rounded-md transition-colors"
                       aria-label="Close tooltip"
                     >
-                      <X className="w-4 h-4 sm:w-5 sm:h-5 text-white/60 hover:text-white" />
+                      <X className="w-4 h-4 sm:w-5 sm:h-5 text-white/80 hover:text-white" />
                     </button>
-                    <p className="text-xs sm:text-sm text-gray-200 leading-relaxed pr-6">
+                    <p className="text-xs sm:text-sm text-gray-100 leading-relaxed pr-6">
                       <span className="font-semibold text-white">Archetype Rule:</span> {data.description}
                     </p>
                   </div>
