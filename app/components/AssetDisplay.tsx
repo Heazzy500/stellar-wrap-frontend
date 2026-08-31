@@ -126,8 +126,8 @@ function cacheAssetInList(code: string, issuer?: string): void {
 
   if (!exists) {
     list.push(issuer === undefined ? { code } : { code, issuer });
-    saveAssetListState(list);
   }
+  saveAssetListState(list);
 }
 
 interface AssetDisplayProps {
@@ -287,10 +287,11 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
       setMetadata(cached);
       setLoading(false);
       cacheAssetInList(code, issuer);
-    } else {
-      setMetadata(null);
-      setLoading(true);
+      return;
     }
+
+    setMetadata(null);
+    setLoading(true);
 
     const fetchAsset = async () => {
       try {
@@ -423,10 +424,11 @@ export const AssetCard: React.FC<
       setMetadata(cached);
       setLoading(false);
       cacheAssetInList(props.code, props.issuer);
-    } else {
-      setMetadata(null);
-      setLoading(true);
+      return;
     }
+
+    setMetadata(null);
+    setLoading(true);
 
     const fetchAsset = async () => {
       try {
