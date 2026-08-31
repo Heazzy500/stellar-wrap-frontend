@@ -30,6 +30,7 @@ const SOROBAN_RPC_URLS: Record<Network, string> = {
 
 const ACCOUNT_CACHE_TTL_MS = 10_000;
 const accountCache = new Map<string, { account: Account; fetchedAt: number }>();
+const pendingAccountFetches = new Map<string, Promise<Account>>();
 
 function getRpcUrl(network: Network): string {
   const url = SOROBAN_RPC_URLS[network];
@@ -63,7 +64,10 @@ function getNetworkPassphrase(network: Network): string {
  */
 export function xlmToStroop(amount: number | string): number {
   const stroops = xlmToStroopBigInt(amount);
-  if (stroops > BigInt(Number.MAX_SAFE_INTEGER)) {
+  if (
+    stroops > BigInt(Number.MAX_SAFE_INTEGER) ||
+    stroops < -BigInt(Number.MAX_SAFE_INTEGER)
+  ) {
     throw new Error(`Amount too large to represent as a number: ${amount}`);
   }
   return Number(stroops);
@@ -74,20 +78,26 @@ export function xlmToStroop(amount: number | string): number {
  */
 export function xlmToStroopBigInt(amount: number | string): bigint {
   const amountStr = typeof amount === "number" ? amount.toString() : amount;
-  const match = amountStr.match(/^(\d*)(?:\.(\d*))?$/);
+  const match = amountStr.match(/^(-?)(\d*)(?:\.(\d*))?$/);
   if (!match) {
     throw new Error(`Invalid amount: ${amountStr}`);
   }
-  const whole = match[1] ?? "0";
-  const fraction = (match[2] ?? "").padEnd(7, "0").slice(0, 7);
-  return BigInt(whole) * 10n ** 7n + BigInt(fraction);
+  const sign = match[1] === "-" ? -1n : 1n;
+  const whole = match[2] || "0";
+  const fraction = (match[3] ?? "").padEnd(7, "0").slice(0, 7);
+  return sign * (BigInt(whole) * 10n ** 7n + BigInt(fraction));
 }
 
 /**
  * Convert Stroops to a human-readable XLM amount with 7 decimal precision.
  */
-export function stroopToXlm(stroop: number): string {
-  return (stroop / 10 ** 7 ).toFixed(7);
+export function stroopToXlm(stroop: number | bigint): string {
+  const value = BigInt(stroop);
+  const sign = value < 0n ? "-" : "";
+  const absValue = value < 0n ? -value : value;
+  const whole = absValue / 10n ** 7n;
+  const fraction = absValue % 10n ** 7n;
+  return `${sign}${whole.toString()}.${fraction.toString().padStart(7, "0")}`;
 }
 
 /**
@@ -99,14 +109,16 @@ export function amountToScVal(amount: string | number): xdr.ScVal {
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeoutId: ReturnType<typeof setTimeout>;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
   const timeoutPromise = new Promise<never>((_, reject) => {
     timeoutId = setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs}ms`)), timeoutMs);
   });
   try {
     return await Promise.race([promise, timeoutPromise]);
   } finally {
-    clearTimeout(timeoutId);
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
   }
 }
 
@@ -117,10 +129,22 @@ function getAccountWithCache(server: Server, publicKey: string, network: Network
   if (cached && now - cached.fetchedAt < ACCOUNT_CACHE_TTL_MS) {
     return Promise.resolve(cached.account);
   }
-  return server.getAccount(publicKey).then((account) => {
-    accountCache.set(cacheKey, { account, fetchedAt: now });
-    return account;
-  });
+  const pending = pendingAccountFetches.get(cacheKey);
+  if (pending) {
+    return pending;
+  }
+  const fetchPromise = server.getAccount(publicKey)
+    .then((account) => {
+      accountCache.set(cacheKey, { account, fetchedAt: Date.now() });
+      pendingAccountFetches.delete(cacheKey);
+      return account;
+    })
+    .catch((error: unknown) => {
+      pendingAccountFetches.delete(cacheKey);
+      throw error;
+    });
+  pendingAccountFetches.set(cacheKey, fetchPromise);
+  return fetchPromise;
 }
 
 /**
@@ -144,10 +168,12 @@ export async function connectWalletConnect(network: Network): Promise<string> {
     const [
       { StellarWalletsKit },
       { WalletConnectModule, WALLET_CONNECT_ID, WalletConnectTargetChain },
+      { FreighterModule },
       { Networks },
     ] = await Promise.all([
       import("@creit-tech/stellar-wallets-kit/sdk"),
       import("@creit-tech/stellar-wallets-kit/modules/wallet-connect"),
+      import("@creit-tech/stellar-wallets-kit/modules/freighter"),
       import("@creit-tech/stellar-wallets-kit/types"),
     ]);
 
@@ -170,6 +196,7 @@ export async function connectWalletConnect(network: Network): Promise<string> {
           },
           allowedChains: [walletConnectChain],
         }),
+        new FreighterModule(),
       ],
       selectedWalletId: WALLET_CONNECT_ID,
       network: kitNetwork,
@@ -191,13 +218,16 @@ export async function connectWalletConnect(network: Network): Promise<string> {
     if (error instanceof Error) {
       if (
         error.message?.includes("rejected") ||
-        error.message?.includes("cancelled")
+        error.message?.includes("cancelled") ||
+        error.message?.includes("canceled") ||
+        error.message?.includes("denied") ||
+        error.message?.includes("declined")
       ) {
         throw new Error("Connection rejected by user.");
       }
       throw error;
     }
-    throw new Error("Failed to connect via WalletConnect. Please try again.");
+    throw new Error("Failed to connect. Please try again.");
   }
 }
 
@@ -329,7 +359,7 @@ export async function sendSorobanTransaction(params: {
     signedXdr = await signTransaction(preparedTransaction.toXDR());
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    if (/rejected|cancelled|denied/i.test(message)) {
+    if (/rejected|cancelled|canceled|denied|declined/i.test(message)) {
       throw new Error("Transaction signature rejected by user.");
     }
     if (error instanceof Error) {
@@ -345,8 +375,8 @@ export async function sendSorobanTransaction(params: {
   const signedTransaction = TransactionBuilder.fromXDR(signedXdr, networkPassphrase);
   const sendResponse = await withTimeout(server.sendTransaction(signedTransaction), timeoutMs);
 
-  if (sendResponse.status === "failed" || sendResponse.status === "error") {
-    const errorDetails = sendResponse.errorResult?.result?.code ?? "Unknown error";
+  if (sendResponse.status === "error") {
+    const errorDetails = sendResponse.errorResult?.result()?.switch()?.name ?? "Unknown error";
     throw new Error(`Transaction failed: ${errorDetails}`);
   }
 
