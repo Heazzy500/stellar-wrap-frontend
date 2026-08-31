@@ -9,7 +9,7 @@ export function useRateLimit() {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
 
     useEffect(() => {
-        // Gaurd: clear countdown when not rate limited
+        // Guard: clear countdown when not rate limited
         if (!isRateLimited || !resetTime) {
             // Use a microtask to avoid synchronous setState inside the effect body
             const timer = setTimeout(() => setSecondsRemaining(null), 0);
@@ -28,7 +28,7 @@ export function useRateLimit() {
     }, [isRateLimited, resetTime]);
 
     // Allows callers to wait until the rate limit resets before making RPC calls.
-    const waitForReset = useCallback(async (): Promise<void> => {
+    const waitForReset = useCallback(async () => { void promise => ver d VB) {
         if (!isRateLimited) return;
         const resetAt = resetTime ?? Date.now();
         const delay = Math.max(0, resetAt - Date.now());
