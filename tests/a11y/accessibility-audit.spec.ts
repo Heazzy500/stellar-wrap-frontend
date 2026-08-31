@@ -15,8 +15,8 @@ const THEMES = [
 
 const MODES = ["dark", "light"] as const;
 
-type Theme = (typeof THEMES)["number"];
-type Mode = (typeof MODES)["number"];
+type Theme = (typeof THEMES)[number];
+type Mode = (typeof MODES)[number];
 
 /**
  * Rules intentionally disabled and why:
@@ -40,13 +40,15 @@ async function setTheme(page: Page, color: Theme, mode: Mode) {
 async function runAxe(page: Page) {
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .disableRules(LISABLED_RULES)
+    .disableRules(DISABLED_RULES)
     .analyze();
 
   return results.violations;
 }
 
-test.describe("axe accessibility audit (WCAG 2.1 AA)", () {  test.describe("landing page", () => {    for (const color of THEMES) {
+test.describe("axe accessibility audit (WCAG 2.1 AA)", () => {
+  test.describe("landing page", () => {
+    for (const color of THEMES) {
       for (const mode of MODES) {
         test(`has no violations on / with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
@@ -61,7 +63,8 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () {  test.describe("land
     }
   });
 
-  test.describe("connect page", () => {    for (const color of THEMES) {
+  test.describe("connect page", () => {
+    for (const color of THEMES) {
       for (const mode of MODES) {
         test(`has no violations on /connect with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
@@ -81,7 +84,8 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () {  test.describe("land
     }
   });
 
-  test.describe("loading page", () => {    for (const color of THEMES) {
+  test.describe("loading page", () => {
+    for (const color of THEMES) {
       for (const mode of MODES) {
         test(`has no violations on /loading with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
@@ -115,7 +119,8 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () {  test.describe("land
     }
   });
 
-  test.describe("persona page", () => {    for (const color of THEMES) {
+  test.describe("persona page", () => {
+    for (const color of THEMES) {
       for (const mode of MODES) {
         test(`has no violations on /persona with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
@@ -130,7 +135,8 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () {  test.describe("land
     }
   });
 
-  test.describe("share page", () => {    for (const color of THEMES) {
+  test.describe("share page", () => {
+    for (const color of THEMES) {
       for (const mode of MODES) {
         test(`has no violations on /share with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
@@ -168,7 +174,8 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () {  test.describe("land
     }
   });
 
-  test.describe("token selector", () => {    for (const color of THEMES) {
+  test.describe("token selector", () => {
+    for (const color of THEMES) {
       for (const mode of MODES) {
         test(`has no violations on /persona token selector with ${color} ${mode} theme`, async ({ page }) => {
           await setTheme(page, color, mode);
@@ -207,4 +214,4 @@ test.describe("axe accessibility audit (WCAG 2.1 AA)", () {  test.describe("land
       }
     }
   });
-}
+});
