@@ -484,6 +484,39 @@ export const Primary: Story = {
   },
 };
 
+export const Mobile: Story = {
+  args: {
+    ...Primary.args,
+  },
+  parameters: {
+    viewport: {
+      defaultViewport: "mobile",
+    },
+  },
+};
+
+export const Tablet: Story = {
+  args: {
+    ...Primary.args,
+  },
+  parameters: {
+    viewport: {
+      defaultViewport: "tablet",
+    },
+  },
+};
+
+export const Desktop: Story = {
+  args: {
+    ...Primary.args,
+  },
+  parameters: {
+    viewport: {
+      defaultViewport: "desktop",
+    },
+  },
+};
+
 export const DarkMode: Story = {
   args: {
     ...Primary.args,
