@@ -321,3 +321,5 @@ export function ProgressIndicator({
     </>
   );
 }
+
+export default ProgressIndicator;
