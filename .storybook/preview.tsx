@@ -26,11 +26,27 @@ const preview: Preview = {
     nextjs: { appDirectory: true },
     controls: {
       matchers: {
-        color: /(?abackground|color)$/i,
+        color: /(background|color)$/i,
         date: /Date$/i,
       },
     },
-    a11y: { test: "todo" },
+    a11y: { test: "error" },
+    viewport: {
+      viewports: {
+        mobile: {
+          name: "Mobile",
+          styles: { width: "375px", height: "667px" },
+        },
+        tablet: {
+          name: "Tablet",
+          styles: { width: "768px", height: "1024px" },
+        },
+        desktop: {
+          name: "Desktop",
+          styles: { width: "1440px", height: "900px" },
+        },
+      },
+    },
   },
   decorators: [
     (Story, context) => {
@@ -41,7 +57,7 @@ const preview: Preview = {
         return () => root.classList.remove("light");
       }, [theme]);
       return (
-        <div className="min-h-screen bg-[var(--color-theme-background)] p-8 text-[var(--color-foreground)]">
+        <div className="min-h-screen w-full bg-[var(--color-theme-background)] p-4 text-[var(--color-foreground)] sm-p-6 md-p-8 lg-p-10">
           <Story />
         </div>
       );
