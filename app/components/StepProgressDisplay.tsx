@@ -316,3 +316,5 @@ export function StepProgressDisplay({
     </motion.div>
   );
 }
+
+export default StepProgressDisplay;
