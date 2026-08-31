@@ -1,10 +1,9 @@
 name: CI
-on:
-  push:
-    branches:
-      - main
-      - master
-      - develop
+on: push:
+  branches:
+    - main
+    - master
+    - develop
   pull_request:
     branches:
       - "**"
@@ -38,7 +37,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@4v
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -76,6 +75,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-report-$ {{ github.run_id }}-$ {{ github.run_attempt }}
+          name: coverage-report-${
+{ github.run_id }}-${{ github.run_attempt }}
           path: coverage/
           retention-days: 30
