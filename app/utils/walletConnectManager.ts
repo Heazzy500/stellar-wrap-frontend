@@ -7,7 +7,7 @@ import {
   BASE_FEE,
   nativeToScVal,
   xdr,
-  Server,
+  SorobanRpc,
 } from "@stellar/stellar-sdk";
 
 /**
@@ -40,15 +40,15 @@ function getRpcUrl(network: Network): string {
   return url;
 }
 
-const serverCache = new Map<Network, Server>();
+const serverCache = new Map<Network, SorobanRpc.Server>();
 
-function getServer(network: Network): Server {
+function getServer(network: Network): SorobanRpc.Server {
   const rpcUrl = getRpcUrl(network);
   const cached = serverCache.get(network);
   if (cached) {
     return cached;
   }
-  const server = new Server(rpcUrl, {
+  const server = new SorobanRpc.Server(rpcUrl, {
     allowHttp: rpcUrl.startsWith("http://"),
   });
   serverCache.set(network, server);
@@ -122,7 +122,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 }
 
-function getAccountWithCache(server: Server, publicKey: string, network: Network): Promise<Account> {
+function getAccountWithCache(server: SorobanRpc.Server, publicKey: string, network: Network): Promise<Account> {
   const cacheKey = `${network}:${publicKey}`;
   const now = Date.now();
   const cached = accountCache.get(cacheKey);
@@ -282,7 +282,7 @@ export async function simulateSorobanContract(params: {
   sourceAccount: string;
   network: Network;
   timeoutMs?: number;
-}): Promise<Awaited<ReturnType<Server["simulateTransaction"]>>> {
+}): Promise<Awaited<ReturnType<SorobanRpc.Server["simulateTransaction"]>>> {
   const { contractAddress, method, args = [], sourceAccount, network, timeoutMs = 30_000 } = params;
   const server = getServer(network);
 
@@ -313,7 +313,7 @@ export async function sendSorobanTransaction(params: {
   network: Network;
   signTransaction: (txXdr: string) => Promise<string>;
   timeoutMs?: number;
-}): Promise<Awaited<ReturnType<Server["sendTransaction"]>>> {
+}): Promise<Awaited<ReturnType<SorobanRpc.Server["sendTransaction"]>>> {
   const {
     contractAddress,
     method,
