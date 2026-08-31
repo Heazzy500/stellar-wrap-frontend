@@ -19,12 +19,14 @@
 import {
   xdr,
   Address,
+  BASE_FEE,
   nativeToScVal,
   scValToNative,
   StrKey,
   SorobanRpc,
   Transaction,
   TransactionBuilder,
+  Operation,
 } from "stellar-sdk";
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -749,4 +751,331 @@ export function fromScVal(scVal: xdr.ScVal): unknown {
     );
     return null;
   }
+}
+
+// ─── Stellar Amount Helpers ─────────────────────────────────────────────────
+
+/**
+ * Number of stroops in one lumen. Stroops are the smallest unit (1e-7).
+ */
+export const STROOPS_PER_LUMEN = 10_000_000n;
+
+/**
+ * Converts a lumen amount (as a string or number) to stroops as a BigInt.
+ *
+ * @param amount - Lumen amount, e.g. "123.4567890" or 100.5
+ * @returns BigInt stroops, or null when the amount is not valid.
+ */
+export function lumensToStroops(amount: string | number): bigint | null {
+  try {
+    const normalized =
+      typeof amount === "number" ? amount.toFixed(7) : amount.trim();
+    if (normalized.length === 0) return null;
+
+    const negative = normalized.startsWith("-");
+    const unsigned = negative ? normalized.slice(1) : normalized;
+    const [wholePart, fractionPart = ""] = unsigned.split(".");
+
+    if (!/^\d+$/.test(wholePart) || !/^\d*$/.test(fractionPart)) {
+      return null;
+    }
+
+    const paddedFraction = fractionPart.padEnd(7, "0").slice(0, 7);
+    const stroops =
+      BigInt(wholePart) * STROOPS_PER_LUMEN + BigInt(paddedFraction || "0");
+    return negative ? -stroops : stroops;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Converts stroops to a lumen amount string with up to 7 decimal places.
+ *
+ * @param stroops - Stroop value as bigint, number, or numeric string
+ * @returns Decimal lumen string, or null for invalid input.
+ */
+export function stroopsToLumens(
+  stroops: bigint | number | string,
+): string | null {
+  try {
+    const value = BigInt(stroops);
+    const sign = value < 0n ? "-" : "";
+    const abs = value < 0n ? -value : value;
+    const whole = abs / STROOPS_PER_LUMEN;
+    const fraction = abs % STROOPS_PER_LUMEN;
+
+    if (fraction === 0n) {
+      return `${sign}${whole.toString()}`;
+    }
+
+    const fractionStr = fraction.toString().padStart(7, "0").replace(/0+$/, "");
+    return `${sign}${whole.toString()}.${fractionStr}`;
+  } catch {
+    return null;
+  }
+}
+
+// ─── Soroban RPC Helpers ────────────────────────────────────────────────────
+
+type SimulateTransactionResponse = Awaited<
+  ReturnType<typeof SorobanRpc.Server.prototype.simulateTransaction>
+>;
+
+type SendTransactionResponse = Awaited<
+  ReturnType<typeof SorobanRpc.Server.prototype.sendTransaction>
+>;
+
+type GetTransactionResponse = Awaited<
+  ReturnType<typeof SorobanRpc.Server.prototype.getTransaction>
+>;
+
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+  try {
+    return await Promise.race([promise, timeoutPromise]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+const inFlightSimulationRequests = new Map<
+  string,
+  Promise<SimulateSorobanTransactionResult>
+>();
+
+export function clearSorobanSimulationRequestCache(): void {
+  inFlightSimulationRequests.clear();
+}
+
+export interface SorobanTransactionContext {
+  rpcUrl: string;
+  networkPassphrase: string;
+  sourceAddress: string;
+  contractId: string;
+  method: string;
+  args?: unknown[];
+  argTypes?: ScValTargetType[];
+}
+
+export interface SimulateSorobanTransactionOptions {
+  fee?: string | number;
+  timeoutInSeconds?: number;
+  requestTimeoutMs?: number;
+}
+
+export interface SimulateSorobanTransactionResult {
+  transaction: Transaction;
+  preparedTransaction: Transaction;
+  simulation: SimulateTransactionResponse;
+}
+
+export async function simulateSorobanTransaction(
+  context: SorobanTransactionContext,
+  options: SimulateSorobanTransactionOptions = {},
+): Promise<SimulateSorobanTransactionResult> {
+  const scVals: xdr.ScVal[] = [];
+  if (context.args) {
+    for (let i = 0; i < context.args.length; i++) {
+      const converted = toScVal(context.args[i], context.argTypes?.[i]);
+      if (isConversionError(converted)) {
+        throw new Error(
+          `Invalid ScVal argument at index ${i}: ${converted.error}`,
+        );
+      }
+      scVals.push(converted.value);
+    }
+  }
+
+  const argsKey = scVals.map((scVal) => scVal.toXDR("base64")).join(",");
+  const cacheKey = [
+    context.networkPassphrase,
+    context.sourceAddress,
+    context.contractId,
+    context.method,
+    argsKey,
+  ].join("|");
+
+  const cached = inFlightSimulationRequests.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  const simulationPromise = performSorobanSimulation(
+    context,
+    options,
+    scVals,
+  );
+
+  inFlightSimulationRequests.set(cacheKey, simulationPromise);
+  try {
+    return await simulationPromise;
+  } finally {
+    inFlightSimulationRequests.delete(cacheKey);
+  }
+}
+
+async function performSorobanSimulation(
+  context: SorobanTransactionContext,
+  options: SimulateSorobanTransactionOptions,
+  scVals: xdr.ScVal[],
+): Promise<SimulateSorobanTransactionResult> {
+  const server = new SorobanRpc.Server(context.rpcUrl, { allowHttp: true });
+
+  const sourceAccount = await withTimeout(
+    server.getAccount(context.sourceAddress),
+    options.requestTimeoutMs ?? 10_000,
+    "Soroban account request timed out",
+  );
+
+  const transaction = new TransactionBuilder(sourceAccount, {
+    fee: options.fee !== undefined ? String(options.fee) : BASE_FEE,
+    networkPassphrase: context.networkPassphrase,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contractId: context.contractId,
+        function: context.method,
+        args: scVals,
+      }),
+    )
+    .setTimeout(options.timeoutInSeconds ?? 0)
+    .build();
+
+  const simulation = await withTimeout(
+    server.simulateTransaction(transaction),
+    options.requestTimeoutMs ?? 10_000,
+    "Soroban simulation timed out",
+  );
+
+  if ("error" in simulation && typeof simulation.error === "string") {
+    throw new Error(`Soroban simulation error: ${simulation.error}`);
+  }
+
+  const preparedTransaction = SorobanRpc.assembleTransaction(
+    transaction,
+    simulation,
+  ).build();
+
+  return { transaction, preparedTransaction, simulation };
+}
+
+// ─── Soroban Transaction Signing/Submission ─────────────────────────────────
+
+interface FreighterSigner {
+  signTransaction(
+    transactionXdr: string,
+    options: { networkPassphrase: string },
+  ): Promise<string>;
+}
+
+function getFreighterSigner(): FreighterSigner | null {
+  const globalRef = globalThis as unknown as { freighter?: FreighterSigner };
+  return globalRef.freighter ?? null;
+}
+
+export function isUserRejection(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    /user rejected|user denied|reject|declined|cancel/i.test(error.message)
+  );
+}
+
+export async function signSorobanTransaction(
+  transaction: Transaction,
+  networkPassphrase: string,
+): Promise<Transaction> {
+  const freighter = getFreighterSigner();
+  if (!freighter) {
+    throw new Error(
+      "Freighter wallet is not available. Please install Freighter.",
+    );
+  }
+
+  try {
+    const signedXdr = await freighter.signTransaction(transaction.toXDR(), {
+      networkPassphrase,
+    });
+    return TransactionBuilder.fromXDR(signedXdr, networkPassphrase);
+  } catch (err) {
+    if (isUserRejection(err)) {
+      throw new Error("Transaction signature was rejected by the user.");
+    }
+    throw err;
+  }
+}
+
+export interface SorobanSendOptions {
+  requestTimeoutMs?: number;
+  pollIntervalMs?: number;
+  maxPollAttempts?: number;
+}
+
+export async function sendSorobanTransaction(
+  rpcUrl: string,
+  signedTransaction: Transaction,
+  options: SorobanSendOptions = {},
+): Promise<string> {
+  const server = new SorobanRpc.Server(rpcUrl, { allowHttp: true });
+
+  const sendResponse = await withTimeout(
+    server.sendTransaction(signedTransaction),
+    options.requestTimeoutMs ?? 15_000,
+    "Soroban send transaction timed out",
+  );
+
+  if (sendResponse.status === "ERROR") {
+    const errorResult = (sendResponse as SendTransactionResponse & {
+      errorResult?: unknown;
+    }).errorResult;
+
+    throw new Error(
+      errorResult !== undefined
+        ? `Soroban submission rejected: ${String(errorResult)}`
+        : "Soroban transaction submission failed",
+    );
+  }
+
+  const transactionHash = sendResponse.hash;
+
+  if (sendResponse.status === "DUPLICATE") {
+    return transactionHash;
+  }
+
+  const pollIntervalMs = options.pollIntervalMs ?? 1_000;
+  const maxPollAttempts = options.maxPollAttempts ?? 30;
+
+  for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
+    await new Promise<void>((resolve) => setTimeout(resolve, pollIntervalMs));
+    const getResponse = await withTimeout(
+      server.getTransaction(transactionHash),
+      options.requestTimeoutMs ?? 10_000,
+      "Soroban getTransaction timed out",
+    );
+
+    if (getResponse.status === "SUCCESS") {
+      return transactionHash;
+    }
+
+    if (getResponse.status === "FAILED") {
+      throw new Error(
+        `Soroban transaction ${transactionHash} failed on-chain`,
+      );
+    }
+
+    if (getResponse.status === "NOT_FOUND") {
+      continue;
+    }
+  }
+
+  throw new Error(
+    `Timed out waiting for Soroban transaction ${transactionHash} to confirm`,
+  );
 }
