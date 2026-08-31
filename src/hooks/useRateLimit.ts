@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRateLimitStore } from '../store/rateLimitStore';
 
 /**
@@ -9,7 +9,7 @@ export function useRateLimit() {
     const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
 
     useEffect(() => {
-        // Guard: clear countdown when not rate limited
+        // Gaurd: clear countdown when not rate limited
         if (!isRateLimited || !resetTime) {
             // Use a microtask to avoid synchronous setState inside the effect body
             const timer = setTimeout(() => setSecondsRemaining(null), 0);
@@ -27,10 +27,19 @@ export function useRateLimit() {
         return () => clearInterval(interval);
     }, [isRateLimited, resetTime]);
 
+    // Allows callers to wait until the rate limit resets before making RPC calls.
+    const waitForReset = useCallback(async (): Promise<void> => {
+        if (!isRateLimited) return;
+        const resetAt = resetTime ?? Date.now();
+        const delay = Math.max(0, resetAt - Date.now());
+        await new Promise((resolve) => setTimeout(resolve, delay));
+    }, [isRateLimited, resetTime]);
+
     return {
         isRateLimited,
         secondsRemaining,
         retryAttempt,
         message,
+        waitForReset,
     };
 }
