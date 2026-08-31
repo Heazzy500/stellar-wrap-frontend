@@ -1,15 +1,30 @@
 "use client";
 
 import { motion } from 'framer-motion';
-import { useMemo } from 'react';
+import { lazy, Suspense, useMemo } from 'react';
 import { TrendingUp, Palette, Code, Sparkles, Crown } from 'lucide-react';
 import { formatDappDisplayName } from '@/app/utils/formatDappLabel';
-import { DappIcon } from '@/app/components/DappIcon';
-import { DexTradingSummary } from './DexTradingSummary';
-import { SorobanBuilderTimeline } from './SorobanBuilderTimeline';
-import { PortfolioDiversityCard } from './PortfolioDiversityCard';
-import { BiggestDayCard } from './BiggestDayCard';
 import type { DexTradingSummary as DexTradingSummaryType, SorobanBuilderSummary as SorobanBuilderSummaryType, PortfolioDiversitySummary, BiggestDaySummary, NftActivitySummary } from '@/app/utils/indexer';
+
+const DappIcon = lazy(() =>
+  import('@/app/components/DappIcon').then(m => ({ default: m.DappIcon }))
+);
+
+const DexTradingSummary = lazy(() =>
+  import('./DexTradingSummary').then(m => ({ default: m.DexTradingSummary }))
+);
+
+const SorobanBuilderTimeline = lazy(() =>
+  import('./SorobanBuilderTimeline').then(m => ({ default: m.SorobanBuilderTimeline }))
+);
+
+const PortfolioDiversityCard = lazy(() =>
+  import('./PortfolioDiversityCard').then(m => ({ default: m.PortfolioDiversityCard }))
+);
+
+const BiggestDayCard = lazy(() =>
+  import('./BiggestDayCard').then(m => ({ default: m.BiggestDayCard }))
+);
 
 type VibeIconKey = 'defi' | 'nft' | 'dev';
 
@@ -288,6 +303,7 @@ export function Screen4VibeCheck({
               })}
             </div>
 
+            <Suspense fallback={null}>
             {topDapps.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -345,6 +361,7 @@ export function Screen4VibeCheck({
             <BiggestDayCard summary={biggestDaySummary} />
             <DexTradingSummary summary={dexTradingSummary} />
             <SorobanBuilderTimeline summary={sorobanBuilderSummary} />
+            </Suspense>
             </div>
           </div>
 
