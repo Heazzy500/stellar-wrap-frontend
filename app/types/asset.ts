@@ -1,8 +1,8 @@
 /**
  * Asset type definitions for Stellar wrap
- */
+*/
 
-/**
+/*
  * Represents resolved asset metadata
  */
 export interface AssetMetadata {
@@ -15,13 +15,13 @@ export interface AssetMetadata {
   isNative: boolean;
 }
 
-/**
+/*
  * Asset cache entry with expiration
  */
 export interface AssetCacheEntry {
   metadata: AssetMetadata;
   timestamp: number;
-  ttl: number; // in milliseconds
+  ttl: number; // in milliseconds 
   /** Bumped when issuer metadata schema changes; mismatched entries are dropped. */
   version: number;
 }
