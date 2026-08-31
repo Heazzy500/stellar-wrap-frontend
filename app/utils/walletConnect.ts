@@ -284,20 +284,22 @@ const signSorobanTransactionWithFreighter = async (
 
     throw new Error("Freighter returned an invalid signature response.");
   } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalizedMessage = message.toLowerCase();
+    if (
+      normalizedMessage.includes("declined") ||
+      normalizedMessage.includes("rejected") ||
+      normalizedMessage.includes("cancel") ||
+      normalizedMessage.includes("denied")
+    ) {
+      throw new Error("Transaction signature rejected by user.");
+    }
+
     if (error instanceof Error) {
-      const message = error.message.toLowerCase();
-      if (
-        message.includes("declined") ||
-        message.includes("rejected") ||
-        message.includes("cancel") ||
-        message.includes("denied")
-      ) {
-        throw new Error("Transaction signature rejected by user.");
-      }
       throw error;
     }
 
-    throw new Error("Failed to sign the Soroban transaction.");
+    throw new Error(message || "Failed to sign the Soroban transaction.");
   }
 };
 
@@ -366,6 +368,10 @@ export const invokeSorobanContract = async (
 
   if (!isValidStellarAddress(source)) {
     throw new Error("Invalid source account.");
+  }
+
+  if (signerAddress !== undefined && !isValidStellarAddress(signerAddress)) {
+    throw new Error("Invalid signer address.");
   }
 
   const server = getSorobanRpcServer(network);
