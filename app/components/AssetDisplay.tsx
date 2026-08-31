@@ -117,6 +117,27 @@ export function saveAssetListState(assets: CachedAssetRef[]): void {
   }
 }
 
+/**
+ * Hook that persists the asset list state to localStorage across sessions.
+ */
+export function useAssetListState() {
+  const [assets, setAssets] = useState<CachedAssetRef[]>([]);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setAssets(loadAssetListState());
+    setHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (hydrated) {
+      saveAssetListState(assets);
+    }
+  }, [assets, hydrated]);
+
+  return [assets, setAssets] as const;
+}
+
 function cacheAssetInList(code: string, issuer?: string): void {
   const list = loadAssetListState();
   const key = assetCacheKey(code, issuer);
