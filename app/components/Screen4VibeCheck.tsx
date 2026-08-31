@@ -214,7 +214,15 @@ export function Screen4VibeCheck({
               })}
             </div>
 
-            <Suspense fallback={null}>
+            <Suspense
+              fallback={
+                <div
+                  role="status"
+                  aria-label="Loading summary data"
+                  className="mt-8 h-80 rounded-xl border border-white/10 bg-white/5 animate-pulse"
+                />
+              }
+            >
             {topDapps.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
