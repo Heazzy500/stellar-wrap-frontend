@@ -780,7 +780,11 @@ export function lumensToStroops(amount: string | number): bigint | null {
       return null;
     }
 
-    const paddedFraction = fractionPart.padEnd(7, "0").slice(0, 7);
+    if (fractionPart.length > 7) {
+      return null;
+    }
+
+    const paddedFraction = fractionPart.padEnd(7, "0");
     const stroops =
       BigInt(wholePart) * STROOPS_PER_LUMEN + BigInt(paddedFraction || "0");
     return negative ? -stroops : stroops;
@@ -909,10 +913,13 @@ export async function simulateSorobanTransaction(
 
   const argsKey = scVals.map((scVal) => scVal.toXDR("base64")).join(",");
   const cacheKey = [
+    context.rpcUrl,
     context.networkPassphrase,
     context.sourceAddress,
     context.contractId,
     context.method,
+    options.fee !== undefined ? String(options.fee) : "",
+    options.timeoutInSeconds !== undefined ? String(options.timeoutInSeconds) : "",
     argsKey,
   ].join("|");
 
@@ -1026,11 +1033,9 @@ export async function ensureFreighterConnected(): Promise<void> {
     return;
   }
 
-  if (typeof freighter.isConnected === "function") {
-    throw new Error(
-      "Freighter is not connected and cannot request access automatically.",
-    );
-  }
+  throw new Error(
+    "Freighter is not connected and cannot request access automatically.",
+  );
 }
 
 export async function getFreighterPublicKey(): Promise<string> {
@@ -1057,10 +1062,19 @@ export async function getFreighterPublicKey(): Promise<string> {
 }
 
 export function isUserRejection(error: unknown): boolean {
-  return (
-    error instanceof Error &&
-    /user rejected|user denied|reject|declined|cancel/i.test(error.message)
-  );
+  let message = "";
+  if (error instanceof Error) {
+    message = error.message;
+  } else if (typeof error === "string") {
+    message = error;
+  } else if (typeof error === "object" && error !== null) {
+    const maybeMessage = (error as { message?: unknown }).message;
+    if (typeof maybeMessage === "string") {
+      message = maybeMessage;
+    }
+  }
+
+  return /user rejected|user denied|reject|declined|cancel/i.test(message);
 }
 
 export async function signSorobanTransaction(
