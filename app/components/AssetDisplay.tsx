@@ -214,7 +214,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
           />
         )}
         {showCode && (
-          <span className={`${sizeConfig.text} text-gray-400`}>Loading...</span>
+          <span className={`${sizeConfig.text} min-w-0 truncate text-gray-400`}>Loading...</span>
         )}
       </div>
     );
@@ -233,7 +233,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
         )}
         {showCode && (
           <span
-            className={`${sizeConfig.text} text-gray-600 dark:text-gray-400`}
+            className={`${sizeConfig.text} min-w-0 truncate text-gray-600 dark:text-gray-400`}
           >
             {code}
           </span>
@@ -257,7 +257,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
         />
       )}
       <span
-        className={`${sizeConfig.text} font-medium text-gray-900 dark:text-gray-100`}
+        className={`${sizeConfig.text} min-w-0 truncate font-medium text-gray-900 dark:text-gray-100`}
       >
         {displayName}
       </span>
@@ -338,7 +338,7 @@ export const AssetCard: React.FC<
       <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
         {/* Reserve the icon slot even for the fallback state */}
         <InitialsBadge code={props.code} size={32} />
-        <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+        <span className="min-w-0 truncate text-sm font-medium text-gray-600 dark:text-gray-400">
           {props.code}
         </span>
       </div>
@@ -350,18 +350,18 @@ export const AssetCard: React.FC<
       {props.showLogo && (
         <AssetIconSlot logo={metadata.logo} code={metadata.code} size={32} />
       )}
-      <div className="flex-1">
-        <div className="font-medium text-gray-900 dark:text-gray-100">
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-medium text-gray-900 dark:text-gray-100">
           {metadata.name}
         </div>
-        <div className="text-xs text-gray-600 dark:text-gray-400">
+        <div className="truncate text-xs text-gray-600 dark:text-gray-400">
           {metadata.code}
           {showIssuer && metadata.issuer && (
             <span className="ml-2">({metadata.issuer.slice(0, 8)}...)</span>
           )}
         </div>
         {metadata.description && (
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+          <div className="mt-1 break-words text-xs text-gray-500 dark:text-gray-500">
             {metadata.description}
           </div>
         )}
