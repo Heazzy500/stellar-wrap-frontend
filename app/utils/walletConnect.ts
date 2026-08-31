@@ -3,6 +3,7 @@ import {
   BASE_FEE,
   Contract,
   SorobanRpc,
+  Transaction,
   TransactionBuilder,
   xdr,
 } from "@stellar/stellar-sdk";
@@ -214,12 +215,20 @@ const withTimeout = async <T>(
 export const stellarToStroops = (amount: string | number): bigint => {
   const normalized = String(amount).trim();
   const [whole, fraction = ""] = normalized.split(".");
+  const isNegative = whole.startsWith("-");
+  const unsignedWhole = isNegative ? whole.slice(1) : whole;
 
-  if (!/^\d+$/.test(whole) || !/^\d*$/.test(fraction)) {
+  if (!/^\d+$/.test(unsignedWhole) || !/^\d*$/.test(fraction)) {
     throw new Error("Invalid Stellar amount.");
   }
 
-  return BigInt(whole) * 10_000_000n + BigInt(fraction.padEnd(7, "0").slice(0, 7));
+  if (fraction.length > 7) {
+    throw new Error("Stellar amount cannot have more than 7 decimal places.");
+  }
+
+  const stroops = BigInt(unsignedWhole) * 10_000_000n + BigInt(fraction.padEnd(7, "0"));
+
+  return isNegative ? -stroops : stroops;
 };
 
 export const stroopsToStellar = (stroops: bigint): string => {
@@ -292,6 +301,60 @@ const signSorobanTransactionWithFreighter = async (
   }
 };
 
+export const simulateSorobanTransaction = async (
+  transaction: Transaction,
+  network: Network,
+): Promise<Transaction> => {
+  const server = getSorobanRpcServer(network);
+
+  return withTimeout(
+    server.prepareTransaction(transaction),
+    SOROBAN_TIMEOUT_MS,
+    "Soroban RPC timed out while simulating the transaction.",
+  );
+};
+
+export const sendSorobanTransaction = async (
+  transaction: Transaction,
+  network: Network,
+): Promise<string> => {
+  const server = getSorobanRpcServer(network);
+
+  let sendResponse = await withTimeout(
+    server.sendTransaction(transaction),
+    SOROBAN_TIMEOUT_MS,
+    "Soroban RPC timed out while sending the transaction.",
+  );
+
+  for (
+    let attempt = 1;
+    sendResponse.status === "TRY_AGAIN_LATER" && attempt <= SOROBAN_RETRY_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, SOROBAN_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+    });
+    sendResponse = await withTimeout(
+      server.sendTransaction(transaction),
+      SOROBAN_TIMEOUT_MS,
+      "Soroban RPC timed out while sending the transaction.",
+    );
+  }
+
+  if (sendResponse.status === "TRY_AGAIN_LATER") {
+    throw new Error("Soroban RPC is rate limited. Please retry shortly.");
+  }
+
+  if (
+    sendResponse.status !== "PENDING" &&
+    sendResponse.status !== "DUPLICATE"
+  ) {
+    throw new Error("Soroban transaction submission failed.");
+  }
+
+  return sendResponse.hash;
+};
+
 export const invokeSorobanContract = async (
   invocation: SorobanInvocation,
 ): Promise<string> => {
@@ -323,11 +386,7 @@ export const invokeSorobanContract = async (
     .setTimeout(0)
     .build();
 
-  const preparedTransaction = await withTimeout(
-    server.prepareTransaction(transaction),
-    SOROBAN_TIMEOUT_MS,
-    "Soroban RPC timed out while simulating the transaction.",
-  );
+  const preparedTransaction = await simulateSorobanTransaction(transaction, network);
 
   const signedTransactionXdr = await signSorobanTransactionWithFreighter(
     preparedTransaction.toXDR(),
@@ -339,39 +398,7 @@ export const invokeSorobanContract = async (
     networkPassphrase,
   );
 
-  let sendResponse = await withTimeout(
-    server.sendTransaction(signedTransaction),
-    SOROBAN_TIMEOUT_MS,
-    "Soroban RPC timed out while sending the transaction.",
-  );
-
-  for (
-    let attempt = 1;
-    sendResponse.status === "TRY_AGAIN_LATER" && attempt <= SOROBAN_RETRY_MAX_ATTEMPTS;
-    attempt += 1
-  ) {
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, SOROBAN_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
-    });
-    sendResponse = await withTimeout(
-      server.sendTransaction(signedTransaction),
-      SOROBAN_TIMEOUT_MS,
-      "Soroban RPC timed out while sending the transaction.",
-    );
-  }
-
-  if (sendResponse.status === "TRY_AGAIN_LATER") {
-    throw new Error("Soroban RPC is rate limited. Please retry shortly.");
-  }
-
-  if (
-    sendResponse.status !== "PENDING" &&
-    sendResponse.status !== "DUPLICATE"
-  ) {
-    throw new Error("Soroban transaction submission failed.");
-  }
-
-  return sendResponse.hash;
+  return sendSorobanTransaction(signedTransaction, network);
 };
 
 /**
