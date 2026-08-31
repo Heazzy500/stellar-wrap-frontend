@@ -136,6 +136,8 @@ interface WrapStoreState {
   contractAddresses: ContractAddressesByNetwork;
   refreshToken: number;
   isRefreshing: boolean;
+  assetList: string[];
+  setAssetList: (assets: string[]) => void;
   // Indexing state
   currentStep: IndexingStep | null;
   stepProgress: Record<IndexingStep, number>;
@@ -219,6 +221,7 @@ export const useWrapStore = create<WrapStoreState>()(
       contractAddresses: {},
       refreshToken: 0,
       isRefreshing: false,
+      assetList: [],
       // Indexing initial state
       ...initialIndexingState,
       setAddress: (address) => set({ address }),
@@ -246,6 +249,7 @@ export const useWrapStore = create<WrapStoreState>()(
       setCacheMeta: (cacheMeta) => set({ cacheMeta }),
       setContractAddresses: (contractAddresses) => set({ contractAddresses }),
       setRefreshing: (isRefreshing) => set({ isRefreshing }),
+      setAssetList: (assetList) => set({ assetList }),
       bumpRefreshToken: () => set((s) => ({ refreshToken: s.refreshToken + 1 })),
       reset: () =>
         set({
@@ -260,6 +264,7 @@ export const useWrapStore = create<WrapStoreState>()(
           contractAddresses: {},
           refreshToken: 0,
           isRefreshing: false,
+          assetList: [],
           ...initialIndexingState,
         }),
 
