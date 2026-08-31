@@ -6,7 +6,10 @@ import { motion, useAnimation, AnimatePresence } from "framer-motion";
 import { Home, Share2, ChevronRight, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
 import { readStreamableValue } from "ai/rsc";
-import { getArchetypeDescription } from "@/src/data/archetypeConfig";
+import {
+  getArchetypeDescription,
+  ARCHETYPE_TRANSLATION_KEYS,
+} from "@/src/data/archetypeConfig";
 import {
   useReducedMotion,
   reducedMotionTransition,
@@ -23,6 +26,7 @@ import { MuteToggle } from "@/app/components/MuteToggle";
 import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimeline";
 import { NotificationPrompt } from "@/app/components/NotificationPrompt";
 import { generatePersonaDescription } from "@/app/actions/generate-persona";
+import { useTranslations, useLocale } from "next-intl";
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string, enabled = true) => {
@@ -163,6 +167,10 @@ export default function ArchetypeReveal(): JSX.Element {
   const [showTooltip, setShowTooltip] = useState<boolean>(false);
   const { playSound } = useSound();
 
+  // i18n
+  const t = useTranslations("Persona");
+  const locale = useLocale();
+
   // Menu states
   const [shareOpen, setShareOpen] = useState<boolean>(false); // Share menu
 
@@ -178,6 +186,12 @@ export default function ArchetypeReveal(): JSX.Element {
   const notificationStore = useNotificationStore();
   const [showNotifPrompt, setShowNotifPrompt] = useState<boolean>(true);
   const archetypeKey = result?.persona || "The Wizard";
+  // Translate the archetype display name — falls back to the raw key if not found
+  const archetypeTranslationKey =
+    ARCHETYPE_TRANSLATION_KEYS[archetypeKey] ?? "theWizard";
+  const translatedArchetypeName = t(
+    `archetypes.${archetypeTranslationKey}` as Parameters<typeof t>[0]
+  );
 
   // Suppress prompt if dismissed this session
   useEffect(() => {
@@ -214,7 +228,7 @@ export default function ArchetypeReveal(): JSX.Element {
           totalDapps: result.dapps?.length,
         };
 
-        const response = await generatePersonaDescription(metrics);
+        const response = await generatePersonaDescription(metrics, locale);
 
         let fullText = "";
         for await (const chunk of readStreamableValue(response)) {
@@ -348,7 +362,7 @@ export default function ArchetypeReveal(): JSX.Element {
   // --- Share Functionality ---
   const handleShare = (platform: string) => {
     const url = window.location.href;
-    const text = `I got ${archetypeKey} in the Archetype Reveal! ${data.description}`;
+    const text = `I got ${translatedArchetypeName} in the Archetype Reveal! ${data.description}`;
     let shareUrl = "";
 
     switch (platform) {
@@ -392,7 +406,7 @@ export default function ArchetypeReveal(): JSX.Element {
             style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
           >
             <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-            View history on Stellar.expert
+            {t("viewHistoryLink")}
           </a>
         )}
       </div>
@@ -451,7 +465,7 @@ export default function ArchetypeReveal(): JSX.Element {
 
           {/* --- TOP ROW --- */}
           {/* Home Button - Absolute positioned like share page */}
-          <Link href="/" aria-label="Go to home page">
+          <Link href="/" aria-label={t("goHomeAriaLabel")}>
             <motion.button
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -465,7 +479,7 @@ export default function ArchetypeReveal(): JSX.Element {
               transition={{ delay: 0.2 }}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              aria-label="Go home"
+              aria-label={t("homeButtonAriaLabel")}
             >
               <div
                 className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-3 rounded-xl backdrop-blur-xl border border-white/20"
@@ -476,7 +490,7 @@ export default function ArchetypeReveal(): JSX.Element {
                   aria-hidden="true"
                 />
                 <span className="text-xs md:text-sm font-black text-white/80 group-hover:text-white transition-colors hidden sm:inline">
-                  HOME
+                  {t("homeLabel")}
                 </span>
               </div>
             </motion.button>
@@ -518,7 +532,7 @@ export default function ArchetypeReveal(): JSX.Element {
                 />
               </div>
               <h3 className="relative text-xs sm:text-2xl font-bold uppercase tracking-[0.3em] sm:tracking-[0.7em] text-gray-200 mix-blend-screen whitespace-nowrap">
-                The Oracle Has Spoken
+                {t("oracleHeading")}
               </h3>
             </div>
           </div>
@@ -543,7 +557,7 @@ export default function ArchetypeReveal(): JSX.Element {
               ref={cardRef}
               role="button"
               tabIndex={0}
-              aria-label={`${archetypeKey} persona reveal card. ${result?.totalTransactions ?? 0} transactions, ${result?.percentile ?? 0} percentile. Tap to replay persona reveal. Long press or hover to see archetype description.`}
+              aria-label={`${translatedArchetypeName} persona reveal card. ${result?.totalTransactions ?? 0} transactions, ${result?.percentile ?? 0} percentile. Tap to replay persona reveal. Long press or hover to see archetype description.`}
               onClick={(e) => {
                 if (isFlipped && !showTooltip) {
                   setShowTooltip(true);
@@ -639,7 +653,7 @@ export default function ArchetypeReveal(): JSX.Element {
                       "linear-gradient(to bottom, #fff, var(--color-theme-primary), rgba(var(--color-theme-primary-rgb), 0.6))",
                   }}
                 >
-                  {archetypeKey}
+                  {translatedArchetypeName}
                 </h1>
               </div>
             </motion.div>
@@ -659,12 +673,12 @@ export default function ArchetypeReveal(): JSX.Element {
                     <button
                       onClick={() => setShowTooltip(false)}
                       className="absolute top-2 right-2 sm:top-3 sm:right-3 p-1 hover:bg-white/10 rounded-md transition-colors"
-                      aria-label="Close tooltip"
+                      aria-label={t("closeTooltipAriaLabel")}
                     >
                       <X className="w-4 h-4 sm:w-5 sm:h-5 text-white/60 hover:text-white" />
                     </button>
                     <p className="text-xs sm:text-sm text-gray-200 leading-relaxed pr-6">
-                      <span className="font-semibold text-white">Archetype Rule:</span> {data.description}
+                      <span className="font-semibold text-white">{t("archetypeRuleLabel")}</span> {data.description}
                     </p>
                   </div>
                 </motion.div>
@@ -824,7 +838,7 @@ export default function ArchetypeReveal(): JSX.Element {
                 onKeyDown={toggleShareKeyDown}
                 className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
                 aria-expanded={shareOpen}
-                aria-label="Share this wrap"
+                aria-label={t("shareWrapAriaLabel")}
               >
                 <motion.div
                   animate={{ rotate: shareOpen ? 50 : 0 }}
@@ -850,12 +864,12 @@ export default function ArchetypeReveal(): JSX.Element {
               data-testid="persona-stellar-expert-link"
             >
               <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-              View history on Stellar.expert
+              {t("viewHistoryLink")}
             </a>
           )}
 
           {/* Skip/Next Button - Absolute positioned like share page */}
-          <Link href="/share" aria-label="Go to share step">
+          <Link href="/share" aria-label={t("goToShareAriaLabel")}>
             <motion.button
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
@@ -864,7 +878,7 @@ export default function ArchetypeReveal(): JSX.Element {
                 }
               }}
               className="absolute bottom-6 right-6 md:bottom-8 md:right-8 z-30 group"
-              aria-label="Go to share step"
+              aria-label={t("goToShareAriaLabel")}
               initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={reducedMotionTransition(prefersReducedMotion, {

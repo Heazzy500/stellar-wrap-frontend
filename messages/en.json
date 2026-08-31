@@ -2,5 +2,26 @@
   "LandingPage": {
     "title": "Welcome to Stellar Wrap",
     "subtitle": "Your year in review on the Stellar Network"
+  },
+  "Persona": {
+    "oracleHeading": "The Oracle Has Spoken",
+    "homeLabel": "HOME",
+    "goHomeAriaLabel": "Go to home page",
+    "homeButtonAriaLabel": "Go home",
+    "archetypeRuleLabel": "Archetype Rule:",
+    "viewHistoryLink": "View history on Stellar.expert",
+    "goToShareAriaLabel": "Go to share step",
+    "shareWrapAriaLabel": "Share this wrap",
+    "closeTooltipAriaLabel": "Close tooltip",
+    "archetypes": {
+      "theWizard": "The Wizard",
+      "theExplorer": "The Explorer",
+      "theArchitect": "The Architect",
+      "thePatron": "The Patron",
+      "theCollector": "The Collector",
+      "theTrader": "The Trader",
+      "theYieldFarmer": "The Yield Farmer",
+      "theHodler": "The Hodler"
+    }
   }
 }

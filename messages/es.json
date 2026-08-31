@@ -4,6 +4,27 @@
   },
   "Landing": {
     "tagline": "Tu historia blockchain contada como nunca antes."
+  },
+  "Persona": {
+    "oracleHeading": "El Oráculo Ha Hablado",
+    "homeLabel": "INICIO",
+    "goHomeAriaLabel": "Ir a la página de inicio",
+    "homeButtonAriaLabel": "Ir al inicio",
+    "archetypeRuleLabel": "Regla del Arquetipo:",
+    "viewHistoryLink": "Ver historial en Stellar.expert",
+    "goToShareAriaLabel": "Ir al paso de compartir",
+    "shareWrapAriaLabel": "Compartir este resumen",
+    "closeTooltipAriaLabel": "Cerrar información",
+    "archetypes": {
+      "theWizard": "El Mago",
+      "theExplorer": "El Explorador",
+      "theArchitect": "El Arquitecto",
+      "thePatron": "El Patrón",
+      "theCollector": "El Coleccionista",
+      "theTrader": "El Trader",
+      "theYieldFarmer": "El Agricultor de Rendimiento",
+      "theHodler": "El Hodler"
+    }
   }
 }
 

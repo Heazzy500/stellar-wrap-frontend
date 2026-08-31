@@ -4,6 +4,27 @@
   },
   "Landing": {
     "tagline": "Votre histoire blockchain racontée comme jamais auparavant."
+  },
+  "Persona": {
+    "oracleHeading": "L'Oracle a Parlé",
+    "homeLabel": "ACCUEIL",
+    "goHomeAriaLabel": "Aller à la page d'accueil",
+    "homeButtonAriaLabel": "Accueil",
+    "archetypeRuleLabel": "Règle de l'Archétype :",
+    "viewHistoryLink": "Voir l'historique sur Stellar.expert",
+    "goToShareAriaLabel": "Aller à l'étape de partage",
+    "shareWrapAriaLabel": "Partager ce résumé",
+    "closeTooltipAriaLabel": "Fermer l'infobulle",
+    "archetypes": {
+      "theWizard": "Le Sorcier",
+      "theExplorer": "L'Explorateur",
+      "theArchitect": "L'Architecte",
+      "thePatron": "Le Mécène",
+      "theCollector": "Le Collectionneur",
+      "theTrader": "Le Trader",
+      "theYieldFarmer": "L'Agriculteur de Rendement",
+      "theHodler": "Le Hodler"
+    }
   }
 }
 

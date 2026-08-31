@@ -116,3 +116,24 @@ export function archetypeImagePath(name: string): string {
     .replace(/\s+/g, "-");
   return `/archetypes/${slug}.png`;
 }
+
+/**
+ * Maps each archetype data key (used in API responses / wrapStore) to the
+ * corresponding next-intl translation sub-key inside the `Persona.archetypes`
+ * namespace.  This keeps archetype identification stable as a plain English
+ * string while allowing the display name to be fully translated.
+ *
+ * Usage in a component:
+ *   const t = useTranslations('Persona');
+ *   const displayName = t(`archetypes.${ARCHETYPE_TRANSLATION_KEYS[archetypeKey] ?? 'theWizard'}`);
+ */
+export const ARCHETYPE_TRANSLATION_KEYS: Record<string, string> = {
+  "The Wizard": "theWizard",
+  "The Explorer": "theExplorer",
+  "The Architect": "theArchitect",
+  "The Patron": "thePatron",
+  "The Collector": "theCollector",
+  "The Trader": "theTrader",
+  "The Yield Farmer": "theYieldFarmer",
+  "The Hodler": "theHodler",
+};
