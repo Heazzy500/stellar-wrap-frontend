@@ -8,6 +8,10 @@ import { Network, isValidNetwork } from "../src/config";
 /** Contract config for a single network */
 export interface ContractNetworkConfig {
   contractAddress: string;
+  /** Soroban RPC endpoint for this network */
+  rpcUrl: string;
+  /** Stellar network passphrase for this network */
+  networkPassphrase: string;
 }
 
 /** Full contract configuration per network */
@@ -58,27 +62,53 @@ export class PlaceholderContractAddressError extends Error {
   }
 }
 
-/** Default contract addresses (fallback when env vars are not set) */
+/** Default contract addresses and Soroban RPC endpoints (fallback when env vars are not set) */
 const DEFAULT_CONTRACT_CONFIG: ContractConfig = {
-  mainnet: { contractAddress: PLACEHOLDER_ADDRESS },
-  testnet: { contractAddress: PLACEHOLDER_ADDRESS },
+  mainnet: {
+    contractAddress: PLACEHOLDER_ADDRESS,
+    rpcUrl: "https://soroban-mainnet.stellar.org",
+    networkPassphrase: "Public Global Stellar Network ; September 2015",
+  },
+  testnet: {
+    contractAddress: PLACEHOLDER_ADDRESS,
+    rpcUrl: "https://soroban-testnet.stellar.org",
+    networkPassphrase: "Test SDF Network ; September 2015",
+  },
 };
 
-/** Build config with env overrides (env takes precedence). Legacy NEXT_PUBLIC_CONTRACT_ADDRESS used for both if set. */
+/** Build config with env overrides (env takes precedence). Legacy env vars used for both networks if set. */
 function getContractConfig(): ContractConfig {
-  const legacy = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+  const legacyContract = process.env.NEXT_PUBLIC_CONTRACT_ADDRESS;
+  const legacyRpc = process.env.NEXT_PUBLIC_SOROBAN_RPC_URL;
+  const legacyPassphrase = process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE;
   return {
     mainnet: {
       contractAddress:
         process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_MAINNET ||
-        legacy ||
+        legacyContract ||
         DEFAULT_CONTRACT_CONFIG.mainnet.contractAddress,
+      rpcUrl:
+        process.env.NEXT_PUBLIC_SOROBAN_RPC_URL_MAINNET ||
+        legacyRpc ||
+        DEFAULT_CONTRACT_CONFIG.mainnet.rpcUrl,
+      networkPassphrase:
+        process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE_MAINNET ||
+        legacyPassphrase ||
+        DEFAULT_CONTRACT_CONFIG.mainnet.networkPassphrase,
     },
     testnet: {
       contractAddress:
         process.env.NEXT_PUBLIC_CONTRACT_ADDRESS_TESTNET ||
-        legacy ||
+        legacyContract ||
         DEFAULT_CONTRACT_CONFIG.testnet.contractAddress,
+      rpcUrl:
+        process.env.NEXT_PUBLIC_SOROBAN_RPC_URL_TESTNET ||
+        legacyRpc ||
+        DEFAULT_CONTRACT_CONFIG.testnet.rpcUrl,
+      networkPassphrase:
+        process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE_TESTNET ||
+        legacyPassphrase ||
+        DEFAULT_CONTRACT_CONFIG.testnet.networkPassphrase,
     },
   };
 }
@@ -124,4 +154,34 @@ export function getContractAddress(network: Network): string {
  */
 export function getContractConfigForAllNetworks(): ContractConfig {
   return getContractConfig();
+}
+
+/**
+ * Get the Soroban RPC URL for the given network.
+ * Loads from environment (NEXT_PUBLIC_SOROBAN_RPC_URL_MAINNET / _TESTNET) then config.
+ *
+ * @param network - 'mainnet' | 'testnet'
+ * @returns RPC URL for the network
+ * @throws Error if network is invalid
+ */
+export function getRpcUrl(network: Network): string {
+  if (!isValidNetwork(network)) {
+    throw new Error(`Invalid network: ${network}`);
+  }
+  return getContractConfig()[network].rpcUrl;
+}
+
+/**
+ * Get the Stellar network passphrase for the given network.
+ * Loads from environment (NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE_MAINNET / _TESTNET) then config.
+ *
+ * @param network - 'mainnet' | 'testnet'
+ * @returns Network passphrase
+ * @throws Error if network is invalid
+ */
+export function getNetworkPassphrase(network: Network): string {
+  if (!isValidNetwork(network)) {
+    throw new Error(`Invalid network: ${network}`);
+  }
+  return getContractConfig()[network].networkPassphrase;
 }
