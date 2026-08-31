@@ -50,7 +50,7 @@ class AssetCacheService {
     if (typeof window === "undefined") return;
 
     try {
-      const stored = localStorage.getItem(this.ASS_LIST_STORAGE_KEY);
+      const stored = localStorage.getItem(this.ASSET_LIST_STORAGE_KEY);
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
@@ -116,7 +116,7 @@ class AssetCacheService {
   /**
    * Set asset metadata in cache
    */
-  set(metadata: AssetMetadata, ttl: number = ASS_CACHE_TTL): void {
+  set(metadata: AssetMetadata, ttl: number = ASSET_CACHE_TTL): void {
     const key = createAssetCacheKey(metadata.code, metadata.issuer);
 
     this.memoryCache[key] = {
@@ -226,7 +226,7 @@ class AssetCacheService {
    * Get the current asset list
    */
   getAssetList(): string[] {
-    return []..concat(this.assetList);
+    return [].concat(this.assetList);
   }
 
   /**
