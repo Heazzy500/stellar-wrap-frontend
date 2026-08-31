@@ -62,7 +62,7 @@ function initialsColor(code: string): string {
     hash = (hash * 31 + code.charCodeAt(i)) >>> 0;
   }
   const hue = hash % 360;
-  return `hsl(${hue} 52% 32%)`;
+  return `hsl(${hue} 45% 24%)`;
 }
 
 interface InitialsBadgeProps {
@@ -81,6 +81,7 @@ const InitialsBadge: React.FC<InitialsBadgeProps> = ({
   className = "",
 }) => (
   <span
+    role="img"
     aria-label={`${code} icon`}
     className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${className}`}
     style={{
@@ -214,7 +215,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
           />
         )}
         {showCode && (
-          <span className={`${sizeConfig.text} text-gray-400`}>Loading...</span>
+          <span className={`${sizeConfig.text} text-gray-600 dark:text-gray-400`}>Loading...</span>
         )}
       </div>
     );
@@ -361,7 +362,7 @@ export const AssetCard: React.FC<
           )}
         </div>
         {metadata.description && (
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+          <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
             {metadata.description}
           </div>
         )}
