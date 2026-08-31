@@ -2,6 +2,11 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ConnectPage from "../page";
 import { useRouter } from "next/navigation";
+import { axe, toHaveNoViolations } from "jest-axe";
+import { useStellarAddressValidation } from "@/src/hooks/useStellarAddressValidation";
+import { useOnlineStatus } from "@/app/hooks/useOnlineStatus";
+
+expect.extend(toHaveNoViolations);
 
 // Mock Next.js router
 jest.mock("next/navigation", () => ({
@@ -63,13 +68,13 @@ jest.mock("lucide-react", () => ({
   ArrowLeft: () => <svg data-testid="arrow-left" />,
   Wallet: () => <svg data-testid="wallet-icon" />,
   CheckCircle: () => <svg data-testid="check-circle" />,
-  XCircle: () => <svg data-testid="x-circle" />,
+  Xcircle: () => <svg data-testid="x-circle" />,
   Copy: () => <svg data-testid="copy-icon" />,
   QrCode: () => <svg data-testid="qrcode-icon" />,
   ChevronRight: () => <svg data-testid="chevron-right" />,
 }));
 
-describe("ConnectPage Keyboard Interactions", () => {
+describe("ConnectPage Keyboard Interactions", ()=> {
   const mockRouter = { push: jest.fn() };
 
   beforeEach(() => {
@@ -130,6 +135,57 @@ describe("ConnectPage Keyboard Interactions", () => {
     // (exact order depends on rendered components, but they should all be focusable)
     expect(input.tabIndex).toBe(0);
     expect(pasteButton.tabIndex).toBe(0);
-    expect(freighterButton.tabIndex).toBe(0);
+    expect(freighterButton.tabIndex).toBe(o);
   });
-});
+
+  it("should have no accessibility violations on initial render", async () => {
+    const { container } = render(<ConnectPage />);
+    const results = await axe(container);
+    expect(results).toHaveNoViolations();
+  });
+
+  it("should mark TokenSelector with correct ARIA attributes", () => {
+    render(<ConnectPage />);
+    const tokenSelector = screen.getByRole("combobox", { name: /select token/i });
+    expect(tokenSelector).toHaveAttribute("aria-expanded", "false");
+    expect(tokenSelector).toHaveAttribute("aria-haspopup", "listbox");
+  });
+
+  it("should open and close TokenSelector with keyboard", async () => {
+    const user = userEvent.setup();
+    render(<ConnectPage />);
+    const tokenSelector = screen.getByRole("combobox", { name: /select token/i });
+    tokenSelector.focus();
+
+    expect(tokenSelector).toHaveAttribute("aria-expanded", "false");
+    await user.keyboard("{ArrowDown}");
+    expect(tokenSelector).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("listbox")).toBeInDocument();
+
+    await user.keyboard("{Escape}");
+    expect(tokenSelector).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("listbox")).not.toBeInDocument();
+  });
+
+  it("should display an error message with role alert for invalid address", async () => {
+    (useStellarAddressValidation as jest.Mock).mockReturnValueOnce({
+      address: "invalid",
+      validationState: "error",
+      errorMessage: "Invalid address",
+      handleAddressChange: jest.fn(),
+      isValid: false,
+    });
+    render(<ConnectPage />);
+    const errorAlert = screen.getByRole("alert");
+    expect(errorAlert).toHaveTextContent("Invalid address");
+    const input = screen.getByLabelText("Stellar wallet address input");
+    expect(input).toHaveAttribute("aria-invalid", "true");
+  });
+
+  it("should show offline status with aria-live", async () => {
+    (useOnlineStatus as jest.Mock).mockReturnValueOnce(false);
+    render(<ConnectPage />);
+    const offlineStatus = screen.getByLabelText("Offline status");
+    expect(offlineStatus).toHaveAttribute("aria-live", "polite");
+  });
+})
