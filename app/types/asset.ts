@@ -1,4 +1,5 @@
 /**
+ 
  * Asset type definitions for Stellar wrap
 */
 
