@@ -317,9 +317,12 @@ export default function SharePageClient() {
                 transition={reducedMotionTransition(prefersReducedMotion, { duration: 0.2 })}
                 className="absolute bottom-18 left-0 w-[200px] h-[350px] bg-[#060607] border border-[#232325] rounded-2xl shadow-2xl p-2 z-50 flex flex-col items-center justify-center gap-2"
                 style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.8)" }}
+                role="menu"
+                aria-label="Share this wrap"
               >
                 <button
                   onClick={() => handleShare("x")}
+                  role="menuitem"
                   className="flex cursor-pointer items-center pl-4 w-42 h-15 gap-3 p-2 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors group"
                 >
                   <div className="h-10 w-10 flex items-center justify-center rounded-full bg-black border border-white/10">
@@ -330,6 +333,7 @@ export default function SharePageClient() {
 
                 <button
                   onClick={() => handleShare("whatsapp")}
+                  role="menuitem"
                   className="flex cursor-pointer items-center pl-4 w-42 h-15 gap-3 p-2 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors group"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#25D366]">
@@ -342,6 +346,7 @@ export default function SharePageClient() {
 
                 <button
                   onClick={() => handleShare("facebook")}
+                  role="menuitem"
                   className="flex items-center cursor-pointer pl-4 gap-3 p-2 w-42 h-15 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1877F2]">
@@ -354,6 +359,7 @@ export default function SharePageClient() {
 
                 <button
                   onClick={() => handleShare("linkedin")}
+                  role="menuitem"
                   className="flex items-center pl-4 cursor-pointer gap-3 p-2 w-42 h-15 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#0077B5]">
@@ -366,6 +372,7 @@ export default function SharePageClient() {
 
                 <button
                   onClick={() => handleShare("telegram")}
+                  role="menuitem"
                   className="flex items-center cursor-pointer pl-4 gap-3 p-2 w-42 h-15 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors"
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#229ED9]">
@@ -378,6 +385,7 @@ export default function SharePageClient() {
 
                 <button
                   onClick={handleCopyLink}
+                  role="menuitem"
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
                       e.preventDefault();

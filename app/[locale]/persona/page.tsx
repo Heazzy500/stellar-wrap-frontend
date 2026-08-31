@@ -731,11 +731,15 @@ export default function ArchetypeReveal(): JSX.Element {
                     transition={{ duration: 0.2 }}
                     /* Added items-center to center buttons and py-6 for vertical padding */ className="absolute bottom-18 left-0 w-[200px] h-[350px] bg-[#060607] border border-[#232325] rounded-2xl shadow-2xl p-2 z-50 flex flex-col items-center justify-center gap-2"
                     style={{ boxShadow: "0 10px 40px rgba(0,0,0,0.8)" }}
+                    role="menu"
+                    aria-label="Share this wrap"
                   >
                     {" "}
                     {/* X / Twitter */}{" "}
                     <button
                       onClick={() => handleShare("x")}
+                      role="menuitem"
+                      className="flex items-center cursor-pointer justify-center gap-3 p-2 w-42 h-15 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors"
                     >
                       {" "}
                       <div className="flex items-center gap-3 relative left-5">
@@ -824,6 +828,7 @@ export default function ArchetypeReveal(): JSX.Element {
                 onKeyDown={toggleShareKeyDown}
                 className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
                 aria-expanded={shareOpen}
+                aria-haspopup="menu"
                 aria-label="Share this wrap"
               >
                 <motion.div
