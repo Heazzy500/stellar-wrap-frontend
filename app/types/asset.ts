@@ -9,7 +9,10 @@ export interface AssetMetadata {
   code: string;
   issuer?: string;
   name: string;
+  /** URL to the asset logo image. */
   logo?: string;
+  /** Alternative text for the logo image, used for accessibility (e.g., screen readers). */
+  logoAlt?: string;
   domain?: string;
   description?: string;
   isNative: boolean;
