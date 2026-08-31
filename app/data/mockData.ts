@@ -12,8 +12,8 @@ export const mockData = {
     },
     {
       name: "Phoenix",
-      color: "#4FACFE",
-      gradient: "linear-gradient(135deg, #4FACFE 0%, #00F2FE 100%)",
+      color: "#4ACFFE",
+      gradient: "linear-gradient(135deg, #4ACFFE 0%, #00F2FE 100%)",
       transactions: 142,
     },
     {
@@ -61,7 +61,7 @@ export interface AssetCardMockData {
   isDisabled: boolean;
 }
 
-export const mockAssetCards: AssetCardMackData[] = [
+export const mockAssetCards: AssetCardMockData[] = [
   {
     id: "eth-primary",
     name: "Ethereum",
