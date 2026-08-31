@@ -39,6 +39,21 @@ function getRpcUrl(network: Network): string {
   return url;
 }
 
+const serverCache = new Map<Network, Server>();
+
+function getServer(network: Network): Server {
+  const rpcUrl = getRpcUrl(network);
+  const cached = serverCache.get(network);
+  if (cached) {
+    return cached;
+  }
+  const server = new Server(rpcUrl, {
+    allowHttp: rpcUrl.startsWith("http://"),
+  });
+  serverCache.set(network, server);
+  return server;
+}
+
 function getNetworkPassphrase(network: Network): string {
   return network === "mainnet" ? Networks.PUBLIC : Networks.TESTNET;
 }
@@ -47,14 +62,11 @@ function getNetworkPassphrase(network: Network): string {
  * Convert a human-readable XLM amount to Stroops (7 decimal places).
  */
 export function xlmToStroop(amount: number | string): number {
-  const amountStr = typeof amount === "number" ? amount.toString() : amount;
-  const match = amountStr.match(/^(\d*)(?:\.(\d*))?$/);
-  if (!match) {
-    throw new Error(`Invalid amount: ${amountStr}`);
+  const stroops = xlmToStroopBigInt(amount);
+  if (stroops > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new Error(`Amount too large to represent as a number: ${amount}`);
   }
-  const whole = match[1] ?? "0";
-  const fraction = (match[2] ?? "").padEnd(7, "0").slice(0, 7);
-  return Number(whole) * 10 ** 7 + Number(fraction);
+  return Number(stroops);
 }
 
 /**
@@ -87,9 +99,9 @@ export function amountToScVal(amount: string | number): xdr.ScVal {
 }
 
 async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
-  let timeoutId: ReturnType<setTimeout>;
+  let timeoutId: ReturnType<typeof setTimeout>;
   const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutId = setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs}ms`]), timeoutMs);
+    timeoutId = setTimeout(() => reject(new Error(`Request timed out after ${timeoutMs}ms`)), timeoutMs);
   });
   try {
     return await Promise.race([promise, timeoutPromise]);
@@ -98,14 +110,15 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T
   }
 }
 
-function getAccountWithCache(server: Server, publicKey: string): Promise<Account> {
+function getAccountWithCache(server: Server, publicKey: string, network: Network): Promise<Account> {
+  const cacheKey = `${network}:${publicKey}`;
   const now = Date.now();
-  const cached = accountCache.get(publicKey);
+  const cached = accountCache.get(cacheKey);
   if (cached && now - cached.fetchedAt < ACCOUNT_CACHE_TTL_MS) {
     return Promise.resolve(cached.account);
   }
   return server.getAccount(publicKey).then((account) => {
-    accountCache.set(publicKey, { account, fetchedAt: now });
+    accountCache.set(cacheKey, { account, fetchedAt: now });
     return account;
   });
 }
@@ -133,9 +146,9 @@ export async function connectWalletConnect(network: Network): Promise<string> {
       { WalletConnectModule, WALLET_CONNECT_ID, WalletConnectTargetChain },
       { Networks },
     ] = await Promise.all([
-      import("..@rcreit-tech/stellar-wallets-kit/sdk"),
-      import(".@.creit-tech/stellar-wallets-kit/modules/wallet-connect"),
-      import(".@.creit-tech/stellar-wallets-kit/types"),
+      import("@creit-tech/stellar-wallets-kit/sdk"),
+      import("@creit-tech/stellar-wallets-kit/modules/wallet-connect"),
+      import("@creit-tech/stellar-wallets-kit/types"),
     ]);
 
     const kitNetwork =
@@ -145,7 +158,7 @@ export async function connectWalletConnect(network: Network): Promise<string> {
         ? WalletConnectTargetChain.PUBLIC
         : WalletConnectTargetChain.TESTNET;
 
-    StellarGalletsKtit.init({
+    StellarWalletsKit.init({
       modules: [
         new WalletConnectModule({
           projectId,
@@ -167,7 +180,7 @@ export async function connectWalletConnect(network: Network): Promise<string> {
     StellarWalletsKit.setNetwork(kitNetwork);
     StellarWalletsKit.setWallet(WALLET_CONNECT_ID);
 
-    const { address } = await StellarGalletsKtit.authModal();
+    const { address } = await StellarWalletsKit.authModal();
 
     if (!address) {
       throw new Error("Failed to get public key from WalletConnect");
@@ -239,11 +252,11 @@ export async function simulateSorobanContract(params: {
   sourceAccount: string;
   network: Network;
   timeoutMs?: number;
-}): Promise<AwaitedReturnType<Server["simulateTransaction"]>> {
+}): Promise<Awaited<ReturnType<Server["simulateTransaction"]>>> {
   const { contractAddress, method, args = [], sourceAccount, network, timeoutMs = 30_000 } = params;
-  const server = new Server(getRpcUrl(network), { allowHttp: getRpcUrl(network).startsWith("http://") });
+  const server = getServer(network);
 
-  const account = await withTimeout(getAccountWithCache(server, sourceAccount), timeoutMs);
+  const account = await withTimeout(getAccountWithCache(server, sourceAccount, network), timeoutMs);
   const contract = new Contract(contractAddress);
   const invocation = contract.call(method, ...args);
 
@@ -270,7 +283,7 @@ export async function sendSorobanTransaction(params: {
   network: Network;
   signTransaction: (txXdr: string) => Promise<string>;
   timeoutMs?: number;
-}): Promise<AwaitedReturnType<Server["sendTransaction"]>> {
+}): Promise<Awaited<ReturnType<Server["sendTransaction"]>>> {
   const {
     contractAddress,
     method,
@@ -281,11 +294,11 @@ export async function sendSorobanTransaction(params: {
     timeoutMs = 30_000,
   } = params;
 
-  const server = new Server(getRpcUrl(network), { allowHttp: getRpcUrl(network).startsWith("http://") });
+  const server = getServer(network);
   const networkPassphrase = getNetworkPassphrase(network);
 
   // Fetch the account with caching to reduce RPC calls.
-  const account = await withTimeout(getAccountWithCache(server, sourceAccount), timeoutMs);
+  const account = await withTimeout(getAccountWithCache(server, sourceAccount, network), timeoutMs);
 
   const contract = new Contract(contractAddress);
   const invocation = contract.call(method, ...args);
@@ -315,10 +328,14 @@ export async function sendSorobanTransaction(params: {
   try {
     signedXdr = await signTransaction(preparedTransaction.toXDR());
   } catch (error: unknown) {
-    if (error instanceof Error && /rejected|cancelled|denied/i.test(error.message)) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (/rejected|cancelled|denied/i.test(message)) {
       throw new Error("Transaction signature rejected by user.");
     }
-    throw error;
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Failed to sign transaction: ${message}`);
   }
   if (!signedXdr) {
     throw new Error("Signed transaction XDR is empty.");
