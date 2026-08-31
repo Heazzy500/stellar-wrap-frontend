@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { kvGet, kvSet, kvKeys, SUB_KEY, LOG_KEY } from "../_lib/kv";
+import { kvGet, kvSet, SUB_KEY, LOG_KEY } from "../_lib/kv";
 import { sendEmail } from "../_lib/email";
 import { formatPushPayload } from "@/app/utils/notifications/pushPayloadFormatter";
 import { renderEmailTemplate } from "@/app/utils/notifications/emailTemplate";
@@ -140,16 +140,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true, dispatched: 0, message: "No active periods" });
     }
 
-    // Scan all subscription records
-    const subKeys = await kvKeys("notif:sub:*");
     let dispatched = 0;
 
-    for (const key of subKeys) {
-      const record = await kvGet<SubscriptionRecord>(key);
-      if (!record || record.deletionRequested) continue;
+    for (const period of activePeriods) {
+      const periodKey = getPeriodKey(period, now);
+      const members = (await kvGet<string[]>(`notif:period:${period}`)) ?? [];
 
-      for (const period of activePeriods) {
-        const periodKey = getPeriodKey(period, now);
+      for (const key of members) {
+        const record = await kvGet<SubscriptionRecord>(SUB_KEY(key));
+        if (!record || record.deletionRequested) continue;
 
         // ── Push ──
         if (record.push?.periods[period] && record.push.subscription) {
