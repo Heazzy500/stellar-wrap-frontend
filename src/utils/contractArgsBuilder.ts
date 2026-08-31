@@ -10,7 +10,6 @@
  * @module contractArgsBuilder
  */
 
-import { xdr } from "stellar-sdk";
 import { xdr, SorobanRpc, Contract, TransactionBuilder, Networks, BASE_FEE } from "stellar-sdk";
 import { isAllowed, getPublicKey, signTransaction as freighterSignTransaction } from "@stellar/freighter-api";
 import {
