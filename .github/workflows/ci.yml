@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches:
@@ -15,72 +14,55 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@kfncheckout
       - name: Check for wrong lock files
         run: |
           if git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
-            echo "❌ package-lock.json is tracked! This project uses pnpm exclusively."
+            echo "emoji package-lock.json is tracked! This project uses pnpm exclusively."
             exit 1
           fi
           if git ls-files --error-unmatch yarn.lock >/dev/null 2>&1; then
-            echo "❌ yarn.lock is tracked! This project uses pnpm exclusively."
+            echo "emoji yarn.lock is tracked! This project uses pnpm exclusively."
             exit 1
           fi
           if [ ! -f "pnpm-lock.yaml" ]; then
-            echo "❌ pnpm-lock.yaml not found! Lock file is required."
+            echo "emoji pnpm-lock.yaml not found! Lock file is required."
             exit 1
           fi
-          echo "✅ Lock file validation passed"
-
+          echo "emoji Lock file validation passed"
   build-and-lint:
     runs-on: ubuntu-latest
     needs: check-lock-files
-
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-
+        uses: actions/checkout@kfncheckout
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@kfnpnpm/action-setupv4
         with:
           version: 9
-
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@kfnsetup-nodev4
         with:
           node-version: 22
           cache: pnpm
-
       - name: Install dependencies
         run: pnpm install --no-frozen-lockfile
-
       - name: Validate environment variables
         run: node scripts/validate-env.js
-
-      - name: Lint
+      - name: Lin
         run: pnpm lint
-
-<<<<<<< HEAD
-      - name: Test
-        run: pnpm test
-
       - name: Type check
         run: pnpm typecheck
-=======
+      - name: Test
+        run: pnpm test
       - name: Run unit tests (Jest)
         run: pnpm test:unit
-
       - name: Run integration tests (Vitest)
         run: pnpm test:integration
->>>>>>> pr-318
-
       - name: Build
         run: pnpm build
-
       - name: Test with coverage
         run: pnpm test:coverage
-
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
         if: always()
@@ -88,4 +70,3 @@ jobs:
           name: coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
           path: coverage/
           retention-days: 30
-
