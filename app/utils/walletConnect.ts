@@ -29,6 +29,7 @@ interface Albedo {
 
 declare global {
   interface Window {
+    freighter?: unknown;
     albedo?: Albedo;
   }
 }
@@ -175,6 +176,9 @@ const RPC_URLS: Record<Network, string> = {
 
 const SOROBAN_TIMEOUT_MS = 10_000;
 
+const SOROBAN_RETRY_MAX_ATTEMPTS = 3;
+const SOROBAN_RETRY_BASE_DELAY_MS = 500;
+
 const sorobanServers = new Map<Network, SorobanRpc.Server>();
 
 export const getSorobanRpcServer = (network: Network): SorobanRpc.Server => {
@@ -237,6 +241,7 @@ export interface SorobanInvocation {
   method: string;
   args: xdr.ScVal[];
   source: string;
+  signerAddress?: string;
 }
 
 type FreighterSignResult = string | { signedTxXDR: string };
@@ -290,7 +295,7 @@ const signSorobanTransactionWithFreighter = async (
 export const invokeSorobanContract = async (
   invocation: SorobanInvocation,
 ): Promise<string> => {
-  const { network, contractId, method, args, source } = invocation;
+  const { network, contractId, method, args, source, signerAddress } = invocation;
 
   if (!isValidContractAddress(contractId)) {
     throw new Error("Invalid Soroban contract ID.");
@@ -327,18 +332,33 @@ export const invokeSorobanContract = async (
   const signedTransactionXdr = await signSorobanTransactionWithFreighter(
     preparedTransaction.toXDR(),
     networkPassphrase,
-    source,
+    signerAddress ?? source,
   );
   const signedTransaction = TransactionBuilder.fromXDR(
     signedTransactionXdr,
     networkPassphrase,
   );
 
-  const sendResponse = await withTimeout(
+  let sendResponse = await withTimeout(
     server.sendTransaction(signedTransaction),
     SOROBAN_TIMEOUT_MS,
     "Soroban RPC timed out while sending the transaction.",
   );
+
+  for (
+    let attempt = 1;
+    sendResponse.status === "TRY_AGAIN_LATER" && attempt <= SOROBAN_RETRY_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, SOROBAN_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+    });
+    sendResponse = await withTimeout(
+      server.sendTransaction(signedTransaction),
+      SOROBAN_TIMEOUT_MS,
+      "Soroban RPC timed out while sending the transaction.",
+    );
+  }
 
   if (sendResponse.status === "TRY_AGAIN_LATER") {
     throw new Error("Soroban RPC is rate limited. Please retry shortly.");
