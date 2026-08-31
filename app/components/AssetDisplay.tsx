@@ -23,6 +23,13 @@ import Image from "next/image";
 
 const ASSET_METADATA_CACHE_KEY = "asset-display-metadata-cache-v1";
 
+const ASSET_LIST_CACHE_KEY = "asset-list-state-v1";
+
+export interface CachedAssetRef {
+  code: string;
+  issuer?: string;
+}
+
 function assetCacheKey(code: string, issuer?: string): string {
   return issuer ? `${code}:${issuer}` : `${code}:native`;
 }
@@ -65,8 +72,61 @@ function cacheAssetMetadata(
       ASSET_METADATA_CACHE_KEY,
       JSON.stringify(cache),
     );
+    cacheAssetInList(code, issuer);
   } catch {
     // Silently ignore storage failures (private mode, quota exceeded).
+  }
+}
+
+export function loadAssetListState(): CachedAssetRef[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(ASSET_LIST_CACHE_KEY);
+    if (!raw) {
+      return Object.keys(loadAssetMetadataCache()).map((key) => {
+        const separatorIndex = key.lastIndexOf(":");
+        if (separatorIndex === -1) {
+          return { code: key };
+        }
+
+        const code = key.slice(0, separatorIndex);
+        const issuer = key.slice(separatorIndex + 1);
+        return issuer === "native" ? { code } : { code, issuer };
+      });
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? (parsed as CachedAssetRef[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveAssetListState(assets: CachedAssetRef[]): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(ASSET_LIST_CACHE_KEY, JSON.stringify(assets));
+  } catch {
+    // Silently ignore storage failures (private mode, quota exceeded).
+  }
+}
+
+function cacheAssetInList(code: string, issuer?: string): void {
+  const list = loadAssetListState();
+  const key = assetCacheKey(code, issuer);
+  const exists = list.some(
+    (entry) => assetCacheKey(entry.code, entry.issuer) === key,
+  );
+
+  if (!exists) {
+    list.push(issuer === undefined ? { code } : { code, issuer });
+    saveAssetListState(list);
   }
 }
 
@@ -226,6 +286,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
     if (cached) {
       setMetadata(cached);
       setLoading(false);
+      cacheAssetInList(code, issuer);
     } else {
       setMetadata(null);
       setLoading(true);
@@ -361,6 +422,7 @@ export const AssetCard: React.FC<
     if (cached) {
       setMetadata(cached);
       setLoading(false);
+      cacheAssetInList(props.code, props.issuer);
     } else {
       setMetadata(null);
       setLoading(true);
