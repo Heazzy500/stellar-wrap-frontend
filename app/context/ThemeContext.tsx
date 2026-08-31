@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Toaster } from 'sonner';
 
 export type ThemeColor = 'green' | 'pink' | 'yellow' | 'red' | 'purple' | 'cosmic-purple';
 export type ThemeMode = 'dark' | 'light';
@@ -116,6 +117,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   return (
     <ThemeContext.Provider value={{ color, setColor, mode, setMode, toggleMode }}>
+      <Toaster
+        position="bottom-center"
+        richColors
+        closeButton
+        toastOptions={{
+          style: {
+            background: mode === 'dark' ? '#1a1a1a' : '#ffffff',
+            color: mode === 'dark' ? '#ffffff' : '#000000',
+            border: mode === 'dark' ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.1)',
+          },
+        }}
+        aria-label="Notifications"
+        role="status"
+        aria-live="polite"
+      />
       {children}
     </ThemeContext.Provider>
   );

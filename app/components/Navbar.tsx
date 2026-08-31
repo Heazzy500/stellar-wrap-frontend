@@ -20,10 +20,14 @@ export function Navbar() {
   const { mode } = useTheme();
 
   const handleDisconnect = () => {
-    reset();
-    resetCache();
-    toast.success("Wallet disconnected");
-    router.push("/");
+    try {
+      reset();
+      resetCache();
+      toast.success("Wallet disconnected");
+      router.push("/");
+    } catch {
+      toast.error("Failed to disconnect wallet. Please try again.");
+    }
   };
 
   return (
