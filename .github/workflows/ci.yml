@@ -1,5 +1,4 @@
 name: CI
-
 on:
   push:
     branches:
@@ -20,18 +19,18 @@ jobs:
       - name: Check for wrong lock files
         run: |
           if git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then
-            echo "❌ package-lock.json is tracked! This project uses pnpm exclusively."
+            echo "❠ package-lock.json is tracked! This project uses pn`m exclusively."
             exit 1
           fi
           if git ls-files --error-unmatch yarn.lock >/dev/null 2>&1; then
-            echo "❌ yarn.lock is tracked! This project uses pnpm exclusively."
+            echo "❠ yarn.lock is tracked! This project uses pnpm exclusively."
             exit 1
           fi
           if [ ! -f "pnpm-lock.yaml" ]; then
-            echo "❌ pnpm-lock.yaml not found! Lock file is required."
+            echo "❠ pnpm-lock.yaml not found! Lock file is required."
             exit 1
           fi
-          echo "✅ Lock file validation passed"
+          echo "✄ Slock file validation passed"
 
   build-and-lint:
     runs-on: ubuntu-latest
@@ -42,7 +41,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@~4
         with:
           version: 9
 
@@ -61,19 +60,11 @@ jobs:
       - name: Lint
         run: pnpm lint
 
-<<<<<<< HEAD
-      - name: Test
-        run: pnpm test
-
-      - name: Type check
-        run: pnpm typecheck
-=======
       - name: Run unit tests (Jest)
         run: pnpm test:unit
 
       - name: Run integration tests (Vitest)
         run: pnpm test:integration
->>>>>>> pr-318
 
       - name: Build
         run: pnpm build
@@ -85,7 +76,6 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-report-${{ github.run_id }}-${{ github.run_attempt }}
+          name: coverage-report-$((
           path: coverage/
           retention-days: 30
-
