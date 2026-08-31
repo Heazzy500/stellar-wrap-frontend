@@ -20,6 +20,7 @@ import {
   getAssetShortName,
 } from "@/app/services/assetResolver";
 import Image from "next/image";
+import type { Meta, StoryObj } from "@storybook/react";
 
 interface AssetDisplayProps {
   code: string;
@@ -360,9 +361,11 @@ export const AssetCard: React.FC<AssetCardProps> = ({
     return (
       <div
         className={cardClassName}
-        role={interactive ? "button" : undefined}
+        role={interactive ? "button" : isLoadingOrProp ? "status" : undefined}
         tabIndex={interactive && !resolvedDisabled ? 0 : undefined}
         aria-disabled={interactive && resolvedDisabled ? true : undefined}
+        aria-busy={isLoadingOrProp ? true : undefined}
+        aria-label={isLoadingOrProp ? "Loading asset" : undefined}
         onClick={interactive && !resolvedDisabled ? onClick : undefined}
         onKeyDown={
           interactive && !resolvedDisabled
@@ -437,4 +440,76 @@ export const AssetCard: React.FC<AssetCardProps> = ({
   );
 };
 
-export default AssetDisplay;
+const meta = {
+  title: "Components/AssetCard",
+  component: AssetCard,
+  parameters: {
+    layout: "centered",
+  },
+  decorators: [
+    (Story) => (
+      <div className="max-w-sm">
+        <Story />
+      </div>
+    ),
+  ],
+  argTypes: {
+    variant: {
+      control: { type: "select" },
+      options: ["primary", "secondary", "disabled", "loading"],
+    },
+    showIssuer: { control: "boolean" },
+    disabled: { control: "boolean" },
+    loading: { control: "boolean" },
+  },
+} satisfies Meta<typeof AssetCard>;
+
+export default meta;
+
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
+  args: {
+    code: "USD",
+    issuer: "GA5X",
+    variant: "primary",
+    showIssuer: true,
+  },
+};
+
+export const Secondary: Story = {
+  args: {
+    code: "EUR",
+    issuer: "GBY",
+    variant: "secondary",
+    showIssuer: true,
+  },
+};
+
+export const Disabled: Story = {
+  args: {
+    code: "BTC",
+    issuer: "GABC",
+    variant: "disabled",
+    disabled: true,
+    onClick: () => undefined,
+  },
+};
+
+export const Loading: Story = {
+  args: {
+    code: "XRP",
+    issuer: "GXYZ",
+    variant: "loading",
+    loading: true,
+  },
+};
+
+export const Interactive: Story = {
+  args: {
+    code: "ETH",
+    issuer: "GETH",
+    variant: "primary",
+    onClick: () => undefined,
+  },
+};
