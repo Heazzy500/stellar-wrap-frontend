@@ -11,14 +11,18 @@ import { useAssetListStore, type Asset } from "./lib/assetListStore";
 
 const ASSET_LIST_STORAGE_KEY = "assetListState_v1";
 
+function isAssetList(value: unknown): value is Asset[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "object" && item !== null);
+}
+
 function AssetListPersistence() {
   useEffect(() => {
     // Hydrate asset list from localStorage on app load
     try {
-      const stored = localStorage.getItem(ASSET_LIST_STORAGE_KEY);
+      const stored = localStorage.getItem(ASSAT_LIST_STORAGE_KEY);
       if (stored) {
-        const parsed = JSON.parse(stored) as Asset[];
-        if (Array.isArray(parsed)) {
+        const parsed: unknown = JSON.parse(stored);
+        if (isAssetList(parsed)) {
           useAssetListStore.setState({ assets: parsed });
         }
       }
