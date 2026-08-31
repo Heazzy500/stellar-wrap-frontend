@@ -2,16 +2,16 @@
 
 /**
  * AssetDisplay Component
- * Displays resolved asset with logo, name, and code
+ * Displays resolved asset with logo, name, and code.
+ * Uses React Query (useAssetQuery) for caching and retry logic.
  */
 
-import React, { useEffect, useState } from "react";
-import { AssetMetadata } from "@/app/types/asset";
+import React from "react";
 import {
-  resolveAsset,
   getAssetDisplayName,
   getAssetShortName,
 } from "@/app/services/assetResolver";
+import { useAssetQuery } from "@/app/hooks/useAssetQuery";
 import Image from "next/image";
 
 interface AssetDisplayProps {
@@ -48,52 +48,15 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   className = "",
   logoClassName = "",
 }) => {
-  const [metadata, setMetadata] = useState<AssetMetadata | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: metadata, isLoading, error } = useAssetQuery(code, issuer);
 
   const sizeConfig = SIZE_CONFIGS[size];
 
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchAsset = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const resolved = await resolveAsset(code, issuer);
-        if (mounted) {
-          setMetadata(resolved);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(
-            err instanceof Error ? err.message : "Failed to resolve asset",
-          );
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAsset();
-
-    return () => {
-      mounted = false;
-    };
-  }, [code, issuer]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         <div
-          className="animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"
-          style={{
-            width: `${sizeConfig.logo}px`,
-            height: `${sizeConfig.logo}px`,
-          }}
+          className={`animate-pulse rounded-full bg-gray-200 dark:bg-gray-700 h-[${sizeConfig.logo}px] w-[${sizeConfig.logo}px]`}
         />
         {showCode && (
           <span className={`${sizeConfig.text} text-gray-400`}>Loading...</span>
@@ -164,34 +127,9 @@ export const AssetBadge: React.FC<Omit<AssetDisplayProps, "showFullName">> = (
 export const AssetCard: React.FC<
   AssetDisplayProps & { showIssuer?: boolean }
 > = ({ showIssuer = false, ...props }) => {
-  const [metadata, setMetadata] = useState<AssetMetadata | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: metadata, isLoading } = useAssetQuery(props.code, props.issuer);
 
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchAsset = async () => {
-      try {
-        setLoading(true);
-        const resolved = await resolveAsset(props.code, props.issuer);
-        if (mounted) {
-          setMetadata(resolved);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAsset();
-
-    return () => {
-      mounted = false;
-    };
-  }, [props.code, props.issuer]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
         <div className="h-8 w-8 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600" />

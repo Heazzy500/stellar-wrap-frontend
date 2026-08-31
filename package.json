@@ -2,7 +2,7 @@
   "name": "next-version",
   "version": "0.1.0",
   "private": true,
-  "packageManager": "pnpm@9.0.0",
+  "packageManager": "pnpm@10.25.0",
   "engines": {
     "node": ">=18.0.0",
     "pnpm": ">=9.0.0"
@@ -20,6 +20,7 @@
     "@ai-sdk/openai": "^0.0.54",
     "@creit-tech/stellar-wallets-kit": "npm:@jsr/creit-tech__stellar-wallets-kit@^2.0.0-beta.9",
     "@stellar/freighter-api": "^6.0.1",
+    "@tanstack/react-query": "^5.102.8",
     "@vercel/og": "^0.8.6",
     "ai": "^3.4.10",
     "canvas-confetti": "^1.9.4",
@@ -55,6 +56,5 @@
     "ts-jest": "^29.4.6",
     "typescript": "^5",
     "vitest": "^4.1.9"
-  },
-  "packageManager": "pnpm@10.25.0"
+  }
 }
