@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       channel?: "push" | "email";
     };
 
-    // └ Token-based unsubscribe (from email link) ——
+    // └ Token-based unsubscribe (from email link) —
     if (body.token) {
       const keys = await kvKeys("notif:sub:*");
       for (const key of keys) {
@@ -48,9 +48,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Token not found" }, { status: 404 });
     }
 
-    // ⟔ Wallet + channel unsubscribe (preference page) ——
+    // ⟔ Wallet + channel unsubscribe (preference page) —
     if (body.walletAddress && body.channel) {
-      const record = await kvGet<SubscriptionRecord>(SUBKEY(body.walletAddress));
+      const record = await kvGet<SubscriptionRecord>(SUB_KEY(body.walletAddress));
       if (!record) {
         return NextResponse.json({ error: "No subscription found" }, { status: 404 });
       }
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
           ? { ...record, push: undefined }
           : { ...record, email: undefined };
 
-      await kvSet(SUBKEY(body.walletAddress), updated);
+      await kvSet(SUB_KEY(body.walletAddress), updated);
       if (!isActive(updated)) {
         await removeFromPeriodIndex(body.walletAddress, record.period);
       }
