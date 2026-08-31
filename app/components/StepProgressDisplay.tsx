@@ -1,16 +1,32 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
+import { lazy, Suspense } from "react";
 import { AlertCircle, RotateCcw, X } from "lucide-react";
 import { useWrapStore } from "@/app/store/wrapStore";
 import { INDEXING_STEPS, STEP_ORDER } from "@/app/types/indexing";
+
+const motion = {
+  div: lazy(() =>
+    import("framer-motion").then((m) => ({ default: m.motion.div }))
+  ),
+  span: lazy(() =>
+    import("framer-motion").then((m) => ({ default: m.motion.span }))
+  ),
+  button: lazy(() =>
+    import("framer-motion").then((m) => ({ default: m.motion.button }))
+  ),
+};
+
+const AnimatePresence = lazy(() =>
+  import("framer-motion").then((m) => ({ default: m.AnimatePresence }))
+);
 
 interface StepProgressDisplayProps {
   onRetry?: () => void;
   onCancel?: () => void;
 }
 
-export function StepProgressDisplay({
+function StepProgressDisplayBase({
   onRetry,
   onCancel,
 }: StepProgressDisplayProps) {
@@ -314,6 +330,14 @@ export function StepProgressDisplay({
         </AnimatePresence>
       </div>
     </motion.div>
+  );
+}
+
+export function StepProgressDisplay(props: StepProgressDisplayProps) {
+  return (
+    <Suspense fallback={null}>
+      <StepProgressDisplayBase {...props} />
+    </Suspense>
   );
 }
 
