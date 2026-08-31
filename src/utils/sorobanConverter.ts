@@ -818,7 +818,7 @@ export function stroopsToLumens(
 
 // ─── Soroban RPC Helpers ────────────────────────────────────────────────────
 
-type SimulateTransactionResponse = Awaited<
+export type SimulateTransactionResponse = Awaited<
   ReturnType<typeof SorobanRpc.Server.prototype.simulateTransaction>
 >;
 
@@ -844,6 +844,19 @@ async function withTimeout<T>(
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+const sorobanServers = new Map<string, SorobanRpc.Server>();
+
+function getSorobanServer(rpcUrl: string): SorobanRpc.Server {
+  const cachedServer = sorobanServers.get(rpcUrl);
+  if (cachedServer) {
+    return cachedServer;
+  }
+
+  const server = new SorobanRpc.Server(rpcUrl, { allowHttp: true });
+  sorobanServers.set(rpcUrl, server);
+  return server;
 }
 
 const inFlightSimulationRequests = new Map<
@@ -927,7 +940,7 @@ async function performSorobanSimulation(
   options: SimulateSorobanTransactionOptions,
   scVals: xdr.ScVal[],
 ): Promise<SimulateSorobanTransactionResult> {
-  const server = new SorobanRpc.Server(context.rpcUrl, { allowHttp: true });
+  const server = getSorobanServer(context.rpcUrl);
 
   const sourceAccount = await withTimeout(
     server.getAccount(context.sourceAddress),
@@ -974,11 +987,73 @@ interface FreighterSigner {
     transactionXdr: string,
     options: { networkPassphrase: string },
   ): Promise<string>;
+  isConnected?: () => Promise<boolean>;
+  getPublicKey?: () => Promise<string>;
+  requestAccess?: () => Promise<boolean>;
 }
 
 function getFreighterSigner(): FreighterSigner | null {
   const globalRef = globalThis as unknown as { freighter?: FreighterSigner };
   return globalRef.freighter ?? null;
+}
+
+function isFreighterConnected(connected: boolean): boolean {
+  return connected === true;
+}
+
+export async function ensureFreighterConnected(): Promise<void> {
+  const freighter = getFreighterSigner();
+  if (!freighter) {
+    throw new Error(
+      "Freighter wallet is not available. Please install Freighter.",
+    );
+  }
+
+  if (typeof freighter.isConnected === "function") {
+    const connected = await freighter.isConnected();
+    if (isFreighterConnected(connected)) {
+      return;
+    }
+  }
+
+  if (typeof freighter.requestAccess === "function") {
+    const granted = await freighter.requestAccess();
+    if (!isFreighterConnected(granted)) {
+      throw new Error(
+        "Freighter connection was not granted. Please approve the connection.",
+      );
+    }
+    return;
+  }
+
+  if (typeof freighter.isConnected === "function") {
+    throw new Error(
+      "Freighter is not connected and cannot request access automatically.",
+    );
+  }
+}
+
+export async function getFreighterPublicKey(): Promise<string> {
+  const freighter = getFreighterSigner();
+  if (!freighter) {
+    throw new Error(
+      "Freighter wallet is not available. Please install Freighter.",
+    );
+  }
+
+  await ensureFreighterConnected();
+
+  if (typeof freighter.getPublicKey !== "function") {
+    throw new Error("Freighter does not expose getPublicKey().");
+  }
+
+  try {
+    return await freighter.getPublicKey();
+  } catch (err) {
+    throw new Error(
+      `Failed to read Freighter public key: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 export function isUserRejection(error: unknown): boolean {
@@ -999,6 +1074,8 @@ export async function signSorobanTransaction(
     );
   }
 
+  await ensureFreighterConnected();
+
   try {
     const signedXdr = await freighter.signTransaction(transaction.toXDR(), {
       networkPassphrase,
@@ -1016,6 +1093,8 @@ export interface SorobanSendOptions {
   requestTimeoutMs?: number;
   pollIntervalMs?: number;
   maxPollAttempts?: number;
+  backoffFactor?: number;
+  maxPollIntervalMs?: number;
 }
 
 export async function sendSorobanTransaction(
@@ -1023,7 +1102,7 @@ export async function sendSorobanTransaction(
   signedTransaction: Transaction,
   options: SorobanSendOptions = {},
 ): Promise<string> {
-  const server = new SorobanRpc.Server(rpcUrl, { allowHttp: true });
+  const server = getSorobanServer(rpcUrl);
 
   const sendResponse = await withTimeout(
     server.sendTransaction(signedTransaction),
@@ -1051,9 +1130,14 @@ export async function sendSorobanTransaction(
 
   const pollIntervalMs = options.pollIntervalMs ?? 1_000;
   const maxPollAttempts = options.maxPollAttempts ?? 30;
+  const backoffFactor = options.backoffFactor ?? 1.5;
+  const maxPollIntervalMs = options.maxPollIntervalMs ?? 5_000;
+  let currentPollIntervalMs = pollIntervalMs;
 
   for (let attempt = 0; attempt < maxPollAttempts; attempt++) {
-    await new Promise<void>((resolve) => setTimeout(resolve, pollIntervalMs));
+    await new Promise<void>((resolve) =>
+      setTimeout(resolve, currentPollIntervalMs),
+    );
     const getResponse = await withTimeout(
       server.getTransaction(transactionHash),
       options.requestTimeoutMs ?? 10_000,
@@ -1070,12 +1154,80 @@ export async function sendSorobanTransaction(
       );
     }
 
-    if (getResponse.status === "NOT_FOUND") {
-      continue;
-    }
+    currentPollIntervalMs = Math.min(
+      maxPollIntervalMs,
+      currentPollIntervalMs * backoffFactor,
+    );
   }
 
   throw new Error(
     `Timed out waiting for Soroban transaction ${transactionHash} to confirm`,
   );
+}
+
+export interface SorobanInvokeOptions {
+  rpcUrl: string;
+  networkPassphrase: string;
+  sourceAddress?: string;
+  contractId: string;
+  method: string;
+  args?: unknown[];
+  argTypes?: ScValTargetType[];
+  fee?: string | number;
+  timeoutInSeconds?: number;
+  simulationTimeoutMs?: number;
+  sendTimeoutMs?: number;
+  pollIntervalMs?: number;
+  maxPollAttempts?: number;
+  backoffFactor?: number;
+  maxPollIntervalMs?: number;
+}
+
+export interface SorobanInvokeResult {
+  transactionHash: string;
+  simulation: SimulateTransactionResponse;
+}
+
+export async function invokeSorobanContract(
+  options: SorobanInvokeOptions,
+): Promise<SorobanInvokeResult> {
+  const sourceAddress =
+    options.sourceAddress ?? (await getFreighterPublicKey());
+
+  const { preparedTransaction, simulation } =
+    await simulateSorobanTransaction(
+      {
+        rpcUrl: options.rpcUrl,
+        networkPassphrase: options.networkPassphrase,
+        sourceAddress,
+        contractId: options.contractId,
+        method: options.method,
+        args: options.args,
+        argTypes: options.argTypes,
+      },
+      {
+        fee: options.fee,
+        timeoutInSeconds: options.timeoutInSeconds,
+        requestTimeoutMs: options.simulationTimeoutMs,
+      },
+    );
+
+  const signedTransaction = await signSorobanTransaction(
+    preparedTransaction,
+    options.networkPassphrase,
+  );
+
+  const transactionHash = await sendSorobanTransaction(
+    options.rpcUrl,
+    signedTransaction,
+    {
+      requestTimeoutMs: options.sendTimeoutMs,
+      pollIntervalMs: options.pollIntervalMs,
+      maxPollAttempts: options.maxPollAttempts,
+      backoffFactor: options.backoffFactor,
+      maxPollIntervalMs: options.maxPollIntervalMs,
+    },
+  );
+
+  return { transactionHash, simulation };
 }
