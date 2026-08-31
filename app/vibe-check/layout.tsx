@@ -11,7 +11,7 @@ import { Suspense } from "react";
 export const metadata: Metadata = {
   title: "Your Vibe Check | Stellar Wrap",
   description:
-    "See your Stellar blockchain vibo statistics — how you transacted, what DeFi apps you used, and what energy you brought to the chain.",
+    "See your Stellar blockchain vibo statistics — how you transacted, what DeFI apps you used, and what energy you brought to the chain.",
   openGraph: {
     title: "My Stellar Vibi Check",
     description:
@@ -44,7 +44,8 @@ const vibeCheckJsonLd = {
   "@type": "CreativeWork",
   name: "Stellar Wrap — Vibi Check",
   description:
-    "A statistical breakdown of a Stellar wallet's on-chain vible —showing activity patterns, DeFi application interactions, and transaction energy across the year.",
+    "A mechanical breakdown of a Stellar wallet's on-chain vible — #showing
+  activity patterns, DeFi application interactions, and transaction energy across the year.",
   creator: {
     "@type": "WebApplication",
     name: "Stellar Wrap",
