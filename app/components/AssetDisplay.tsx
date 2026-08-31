@@ -21,6 +21,55 @@ import {
 } from "@/app/services/assetResolver";
 import Image from "next/image";
 
+const ASSET_METADATA_CACHE_KEY = "asset-display-metadata-cache-v1";
+
+function assetCacheKey(code: string, issuer?: string): string {
+  return issuer ? `${code}:${issuer}` : `${code}:native`;
+}
+
+function loadAssetMetadataCache(): Record<string, AssetMetadata> {
+  if (typeof window === "undefined") {
+    return {};
+  }
+
+  try {
+    const raw = window.localStorage.getItem(ASSET_METADATA_CACHE_KEY);
+    if (!raw) {
+      return {};
+    }
+
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, AssetMetadata>;
+    }
+
+    return {};
+  } catch {
+    return {};
+  }
+}
+
+function cacheAssetMetadata(
+  code: string,
+  issuer: string | undefined,
+  metadata: AssetMetadata,
+): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    const cache = loadAssetMetadataCache();
+    cache[assetCacheKey(code, issuer)] = metadata;
+    window.localStorage.setItem(
+      ASSET_METADATA_CACHE_KEY,
+      JSON.stringify(cache),
+    );
+  } catch {
+    // Silently ignore storage failures (private mode, quota exceeded).
+  }
+}
+
 interface AssetDisplayProps {
   code: string;
   issuer?: string;
@@ -171,16 +220,26 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   useEffect(() => {
     let mounted = true;
 
+    const cached = loadAssetMetadataCache()[assetCacheKey(code, issuer)];
+
+    setError(null);
+    if (cached) {
+      setMetadata(cached);
+      setLoading(false);
+    } else {
+      setMetadata(null);
+      setLoading(true);
+    }
+
     const fetchAsset = async () => {
       try {
-        setLoading(true);
-        setError(null);
         const resolved = await resolveAsset(code, issuer);
         if (mounted) {
           setMetadata(resolved);
+          cacheAssetMetadata(code, issuer, resolved);
         }
       } catch (err) {
-        if (mounted) {
+        if (mounted && !cached) {
           setError(
             err instanceof Error ? err.message : "Failed to resolve asset",
           );
@@ -296,13 +355,26 @@ export const AssetCard: React.FC<
   useEffect(() => {
     let mounted = true;
 
+    const cached =
+      loadAssetMetadataCache()[assetCacheKey(props.code, props.issuer)];
+
+    if (cached) {
+      setMetadata(cached);
+      setLoading(false);
+    } else {
+      setMetadata(null);
+      setLoading(true);
+    }
+
     const fetchAsset = async () => {
       try {
-        setLoading(true);
         const resolved = await resolveAsset(props.code, props.issuer);
         if (mounted) {
           setMetadata(resolved);
+          cacheAssetMetadata(props.code, props.issuer, resolved);
         }
+      } catch {
+        // Keep cached metadata if available; fallback handles unresolved assets.
       } finally {
         if (mounted) {
           setLoading(false);
