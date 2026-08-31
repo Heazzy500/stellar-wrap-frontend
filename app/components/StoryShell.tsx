@@ -4,7 +4,7 @@ import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Home, Share2, ChevronRight, Palette } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { MuteToggle } from "./MuteToggle";
+const MuteToggle = lazy(() => import("./MuteToggle").then((m) => ({ default: m.MuteToggle })));
 import {
   useReducedMotion,
   reducedMotionTransition,
@@ -192,7 +192,9 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
         </motion.div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <MuteToggle />
+          <Suspense fallback={null}>
+            <MuteToggle />
+          </Suspense>
           {/* Palette Button */}
           <motion.button
             type="button"
