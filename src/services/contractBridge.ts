@@ -397,9 +397,12 @@ async function validateAccountBalance(
  * Generates a cache key for simulation results
  */
 function getSimulationCacheKey(transaction: Transaction, accountAddress: string): string {
-  // Use transaction hash or XDR as cache key
+  // Use transaction hash as a stable cache key
   try {
-    const xdr = transaction.toXDR();
+    const hash = transaction.hash().toString('hex');
+    return `${accountAddress}:${hash}`;
+  } catch {
+    // Fallback to a pseudo-unique key if hashing fails
     return `${accountAddress}:${Date.now()}`;
   }
 }
