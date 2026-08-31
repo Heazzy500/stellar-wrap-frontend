@@ -10,6 +10,10 @@ const HomeIcon = lazy(() =>
   import("lucide-react").then((module) => ({ default: module.Home })),
 );
 
+const ArrowRightIcon = lazy(() =>
+  import("lucide-react").then((module) => ({ default: module.ArrowRight })),
+);
+
 interface ProgressIndicatorProps {
   currentStep: number;
   totalSteps: number;
@@ -301,20 +305,15 @@ export function ProgressIndicator({
                 borderColor: "rgba(255, 255, 255, 0.3)",
               }}
             >
-              <svg
-                className="w-6 h-6 md:w-7 md:h-7"
-                viewBox="0 0 24 24"
-                fill="none"
-                aria-hidden="true"
+              <Suspense
+                fallback={<div className="w-6 h-6 md:w-7 md:h-7" aria-hidden="true" />}
               >
-                <path
-                  d="M9 18l6-6-6-6"
-                  stroke="white"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <ArrowRightIcon
+                  className="w-6 h-6 md:w-7 md:h-7 text-white"
+                  strokeWidth={2.5}
+                  aria-hidden="true"
                 />
-              </svg>
+              </Suspense>
             </div>
           </div>
         </motion.button>
