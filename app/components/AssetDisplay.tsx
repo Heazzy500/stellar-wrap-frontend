@@ -103,6 +103,7 @@ interface InitialsBadgeProps {
   code: string;
   size: number;
   className?: string;
+  decorative?: boolean;
 }
 
 /**
@@ -113,10 +114,12 @@ const InitialsBadge: React.FC<InitialsBadgeProps> = ({
   code,
   size,
   className = "",
+  decorative = false,
 }) => (
   <span
-    role="img"
-    aria-label={`${code} icon`}
+    role={decorative ? undefined : "img"}
+    aria-label={decorative ? undefined : `${code} icon`}
+    aria-hidden={decorative || undefined}
     className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${iconSizeClass(size)} ${initialsSizeClass(size)} ${initialsColor(code)} ${className}`}
   >
     {assetInitials(code)}
@@ -132,6 +135,7 @@ interface AssetIconSlotProps {
   code: string;
   size: number;
   className?: string;
+  alt?: string;
 }
 
 /**
@@ -147,6 +151,7 @@ const AssetIconSlot: React.FC<AssetIconSlotProps> = ({
   code,
   size,
   className = "",
+  alt,
 }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -156,13 +161,20 @@ const AssetIconSlot: React.FC<AssetIconSlotProps> = ({
   }, [logo]);
 
   if (!logo || imgError) {
-    return <InitialsBadge code={code} size={size} className={className} />;
+    return (
+      <InitialsBadge
+        code={code}
+        size={size}
+        className={className}
+        decorative={alt === ""}
+      />
+    );
   }
 
   return (
     <Image
       src={logo}
-      alt={code}
+      alt={alt ?? code}
       width={size}
       height={size}
       className={`shrink-0 rounded-full ${iconSizeClass(size)} ${className}`}
@@ -229,7 +241,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   // Loading state — icon slot is a pulse skeleton at the reserved dimensions
   if (loading) {
     return (
-      <div className={`flex items-center gap-2 ${className}`}>
+      <div role="status" className={`flex items-center gap-2 ${className}`}>
         {showLogo && (
           <div
             aria-hidden="true"
@@ -252,6 +264,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
             code={code}
             size={sizeConfig.logo}
             className={logoClassName}
+            decorative={showCode}
           />
         )}
         {showCode && (
@@ -268,6 +281,11 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   const displayName = showFullName
     ? getAssetDisplayName(metadata)
     : getAssetShortName(metadata);
+  const logoAlt = displayName
+    .toLowerCase()
+    .includes(metadata.code.toLowerCase())
+    ? ""
+    : metadata.code;
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -277,6 +295,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
           code={metadata.code}
           size={sizeConfig.logo}
           className={logoClassName}
+          alt={logoAlt}
         />
       )}
       <span
@@ -342,7 +361,8 @@ export const AssetCard: React.FC<
 
   if (loading) {
     return (
-      <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+      <div role="status" className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+        <span className="sr-only">Loading asset</span>
         {/* Icon skeleton — fixed 32×32 so the layout doesn't shift */}
         <div
           aria-hidden="true"
@@ -360,7 +380,7 @@ export const AssetCard: React.FC<
     return (
       <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
         {/* Reserve the icon slot even for the fallback state */}
-        <InitialsBadge code={props.code} size={32} />
+        <InitialsBadge code={props.code} size={32} decorative />
         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
           {props.code}
         </span>
@@ -371,7 +391,7 @@ export const AssetCard: React.FC<
   return (
     <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
       {props.showLogo && (
-        <AssetIconSlot logo={metadata.logo} code={metadata.code} size={32} />
+        <AssetIconSlot logo={metadata.logo} code={metadata.code} size={32} alt="" />
       )}
       <div className="flex-1">
         <div className="font-medium text-gray-900 dark:text-gray-100">
