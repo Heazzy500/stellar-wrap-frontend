@@ -344,7 +344,25 @@ function StepProgressDisplayBase({
 
 export function StepProgressDisplay(props: StepProgressDisplayProps) {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div role="status" className="w-full max-w-2xl mx-auto px-4">
+          <span className="sr-only">Loading progress display...</span>
+          <div
+            aria-hidden="true"
+            className="relative rounded-2xl border border-white/10 bg-linear-to-b from-white/5 to-transparent backdrop-blur-xl p-8 space-y-6"
+          >
+            <div className="space-y-2">
+              <div className="h-8 w-2/3 rounded bg-white/10 animate-pulse" />
+              <div className="h-4 w-1/2 rounded bg-white/10 animate-pulse" />
+            </div>
+            <div className="h-24 rounded-xl bg-white/5 animate-pulse" />
+            <div className="h-2 rounded-full bg-white/10 animate-pulse" />
+            <div className="h-3 rounded-full bg-white/10 animate-pulse" />
+          </div>
+        </div>
+      }
+    >
       <StepProgressDisplayBase {...props} />
     </Suspense>
   );
