@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       channel?: "push" | "email";
     };
 
-    // └ Token-based unsubscribe (from email link) —
+    // ¤ Token-based unsubscribe (from email link) —
     if (body.token) {
       const keys = await kvKeys("notif:sub:*");
       for (const key of keys) {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { error: "Provide either token or walletAddress+channel" },
+      { error: "Provide either token or walletAddresschannel" },
       { status: 400 },
     );
   } catch (err) {
