@@ -23,6 +23,9 @@ import { MuteToggle } from "@/app/components/MuteToggle";
 import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimeline";
 import { NotificationPrompt } from "@/app/components/NotificationPrompt";
 import { generatePersonaDescription } from "@/app/actions/generate-persona";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("PersonaPage");
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string, enabled = true) => {
@@ -226,7 +229,7 @@ export default function ArchetypeReveal(): JSX.Element {
         }
       } catch (error) {
         if (cancelled) return;
-        console.error("Failed to generate persona:", error);
+        log.error("Failed to generate persona:", error);
         // Fall back to existing description
         setStreamedDescription(result?.personaDescription || data.description);
       }

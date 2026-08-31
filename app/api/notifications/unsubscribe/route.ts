@@ -8,7 +8,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, kvKeys, SUB_KEY } from "../_lib/kv";
+import { logger } from "@/app/utils/logger";
 import type { SubscriptionRecord } from "@/app/types/notifications";
+
+const log = logger.child("api:unsubscribe");
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   } catch (err) {
-    console.error("[POST /api/notifications/unsubscribe]", err);
+    log.error("Internal error processing unsubscribe:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

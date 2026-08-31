@@ -24,12 +24,17 @@ const eslintConfig = defineConfig([
       ],
     },
   },
-  // Code review: discourage ad-hoc console logging in indexer/loading paths
-  // (use app/utils/indexerDebug.ts). See docs/sensitive-logging.md.
+  // Enforce no-console globally across app and src directory to prevent un-abstracted log calls
   {
-    files: ["app/loading/**/*.{ts,tsx}", "app/services/indexerService.ts"],
+    files: ["app/**/*.{ts,tsx,js,jsx}", "src/**/*.{ts,tsx,js,jsx}"],
+    ignores: [
+      "app/utils/logger.ts",
+      "**/__tests__/**",
+      "**/*.test.ts",
+      "**/*.test.tsx",
+    ],
     rules: {
-      "no-console": ["warn", { allow: ["warn", "error"] }],
+      "no-console": "error",
     },
   },
 ]);

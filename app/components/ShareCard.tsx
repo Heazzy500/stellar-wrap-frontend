@@ -81,7 +81,7 @@ export function ShareCard({
     if (transactionState === "failed" && transactionError) {
       // transactionError is already mapped to a friendly message in contractBridge;
       // keep the raw string in diagnostics for support/debugging.
-      console.error("[ShareCard] mint failed", { transactionError });
+      log.error("mint failed", { transactionError });
       toast.error("Minting failed", {
         description: transactionError,
       });
@@ -100,7 +100,7 @@ export function ShareCard({
         onFallbackWarning: () => setUsedMainThreadFallback(true),
         format: cardFormat,
       });
-      console.info(
+      log.info(
         `Share image generated in ${result.durationMs}ms (scale: ${result.scale}x, worker: ${result.usedWorker})`,
       );
     } catch (error) {
@@ -109,7 +109,7 @@ export function ShareCard({
           ? error.message
           : "Failed to generate share image";
       setDownloadError(message);
-      console.error("Download failed:", error);
+      log.error("Download failed:", error);
     } finally {
       setIsDownloading(false);
     }
@@ -170,7 +170,7 @@ export function ShareCard({
   };
 
   const handleMint = async () => {
-    console.log("Mint attempt - Address:", address);
+    log.debug("Mint attempt", { address });
 
     if (!isOnline) {
       toast.error("Minting is unavailable offline");
@@ -195,7 +195,7 @@ export function ShareCard({
 
     // Transaction state observer
     const observer = (state: string, data?: unknown) => {
-      console.log("Transaction state:", state, data);
+      log.debug("Transaction state:", state, data);
 
       // Track per-tick confirming progress
       if (
@@ -243,7 +243,7 @@ export function ShareCard({
     } catch (error) {
       // Errors are handled by transactionObserver setting state to 'failed'
       // which triggers the useEffect to show a toast, so we just log raw details here.
-      console.error("Minting process caught error:", error);
+      log.error("Minting process caught error:", error);
     }
   };
 

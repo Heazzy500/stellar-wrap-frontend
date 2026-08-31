@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, SUB_KEY } from "../_lib/kv";
+import { logger } from "@/app/utils/logger";
 import {
   getClientIp,
   checkRateLimit,
@@ -14,6 +15,8 @@ import {
   SUBSCRIBE_IP_WINDOW,
 } from "../_lib/rateLimit";
 import type { SubscriptionRecord, PeriodPrefs } from "@/app/types/notifications";
+
+const log = logger.child("api:subscribe");
 
 function isValidWallet(address: string): boolean {
   return typeof address === "string" && address.startsWith("G") && address.length === 56;
@@ -66,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
-    console.error("[POST /api/notifications/subscribe]", err);
+    log.error("Internal error creating push subscription:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

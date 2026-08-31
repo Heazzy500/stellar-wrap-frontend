@@ -17,6 +17,9 @@ import {
 } from '../../config/contracts';
 import { buildMintWrapArgs, type MintWrapArgsInput, buildContractArgs, type ContractStatsInput } from '../utils/contractArgsBuilder';
 import { mapContractError } from '../../app/utils/contractErrors';
+import { logger } from '../../app/utils/logger';
+
+const log = logger.child('contractBridge');
 
 export type TransactionState =
   | 'pending'
@@ -131,7 +134,7 @@ function emitState(
     try {
       observer(state, data);
     } catch (error) {
-      console.error('Transaction observer error:', error);
+      log.error('Transaction observer error:', error);
     }
   }
 }
@@ -190,7 +193,7 @@ async function waitForConfirmation(
       if (error instanceof Error && error.message.includes('confirmation timeout')) {
         throw error;
       }
-      console.warn(`Polling attempt ${attempts + 1} failed:`, error);
+      log.warn(`Polling attempt ${attempts + 1} failed:`, error);
     }
 
     attempts++;
@@ -217,7 +220,7 @@ function parseContractError(error: unknown): string {
   const mapped = mapContractError(error);
   // Always keep raw details in diagnostics/logs
   if (mapped.code !== 'Unknown') {
-    console.warn('[contractBridge] contract error', {
+    log.warn('contract error', {
       code: mapped.code,
       numericCode: mapped.numericCode,
       raw: mapped.raw,
@@ -237,7 +240,7 @@ function parseContractError(error: unknown): string {
       return 'Network error. Please check your connection and try again.';
     }
     if (message.includes('HostError') || message.includes('ContractError') || message.includes('Error(Contract')) {
-      console.warn('[contractBridge] unmapped host error', mapped.raw);
+      log.warn('unmapped host error', mapped.raw);
       return mapped.userMessage;
     }
     return message;

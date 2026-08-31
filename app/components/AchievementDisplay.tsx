@@ -12,6 +12,9 @@ import { AssetMetadata } from "@/app/types/asset";
 import { resolveAsset } from "@/app/services/assetResolver";
 import { AssetDisplay, AssetBadge } from "./AssetDisplay";
 import { Sparkles } from "lucide-react";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("AchievementDisplay");
 
 interface AchievementDisplayProps {
   result: IndexerResult | null;
@@ -38,7 +41,7 @@ export const AchievementDisplay: React.FC<AchievementDisplayProps> = ({
         const metadata = await resolveAsset(result.mostActiveAsset);
         setMostActiveAssetMetadata(metadata);
       } catch (error) {
-        console.error("Failed to resolve most active asset:", error);
+        log.error("Failed to resolve most active asset:", error);
       } finally {
         setResolving(false);
       }

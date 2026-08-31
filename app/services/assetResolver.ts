@@ -12,6 +12,9 @@ import {
   createAssetCacheKey,
 } from "@/app/utils/assetConstants";
 import { assetCache } from "@/app/services/assetCacheService";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("assetResolver");
 
 export interface ResolveAssetOptions {
   /** When true, evicts any cached entry before resolving again. */
@@ -80,7 +83,7 @@ class AssetResolver {
       assetCache.set(metadata);
       return metadata;
     } catch (error) {
-      console.warn(`Failed to resolve asset ${normalizedCode}:`, error);
+      log.warn(`Failed to resolve asset ${normalizedCode}:`, error);
       return this.createFallbackMetadata(normalizedCode, issuer);
     } finally {
       this.isResolving.delete(cacheKey);
@@ -124,7 +127,7 @@ class AssetResolver {
       const metadata = await this.fetchFromStellarExpert(code, issuer);
       if (metadata) return metadata;
     } catch {
-      console.debug("Stellar Expert API failed, trying Horizon...");
+      log.debug("Stellar Expert API failed, trying Horizon...");
     }
 
     try {
@@ -132,7 +135,7 @@ class AssetResolver {
       const metadata = await this.fetchFromHorizon(code, issuer);
       if (metadata) return metadata;
     } catch {
-      console.debug("Horizon API failed for asset metadata");
+      log.debug("Horizon API failed for asset metadata");
     }
 
     // Return fallback if all API calls fail

@@ -2,6 +2,9 @@ import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
 import React from "react";
 import { parseSharePreviewParams } from '@/app/utils/sharePreviewParams';
+import { logger } from '@/app/utils/logger';
+
+const log = logger.child('api:og');
 
 export const runtime = 'edge';
 
@@ -211,7 +214,7 @@ const archetypeImagePath =
     return imageResponse;
   } catch (e) {
     if (e instanceof Error) {
-      console.error(e.message);
+      log.error("OG image generation failed:", e.message);
     }
     return new Response(`Failed to generate the image`, { status: 500 });
   }

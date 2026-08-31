@@ -15,6 +15,9 @@ import {
   IndexingMetrics,
 } from "@/app/types/indexing";
 import { horizonIndexer } from "@/src/services/horizonIndexer";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("wrapStore");
 
 const PERSISTENCE_KEY = "stellar-wrap-indexing-state";
 const PERSISTENCE_TIMEOUT = 5 * 60 * 1000;
@@ -434,7 +437,7 @@ export const useWrapStore = create<WrapStoreState>()(
           try {
             localStorage.setItem(PERSISTENCE_KEY, JSON.stringify(persistedState));
           } catch (error) {
-            console.warn("Failed to persist indexing state:", error);
+            log.warn("Failed to persist indexing state:", error);
           }
         }
       },
@@ -483,7 +486,7 @@ export const useWrapStore = create<WrapStoreState>()(
 
           return true;
         } catch (error) {
-          console.warn("Failed to load persisted indexing state:", error);
+          log.warn("Failed to load persisted indexing state:", error);
           try {
             localStorage.removeItem(PERSISTENCE_KEY);
           } catch {
@@ -498,7 +501,7 @@ export const useWrapStore = create<WrapStoreState>()(
           try {
             localStorage.removeItem(PERSISTENCE_KEY);
           } catch (error) {
-            console.warn("Failed to clear persisted state:", error);
+            log.warn("Failed to clear persisted state:", error);
           }
         }
       },

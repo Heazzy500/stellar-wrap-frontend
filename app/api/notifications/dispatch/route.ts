@@ -11,6 +11,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, kvKeys, SUB_KEY, LOG_KEY } from "../_lib/kv";
 import { sendEmail } from "../_lib/email";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("api:dispatch");
 import { formatPushPayload } from "@/app/utils/notifications/pushPayloadFormatter";
 import { renderEmailTemplate } from "@/app/utils/notifications/emailTemplate";
 import {
@@ -61,7 +64,7 @@ async function sendPushNotification(
   const vapidSubject = process.env.VAPID_SUBJECT ?? "mailto:noreply@stellarwrapped.app";
 
   if (!vapidPrivateKey || !vapidPublicKey) {
-    console.warn("[dispatch] VAPID keys not configured — skipping push");
+    log.warn("VAPID keys not configured — skipping push");
     return;
   }
 
@@ -227,7 +230,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, dispatched, periods: activePeriods });
   } catch (err) {
-    console.error("[POST /api/notifications/dispatch]", err);
+    log.error("Internal error during dispatch:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

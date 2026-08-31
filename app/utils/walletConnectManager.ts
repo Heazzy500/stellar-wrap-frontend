@@ -1,4 +1,7 @@
 import { Network } from "../../src/config";
+import { logger } from "./logger";
+
+const log = logger.child("walletConnectManager");
 
 /**
  * WalletConnect session info stored in store
@@ -127,5 +130,5 @@ export function cleanupWalletConnectSession(
   session: WalletConnectSession
 ): void {
   // In production, disconnect the session via client.disconnect()
-  console.log("WalletConnect session cleaned up:", session.sessionTopic);
+  log.info("WalletConnect session cleaned up:", session.sessionTopic);
 }
