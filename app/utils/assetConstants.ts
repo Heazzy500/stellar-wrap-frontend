@@ -34,10 +34,10 @@ export const KNOWN_ASSETS : Record<string, AssetMetadata> = {
   },
   USDT: {
     code: "USDT",
-    name: "Thether USD",
+    name: "Tether USD",
     issuer: "GBUQW3BOUZXS34ULNGQ23RQ6F4BVWCII2IANU62H3XE3MGWSup42YA",
-    logo: "https://assets.coingecko.com/coins/images/325/small/Thether-logo.png",
-    domain: "thether.to",
+    logo: "https://assets.coingecko.com/coins/images/325/small/Tether-logo.png",
+    domain: "tether.to",
     isNative: false,
   },
 
@@ -126,7 +126,7 @@ export function createAssetCacheKey(code: string, issuer?: string): string {
   if (!issuer || code === "XLM" || code === "native") {
     return code.toUpperCase();
   }
-  return `${code.toUpperCase()}_$issuer}`;
+  return `${code.toUpperCase()}_${issuer}`;
 }
 
 /**
