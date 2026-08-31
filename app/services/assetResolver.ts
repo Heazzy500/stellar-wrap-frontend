@@ -18,6 +18,51 @@ export interface ResolveAssetOptions {
   forceRefresh?: boolean;
 }
 
+const ASSET_CACHE_STORAGE_KEY = "stellar.assetResolver.cache.v1";
+
+function readPersistedAssetMap(): Record<string, AssetMetadata> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(ASSET_CACHE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as Record<string, AssetMetadata>;
+  } catch {
+    return {};
+  }
+}
+
+function writePersistedAssetMap(
+  assetMap: Record<string, AssetMetadata>,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      ASSET_CACHE_STORAGE_KEY,
+      JSON.stringify(assetMap),
+    );
+  } catch {
+    // Ignore storage write failures
+  }
+}
+
+function clearPersistedAssetMap(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(ASSET_CACHE_STORAGE_KEY);
+  } catch {
+    // Ignore storage access failures
+  }
+}
+
+function removePersistedAssetMapKey(cacheKey: string): void {
+  const assetMap = readPersistedAssetMap();
+  if (!(cacheKey in assetMap)) return;
+  delete assetMap[cacheKey];
+  writePersistedAssetMap(assetMap);
+}
+
 // Note: Type definition kept for future use with Horizon API responses
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface HorizonAsset {
@@ -47,6 +92,7 @@ class AssetResolver {
 
     if (options?.forceRefresh) {
       assetCache.clearAsset(normalizedCode, issuer);
+      removePersistedAssetMapKey(createAssetCacheKey(normalizedCode, issuer));
     }
 
     assetCache.invalidateExpired();
@@ -67,8 +113,14 @@ class AssetResolver {
       }
     }
 
-    // Return fallback immediately if we're already resolving this
     const cacheKey = createAssetCacheKey(normalizedCode, issuer);
+    const persisted = this.readPersistedAsset(cacheKey);
+    if (persisted) {
+      assetCache.set(persisted);
+      return persisted;
+    }
+
+    // Return fallback immediately if we're already resolving this
     if (this.isResolving.has(cacheKey)) {
       return this.createFallbackMetadata(normalizedCode, issuer);
     }
@@ -218,6 +270,18 @@ class AssetResolver {
     };
   }
 
+  private readPersistedAsset(cacheKey: string): AssetMetadata | null {
+    const persistedEntry = readPersistedAssetMap()[cacheKey];
+    return persistedEntry ?? null;
+  }
+
+  private persistAsset(metadata: AssetMetadata): void {
+    const cacheKey = createAssetCacheKey(metadata.code, metadata.issuer);
+    const assetMap = readPersistedAssetMap();
+    assetMap[cacheKey] = metadata;
+    writePersistedAssetMap(assetMap);
+  }
+
   /**
    * Get display name for an asset
    */
@@ -249,6 +313,7 @@ class AssetResolver {
    */
   clearCache(): void {
     assetCache.clear();
+    clearPersistedAssetMap();
   }
 
   /**
