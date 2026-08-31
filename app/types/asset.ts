@@ -1,22 +1,22 @@
-/**
+/*/
  * Asset type definitions for Stellar wrap
  */
 
 /**
- * Represents resolved asset metadata
+ * Represents resolved asset metadata.
+ * For accessibility, any asset that provides a logo must also provide logoAlt text.
  */
-export interface AssetMetadata {
+export type AssetMetadata = {
   code: string;
   issuer?: string;
   name: string;
-  /** URL to the asset logo image. */
-  logo?: string;
-  /** Alternative text for the logo image, used for accessibility (e.g., screen readers). */
-  logoAlt?: string;
   domain?: string;
   description?: string;
   isNative: boolean;
-}
+} & (
+  | { logo?: undefined; logoAlt?: undefined }
+  | { logo: string; logoAlt: string }
+);
 
 /**
  * Asset cache entry with expiration
