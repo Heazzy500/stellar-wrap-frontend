@@ -184,7 +184,7 @@ class AssetResolver {
     const resolved = await Promise.all(
       assets.map((asset) => this.resolveAsset(asset.code, asset.issuer)),
     );
-    writePersistedAssetList(assets);
+    this.persistAssetList(assets);
     return resolved;
   }
 
@@ -355,6 +355,27 @@ class AssetResolver {
   }
 
   /**
+   * Get the persisted asset list.
+   */
+  getPersistedAssetList(): Array<{ code: string; issuer?: string }> {
+    return readPersistedAssetList();
+  }
+
+  /**
+   * Persist the asset list state.
+   */
+  persistAssetList(assets: Array<{ code: string; issuer?: string }>): void {
+    writePersistedAssetList(assets);
+  }
+
+  /**
+   * Clear the persisted asset list state.
+   */
+  clearAssetList(): void {
+    clearPersistedAssetList();
+  }
+
+  /**
    * Drop stale cache entries and re-resolve a single asset.
    */
   async refreshAsset(code: string, issuer?: string): Promise<AssetMetadata> {
@@ -425,15 +446,15 @@ export function invalidateStaleAssetCache(): number {
 }
 
 export function persistAssetList(assets: Array<{ code: string; issuer?: string }>): void {
-  writePersistedAssetList(assets);
+  assetResolver.persistAssetList(assets);
 }
 
 export function getPersistedAssetList(): Array<{ code: string; issuer?: string }> {
-  return readPersistedAssetList();
+  return assetResolver.getPersistedAssetList();
 }
 
 export function clearAssetList(): void {
-  clearPersistedAssetList();
+  assetResolver.clearAssetList();
 }
 
 // ---------------------------------------------------------------------------
