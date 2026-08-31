@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 
 interface DappData {
   name: string;
@@ -22,7 +23,7 @@ interface WrapperStore {
   disconnect: () => void;
 }
 
-export const useWrapperStore = create<WrapperStore>((set) => ({
+export const useWrapperStore = create<WrapperStore>()((set) => {
   address: null,
   isConnected: false,
   isConnecting: false,
@@ -41,4 +42,4 @@ export const useWrapperStore = create<WrapperStore>((set) => ({
   setTopDapps: (topDapps: DappData[]) =>
     set((state) => ({ data: { ...state.data, topDapps } })),
   disconnect: () => set({ address: null, isConnected: false, error: null }),
-}));
+}))
