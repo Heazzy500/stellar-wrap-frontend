@@ -45,19 +45,34 @@ export function Navbar() {
 
       <div className="flex items-center gap-3">
         {address && (
-          <Link
-            href="/history"
-            className="text-sm font-semibold transition-colors"
-            style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)' }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--color-theme-primary)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = mode === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)';
-            }}
-          >
-            History
-          </Link>
+          <>
+            <Link
+              href="/history"
+              className="text-sm font-semibold transition-colors"
+              style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--color-theme-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = mode === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)';
+              }}
+            >
+              History
+            </Link>
+            <Link
+              href="/trustlines"
+              className="text-sm font-semibold transition-colors"
+              style={{ color: mode === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)' }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--color-theme-primary)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = mode === 'dark' ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)';
+              }}
+            >
+              Trustlines
+            </Link>
+          </>
         )}
         <DarkLightToggle />
         <ColorToggle />
