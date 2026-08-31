@@ -10,7 +10,12 @@ export interface UseServiceWorkerReturn {
   unsubscribe: () => Promise<void>;
 }
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
+// `Uint8Array<ArrayBuffer>`, not the default `Uint8Array<ArrayBufferLike>`:
+// `Uint8Array.from()` below always constructs a plain ArrayBuffer-backed
+// array (never SharedArrayBuffer-backed), and PushManager.subscribe()'s
+// applicationServerKey requires a BufferSource, which as of TypeScript
+// 5.7's lib.dom types no longer accepts the wider ArrayBufferLike.
+function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding)
     .replace(/-/g, "+")

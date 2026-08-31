@@ -49,7 +49,7 @@ function parseWrapResult(val: xdr.ScVal): Partial<WrapRecord> | null {
     if (val.switch().name === "scvMap") {
       const entries = val.map();
       const record: Record<string, unknown> = {};
-      entries.forEach((entry) => {
+      (entries ?? []).forEach((entry) => {
         const k = entry.key().str?.().toString() ?? entry.key().sym?.().toString() ?? "";
         const v = entry.val();
         if (v.switch().name === "scvString") record[k] = v.str().toString();

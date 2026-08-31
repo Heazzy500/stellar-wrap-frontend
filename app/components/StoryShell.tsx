@@ -2,10 +2,10 @@
 
 import { type ReactNode, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Home, Share2, ChevronRight, Palette } from "lucide-react";
+import { Home, Share2, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { MuteToggle } from "./MuteToggle";
-import { ThemeSelector } from "./ThemeSelector";
+import { ColorToggle } from "./ColorToggle";
 import {
   useReducedMotion,
   reducedMotionTransition,
@@ -189,19 +189,15 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
 
         <div className="flex items-center gap-2 shrink-0">
           <MuteToggle />
-          {/* Palette Button */}
-          <motion.button
-            type="button"
+          <motion.div
             initial={prefersReducedMotion ? false : { opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={reducedMotionTransition(prefersReducedMotion, {
               delay: 0.35,
             })}
-            className="p-3 rounded-full bg-black/50 border border-[#1DB954]/30 backdrop-blur-xl hover:bg-[#1DB954]/10 hover:border-[#1DB954]/50 transition-all shadow-[0_0_20px_rgba(29,185,84,0.15)]"
-            aria-label="Open color theme picker"
           >
-            <Palette className="w-5 h-5 text-[#1DB954]" aria-hidden="true" />
-          </motion.button>
+            <ColorToggle />
+          </motion.div>
         </div>
       </div>
 

@@ -18,9 +18,12 @@ import { SOUND_NAMES } from "../../utils/soundManager";
 import { indexAccount } from "../../services/indexerService";
 import { IndexerEventEmitter } from "../../utils/indexerEventEmitter";
 import { isZeroActivityResult } from "../../utils/zeroActivity";
-import { beginIndexingAbortScope, abortIndexingRequests, clearIndexingAbortScope } from "../../utils/indexingAbort";
+import { beginIndexingAbortScope, abortIndexingRequests, clearIndexingAbortScope, isAbortError } from "../../utils/indexingAbort";
 import { trackEvent } from "../../utils/plausible";
 import { ZeroActivityEmptyState } from "../../components/ZeroActivityEmptyState";
+import { getMostRecentCachedData, parseCachedDataKey } from "../../services/cacheService";
+import { mapIndexerResultToWrapResult } from "../../utils/wrapResultMapper";
+import type { IndexerResult } from "../../utils/indexer";
 
 // Sensitive logs: use indexerDebug — never log wallet addresses in production
 // (see docs/sensitive-logging.md)
@@ -150,8 +153,14 @@ export default function LoadingScreen() {
         if (address === DEMO_ADDRESS) {
           await emitProgressThroughSteps();
           result = mapIndexerResultToWrapResult({
+            accountId: DEMO_ADDRESS,
             totalTransactions: 42,
+            totalVolume: 0,
+            mostActiveAsset: "XLM",
+            contractCalls: 0,
+            gasSpent: 0,
             dapps: [],
+            vibes: [],
             largestTransaction: { amount: 1000, assetCode: "XLM" },
           });
         } else if (address) {

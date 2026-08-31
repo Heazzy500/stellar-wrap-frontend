@@ -42,11 +42,14 @@ function isAiConfigured(): boolean {
 }
 
 function logSafeDiagnostics(): void {
-  const hasKey = !!process.env.OPENAI_API_KEY;
-  const isDefaultPlaceholder =
-    process.env.OPENAI_API_KEY === "sk-your-key-here";
+  // Read once into a local so TypeScript can narrow it from
+  // `string | undefined` to `string` in the branches below — narrowing
+  // through a separately-computed boolean (the previous `hasKey`) doesn't
+  // carry over to repeated `process.env.OPENAI_API_KEY` property accesses.
+  const apiKey = process.env.OPENAI_API_KEY;
+  const isDefaultPlaceholder = apiKey === "sk-your-key-here";
 
-  if (!hasKey) {
+  if (!apiKey) {
     console.warn(
       "[generate-persona] OPENAI_API_KEY is not set. AI persona generation will not be available. " +
         "Set OPENAI_API_KEY in your environment to enable AI-powered persona descriptions.",
@@ -59,9 +62,9 @@ function logSafeDiagnostics(): void {
   } else {
     console.log(
       "[generate-persona] OPENAI_API_KEY is configured (masked: " +
-        process.env.OPENAI_API_KEY.slice(0, 8) +
+        apiKey.slice(0, 8) +
         "..." +
-        process.env.OPENAI_API_KEY.slice(-4) +
+        apiKey.slice(-4) +
         ")",
     );
   }

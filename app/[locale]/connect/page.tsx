@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, KeyboardEvent, FormEvent, ChangeEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Wallet, CheckCircle, XCircle, Copy, ChevronRight, QrCode } from "lucide-react";
 import { Horizon } from "stellar-sdk";

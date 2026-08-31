@@ -204,7 +204,11 @@ export function ShareCard({
         typeof data === 'object' &&
         'confirming' in data
       ) {
-        const d = data as { attempt: number; maxAttempts: number };
+        // Cast includes `confirming` (the discriminator field checked
+        // above) alongside the fields actually read below — matching the
+        // real emitted shape (see contractBridge.ts's `submitted` emit) so
+        // this structurally overlaps with the `in`-narrowed type.
+        const d = data as { confirming: boolean; attempt: number; maxAttempts: number };
         setConfirmingAttempt(d.attempt);
         return; // don't propagate as a state change — still "submitted" in the store
       }

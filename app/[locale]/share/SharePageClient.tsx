@@ -34,6 +34,7 @@ import {
   useReducedMotion,
   reducedMotionTransition,
 } from "@/app/hooks/useReducedMotion";
+import { useNativeShare } from "@/app/hooks/useNativeShare";
 
 const SocialIcons = {
   X: XIcon,
@@ -168,28 +169,31 @@ export default function SharePageClient() {
     trackEvent("share_clicked", { platform });
     const url = shareUrl || window.location.href;
     const text = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
-    let shareUrl = "";
+    // Named distinctly from the `shareUrl` component state above (the
+    // generated copy-link URL) — this is the platform-specific deep link
+    // opened in a popup window, unrelated to that state.
+    let platformShareUrl = "";
 
     switch (platform) {
       case "x":
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+        platformShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
         break;
       case "whatsapp":
-        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
+        platformShareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
         break;
       case "facebook":
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        platformShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
         break;
       case "linkedin":
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+        platformShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
         break;
       case "telegram":
-        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+        platformShareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
         break;
     }
 
-    if (shareUrl) {
-      window.open(shareUrl, "_blank", "width=600,height=500");
+    if (platformShareUrl) {
+      window.open(platformShareUrl, "_blank", "width=600,height=500");
     }
     setShareOpen(false);
   };
