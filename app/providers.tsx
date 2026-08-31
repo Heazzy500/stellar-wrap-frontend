@@ -1,17 +1,17 @@
 "use client";
 
 import { ThemeProvider } from "./context/ThemeContext";
+import { OfflineBanner } from "./components/OfflineBanner";
+import { OfflineWrapHydrator } from "./components/OfflineWrapHydrator";
+import { PwaInstallPrompt } from "./components/PwaInstallPrompt";
+import { ServiceWorkerManager } from "./components/ServiceWorkerManager";
+import { initWalletKit } from "./utils/walletKit";
 import { useEffect } from "react";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(() => {
-    // Dynamically import walletKit so that stellar-sdk and
-    // @creit-tech/stellar-wallets-kit are NOT included in the initial
-    // landing-page bundle.  They are only loaded here, client-side, after
-    // the user's first interaction with the app.
     if (typeof window !== "undefined") {
-        initWalletKit();
-      });
+      initWalletKit();
     }
   }, []);
 
