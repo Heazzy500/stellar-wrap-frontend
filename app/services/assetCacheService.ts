@@ -1,11 +1,17 @@
 /**
  * Asset metadata caching service
- * Manages in-memory and persistent caching of asset metadata
+ *
+ * Policy:
+ * - In-memory cache is authoritative for the current session.
+ * - Entries expire after `ASSET_CACHE_TTL` (24h) based on `timestamp`.
+ * - `ASSET_CACHE_VERSION` invalidates persisted entries after resolver changes.
+ * - Call `invalidateExpired()` or `assetResolver.refreshAsset()` to force a refresh.
  */
 
-import { AssetCache, AssetMetadata } from "@/app/types/asset";
+import { AssetCache, AssetMetadata, AssetCacheEntry } from "@/app/types/asset";
 import {
   ASSET_CACHE_TTL,
+  ASSET_CACHE_VERSION,
   createAssetCacheKey,
 } from "@/app/utils/assetConstants";
 
@@ -36,15 +42,22 @@ class AssetCacheService {
     }
   }
 
+  private isEntryValid(entry: AssetCacheEntry): boolean {
+    const now = Date.now();
+    if (entry.version !== ASSET_CACHE_VERSION) {
+      return false;
+    }
+    return now - entry.timestamp < entry.ttl;
+  }
+
   /**
    * Filter out expired cache entries
    */
   private filterValidEntries(cache: AssetCache): AssetCache {
-    const now = Date.now();
     const valid: AssetCache = {};
 
     Object.entries(cache).forEach(([key, entry]) => {
-      if (now - entry.timestamp < entry.ttl) {
+      if (this.isEntryValid(entry)) {
         valid[key] = entry;
       }
     });
@@ -61,14 +74,23 @@ class AssetCacheService {
 
     if (!entry) return null;
 
-    // Check if expired
-    const now = Date.now();
-    if (now - entry.timestamp > entry.ttl) {
+    if (!this.isEntryValid(entry)) {
       delete this.memoryCache[key];
+      this.persistToStorage();
       return null;
     }
 
     return entry.metadata;
+  }
+
+  /**
+   * Returns true when a cache entry exists but is past TTL or version.
+   */
+  isStale(code: string, issuer?: string): boolean {
+    const key = createAssetCacheKey(code, issuer);
+    const entry = this.memoryCache[key];
+    if (!entry) return false;
+    return !this.isEntryValid(entry);
   }
 
   /**
@@ -81,6 +103,7 @@ class AssetCacheService {
       metadata,
       timestamp: Date.now(),
       ttl,
+      version: ASSET_CACHE_VERSION,
     };
 
     // Persist to storage
@@ -137,6 +160,32 @@ class AssetCacheService {
     const key = createAssetCacheKey(code, issuer);
     delete this.memoryCache[key];
     this.persistToStorage();
+  }
+
+  /**
+   * Remove expired or version-mismatched entries from memory and storage.
+   */
+  invalidateExpired(): number {
+    let removed = 0;
+    Object.entries(this.memoryCache).forEach(([key, entry]) => {
+      if (!this.isEntryValid(entry)) {
+        delete this.memoryCache[key];
+        removed += 1;
+      }
+    });
+    if (removed > 0) {
+      this.persistToStorage();
+    }
+    return removed;
+  }
+
+  /**
+   * Reload from localStorage and drop invalid entries (manual refresh).
+   */
+  refreshFromStorage(): void {
+    this.memoryCache = {};
+    this.initializeFromStorage();
+    this.invalidateExpired();
   }
 
   /**

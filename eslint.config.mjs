@@ -24,6 +24,14 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // Code review: discourage ad-hoc console logging in indexer/loading paths
+  // (use app/utils/indexerDebug.ts). See docs/sensitive-logging.md.
+  {
+    files: ["app/loading/**/*.{ts,tsx}", "app/services/indexerService.ts"],
+    rules: {
+      "no-console": ["warn", { allow: ["warn", "error"] }],
+    },
+  },
 ]);
 
 export default eslintConfig;

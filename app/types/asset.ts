@@ -22,6 +22,8 @@ export interface AssetCacheEntry {
   metadata: AssetMetadata;
   timestamp: number;
   ttl: number; // in milliseconds
+  /** Bumped when issuer metadata schema changes; mismatched entries are dropped. */
+  version: number;
 }
 
 /**

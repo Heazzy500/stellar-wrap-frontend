@@ -17,6 +17,56 @@ export interface PersonaMetrics {
   totalDapps?: number;
 }
 
+const FALLBACK_DESCRIPTIONS: string[] = [
+  "A Stellar pioneer navigating the galaxy of DeFi with quiet confidence.",
+  "On-chain adventurer collecting experiences across the Stellar ecosystem.",
+  "Stellar-native explorer charting a unique course through decentralized finance.",
+  "Blockchain journeyer with a footprint across the Stellar network.",
+  "Decentralized dreamer making moves on the Stellar blockchain.",
+];
+
+function pickFallbackDescription(metrics: PersonaMetrics): string {
+  const seed =
+    ((metrics.transactionCount ?? 0) +
+      (metrics.totalDapps ?? 0) +
+      (metrics.percentile ?? 50)) %
+    FALLBACK_DESCRIPTIONS.length;
+  return FALLBACK_DESCRIPTIONS[seed];
+}
+
+function isAiConfigured(): boolean {
+  return !!(
+    process.env.OPENAI_API_KEY &&
+    process.env.OPENAI_API_KEY !== "sk-your-key-here"
+  );
+}
+
+function logSafeDiagnostics(): void {
+  const hasKey = !!process.env.OPENAI_API_KEY;
+  const isDefaultPlaceholder =
+    process.env.OPENAI_API_KEY === "sk-your-key-here";
+
+  if (!hasKey) {
+    console.warn(
+      "[generate-persona] OPENAI_API_KEY is not set. AI persona generation will not be available. " +
+        "Set OPENAI_API_KEY in your environment to enable AI-powered persona descriptions.",
+    );
+  } else if (isDefaultPlaceholder) {
+    console.warn(
+      "[generate-persona] OPENAI_API_KEY is set to the default placeholder value. " +
+        "Update OPENAI_API_KEY to a valid key to enable AI-powered persona descriptions.",
+    );
+  } else {
+    console.log(
+      "[generate-persona] OPENAI_API_KEY is configured (masked: " +
+        process.env.OPENAI_API_KEY.slice(0, 8) +
+        "..." +
+        process.env.OPENAI_API_KEY.slice(-4) +
+        ")",
+    );
+  }
+}
+
 export async function generatePersonaDescription(metrics: PersonaMetrics) {
   "use server";
 
@@ -24,6 +74,15 @@ export async function generatePersonaDescription(metrics: PersonaMetrics) {
 
   (async () => {
     try {
+      // Check if AI is configured — if not, fall back immediately
+      if (!isAiConfigured()) {
+        logSafeDiagnostics();
+        const fallback = pickFallbackDescription(metrics);
+        streamable.append(fallback);
+        streamable.done();
+        return;
+      }
+
       const metricsText = `
 <user_metrics>
 <username>${(metrics.username || "Unknown").replace(/<[^>]*>/g, "")}</username>
@@ -61,16 +120,45 @@ Generate a single witty persona description. Do NOT use any formatting like aste
         maxTokens: 200,
       });
 
+      let chunkCount = 0;
       for await (const chunk of result.textStream) {
-        streamable.append(chunk);
+        if (chunk) {
+          streamable.append(chunk);
+          chunkCount++;
+        }
+      }
+
+      // Handle empty stream — no chunks were received from the AI
+      if (chunkCount === 0) {
+        console.warn(
+          "[generate-persona] AI stream returned empty — no chunks received. Falling back to deterministic description.",
+        );
+        const fallback = pickFallbackDescription(metrics);
+        streamable.append(fallback);
       }
 
       streamable.done();
     } catch (error) {
-      console.error("Error generating persona:", error);
-      streamable.error(
-        error instanceof Error ? error.message : "Unknown error",
-      );
+      console.error("[generate-persona] Error generating persona:", error);
+      // Safe diagnostic: log whether the error is configuration-related
+      if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+        if (
+          message.includes("api key") ||
+          message.includes("unauthorized") ||
+          message.includes("403") ||
+          message.includes("401") ||
+          message.includes("insufficient_quota")
+        ) {
+          console.warn(
+            "[generate-persona] AI configuration or quota error detected. Falling back to deterministic description.",
+          );
+        }
+      }
+      // Fall back to a deterministic description instead of propagating an error
+      const fallback = pickFallbackDescription(metrics);
+      streamable.append(fallback);
+      streamable.done();
     }
   })();
 

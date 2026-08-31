@@ -1,6 +1,7 @@
 import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
 import React from "react";
+import { parseSharePreviewParams } from '@/app/utils/sharePreviewParams';
 
 export const runtime = 'edge';
 
@@ -9,14 +10,21 @@ const CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=604800';
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const username = searchParams.get('username') || 'StellarUser';
-    const transactions = searchParams.get('transactions') || '0';
-    const persona = searchParams.get('persona') || 'Network Pioneer';
-    const topVibe = searchParams.get('topVibe') || 'Steady';
-    const vibePercentage = searchParams.get('vibePercentage') || '0';
-    const archetypeImagePath = searchParams.get('archetypeImage') ||
-      `/archetypes/${persona.toLowerCase().replace(/^the\s+/, '').replace(/\s+/g, '-')}.png`;
+   const {
+  username,
+  transactions,
+  persona,
+  topVibe,
+  vibePercentage,
+  archetypeImage,
+} = parseSharePreviewParams(searchParams);
 
+const archetypeImagePath =
+  archetypeImage ??
+  `/archetypes/${persona
+    .toLowerCase()
+    .replace(/^the\s+/, "")
+    .replace(/\s+/g, "-")}.png`;
     const baseUrl = req.nextUrl.origin;
     let archetypeImageSrc: string | null = null;
     try {
@@ -121,7 +129,7 @@ export async function GET(req: NextRequest) {
                         Total Transactions
                     </span>
                     <span style={{ fontSize: '100px', fontWeight: 900, lineHeight: 1 }}>
-                        {transactions}
+                        {String(transactions)}
                     </span>
                 </div>
 
@@ -170,7 +178,7 @@ export async function GET(req: NextRequest) {
                         Top Vibe
                     </span>
                     <span style={{ fontSize: '50px', fontWeight: 900, color: 'white' }}>
-                        {vibePercentage}% {topVibe}
+                        {String(vibePercentage)}% {topVibe}
                     </span>
                 </div>
             </div>
@@ -207,3 +215,4 @@ export async function GET(req: NextRequest) {
     }
     return new Response(`Failed to generate the image`, { status: 500 });
   }
+}

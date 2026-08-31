@@ -9,50 +9,13 @@
  * @returns Promise that resolves when download is triggered
  * @throws Error if canvas generation or download fails
  */
-export async function downloadShareImage(element: HTMLElement): Promise<void> {
-  // Dynamic import: html2canvas is only loaded when this function is called.
-  const html2canvas = (await import("html2canvas")).default;
-
-  try {
-    // Step 1: Clone the element
-    const clone = element.cloneNode(true) as HTMLElement;
-    clone.style.position = "absolute";
-    clone.style.left = "-9999px";
-    clone.style.top = "0";
-    document.body.appendChild(clone);
-
-    // Step 2: Get all elements and force computed styles
-    const processElement = (original: Element, cloned: Element) => {
-      if (original instanceof HTMLElement && cloned instanceof HTMLElement) {
-        const computed = window.getComputedStyle(original);
-        
-        // List of all color-related properties to override
-        const colorProperties = [
-          'backgroundColor',
-          'color',
-          'borderColor',
-          'borderTopColor',
-          'borderRightColor',
-          'borderBottomColor',
-          'borderLeftColor',
-          'outlineColor',
-        ];
-
-        // Apply computed RGB values to override any oklab/oklch
-        colorProperties.forEach(prop => {
-          const kebabProp = prop.replace(/[A-Z]/g, m => `-${m.toLowerCase()}`);
-          const value = computed.getPropertyValue(kebabProp);
-          
-          if (value && value !== 'rgba(0, 0, 0, 0)' && value !== 'transparent') {
-            cloned.style.setProperty(kebabProp, value, 'important');
-          }
-        });
 import html2canvas from "html2canvas";
 
 const GENERATION_TIMEOUT_MS = 10_000;
 
 export interface ShareImageExportOptions {
   onFallbackWarning?: () => void;
+  format?: "square" | "stories";
 }
 
 export interface ShareImageExportResult {
@@ -219,11 +182,11 @@ async function canvasToBlob(
   return { blob, usedWorker: false };
 }
 
-function triggerDownload(blob: Blob): void {
+function triggerDownload(blob: Blob, filename: string = "stellar-wrapped-2026.png"): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = "stellar-wrapped-2026.png";
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -241,6 +204,15 @@ export async function downloadShareImage(
 ): Promise<ShareImageExportResult> {
   const startTime = performance.now();
   const scale = getCaptureScale();
+  const format = options?.format || "square";
+
+  const getDimensions = (fmt: "square" | "stories") => {
+    return fmt === "stories"
+      ? { width: 1080, height: 1920, filename: "stellar-wrapped-2026-stories.png" }
+      : { width: 1080, height: 1080, filename: "stellar-wrapped-2026.png" };
+  };
+
+  const { width, height, filename } = getDimensions(format);
 
   return withTimeout(
     (async () => {
@@ -259,12 +231,12 @@ export async function downloadShareImage(
           useCORS: true,
           allowTaint: true,
           logging: false,
-          width: 1080,
-          height: 1080,
+          width,
+          height,
         });
 
         const { blob, usedWorker } = await canvasToBlob(canvas, options);
-        triggerDownload(blob);
+        triggerDownload(blob, filename);
 
         return {
           usedWorker,

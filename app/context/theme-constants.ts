@@ -1,4 +1,4 @@
-export type ThemeColor = 'green' | 'pink' | 'yellow' | 'red' | 'purple';
+export type ThemeColor = 'green' | 'pink' | 'yellow' | 'red' | 'purple' | 'cosmic-purple';
 
 export interface ThemeDefinition {
   name: string;
@@ -23,13 +23,18 @@ export const themeColors: Record<ThemeColor, ThemeDefinition> = {
     gradient: 'linear-gradient(135deg, #FFD700 0%, #FFE44D 100%)',
   },
   red: {
-    name: 'Crimson Red',
-    primary: '#FF0000', // Placeholder, checking original file next
-    gradient: 'linear-gradient(135deg, #FF0000 0%, #FF4D4D 100%)',
+    name: 'Hot Red',
+    primary: '#FF4444',
+    gradient: 'linear-gradient(135deg, #FF4444 0%, #CC0000 100%)',
   },
   purple: {
     name: 'Deep Purple',
     primary: '#9D4EDD',
-    gradient: 'linear-gradient(135deg, #9D4EDD 0%, #C77DFF 100%)',
+    gradient: 'linear-gradient(135deg, #9D4EDD 0%, #7209B7 100%)',
+  },
+  'cosmic-purple': {
+    name: 'Cosmic Purple',
+    primary: '#8B5CF6',
+    gradient: 'linear-gradient(135deg, #8B5CF6 0%, #A78BFA 50%, #C4B5FD 100%)',
   }
 };

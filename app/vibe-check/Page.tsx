@@ -14,6 +14,15 @@ export default function VibeCheckPage() {
   const { result, period } = useWrapStore();
   const vibes = result?.vibes ?? [];
   const dapps = result?.dapps ?? [];
+  const dexTradingSummary = result?.dexTradingSummary;
+  const sorobanBuilderSummary = result?.sorobanBuilderSummary;
+  const portfolioDiversitySummary = result?.portfolioDiversitySummary;
+  const biggestDaySummary = result?.biggestDaySummary;
+  const nftActivitySummary = result?.nftActivitySummary;
+
+  return (
+    <div className="relative w-full h-screen">
+      <Screen4VibeCheck vibes={vibes} dapps={dapps} dexTradingSummary={dexTradingSummary} sorobanBuilderSummary={sorobanBuilderSummary} portfolioDiversitySummary={portfolioDiversitySummary} biggestDaySummary={biggestDaySummary} nftActivitySummary={nftActivitySummary} />
 
       <ProgressIndicator
         currentStep={4}

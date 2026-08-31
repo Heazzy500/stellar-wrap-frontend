@@ -74,8 +74,12 @@ const useWrapStore = create<WriteStoreState>((set, get) => ({
     ...initialState,
     setCurrentStep: (step) => { set({ currentStep: step }); get().updateOverallProgress(); },
     setStepProgress: (step, progress) => {
-        const clamped = Math.max(0, Math.min(100, progress));
-        set((state) => ({ stepProgress: { ...state.stepProgress, [step]: clamped } }));
+        const state = get();
+        if (state.completedStepRecord[step]) return;
+        const next = Math.max(0, Math.min(100, progress));
+        const current = state.stepProgress[step] ?? 0;
+        if (next < current) return;
+        set((s) => ({ stepProgress: { ...s.stepProgress, [step]: next } }));
         get().updateOverallProgress();
     },
     updateOverallProgress: () => {
@@ -160,15 +164,50 @@ section('setCurrentStep');
 
 section('setStepProgress');
 {
+    useWrapStore.getState().reset();
+    useWrapStore.getState().startIndexing();
+
     useWrapStore.getState().setStepProgress('initializing', 50);
     assert(useWrapStore.getState().stepProgress.initializing === 50, 'step progress set to 50');
 
-    // Clamped to 0-100
+    // Clamped to 0-100 (upper)
     useWrapStore.getState().setStepProgress('initializing', 150);
     assert(useWrapStore.getState().stepProgress.initializing === 100, 'step progress clamped to 100');
+}
 
-    useWrapStore.getState().setStepProgress('initializing', -10);
-    assert(useWrapStore.getState().stepProgress.initializing === 0, 'step progress clamped to 0');
+// ─── Monotonic / out-of-order progress ──────────────────────────────────────
+
+section('Monotonic progress — ignore regressions and stale events');
+{
+    useWrapStore.getState().reset();
+    useWrapStore.getState().startIndexing();
+
+    useWrapStore.getState().setStepProgress('fetching-transactions', 40);
+    useWrapStore.getState().setStepProgress('fetching-transactions', 70);
+    assert(
+        useWrapStore.getState().stepProgress['fetching-transactions'] === 70,
+        'progress advances 40 → 70',
+    );
+
+    // Late / out-of-order lower value must not regress
+    useWrapStore.getState().setStepProgress('fetching-transactions', 55);
+    assert(
+        useWrapStore.getState().stepProgress['fetching-transactions'] === 70,
+        'out-of-order 55 ignored — stays 70',
+    );
+
+    useWrapStore.getState().completeStep('fetching-transactions');
+    assert(
+        useWrapStore.getState().stepProgress['fetching-transactions'] === 100,
+        'completeStep sets 100',
+    );
+
+    // Stale progress after completion ignored
+    useWrapStore.getState().setStepProgress('fetching-transactions', 30);
+    assert(
+        useWrapStore.getState().stepProgress['fetching-transactions'] === 100,
+        'stale progress after complete ignored',
+    );
 }
 
 // ─── completeStep ───────────────────────────────────────────────────────────

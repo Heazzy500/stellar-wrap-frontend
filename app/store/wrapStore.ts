@@ -14,6 +14,7 @@ import {
   PersistedIndexingState,
   IndexingMetrics,
 } from "@/app/types/indexing";
+import { horizonIndexer } from "@/src/services/horizonIndexer";
 
 const PERSISTENCE_KEY = "stellar-wrap-indexing-state";
 const PERSISTENCE_TIMEOUT = 5 * 60 * 1000;
@@ -30,6 +31,7 @@ export const PERIODS: Record<WrapPeriod, number> = {
 export interface DappData {
   name: string;
   logo?: string;
+  icon?: string;
   interactions: number;
   isFanFavorite?: boolean;
   color?: string;
@@ -43,7 +45,7 @@ export interface VibeSlice {
   label: string;
 }
 
-import type { DexTradingSummary as DexTradingSummaryType, SorobanBuilderSummary as SorobanBuilderSummaryType } from "@/app/utils/indexer";
+import type { DexTradingSummary as DexTradingSummaryType, SorobanBuilderSummary as SorobanBuilderSummaryType, PortfolioDiversitySummary as PortfolioDiversitySummaryType, BiggestDaySummary as BiggestDaySummaryType, NftActivitySummary as NftActivitySummaryType } from "@/app/utils/indexer";
 
 export interface WrapResult {
   username: string;
@@ -53,6 +55,12 @@ export interface WrapResult {
   vibes: VibeSlice[];
   persona: string;
   personaDescription: string;
+  dexTradingSummary?: DexTradingSummaryType;
+  sorobanBuilderSummary?: SorobanBuilderSummaryType;
+  portfolioDiversitySummary?: PortfolioDiversitySummaryType;
+  biggestDaySummary?: BiggestDaySummaryType;
+  nftActivitySummary?: NftActivitySummaryType;
+  largestTransaction?: { amount: number; assetCode: string };
 }
 
 type WrapStatus = "idle" | "loading" | "ready" | "error";
@@ -108,6 +116,7 @@ const initialIndexingState = {
   isCancelled: false,
   metrics: {
     transactionCount: 0,
+    totalTransactions: null,
     assetCount: 0,
     contractCount: 0,
     volumeProcessed: "0",
@@ -125,6 +134,8 @@ interface WrapStoreState {
   cacheMeta: CacheMeta | null;
   currentContractAddress: string | null;
   contractAddresses: ContractAddressesByNetwork;
+  refreshToken: number;
+  isRefreshing: boolean;
   // Indexing state
   currentStep: IndexingStep | null;
   stepProgress: Record<IndexingStep, number>;
@@ -147,6 +158,8 @@ interface WrapStoreState {
   setResult: (result: WrapResult | null) => void;
   setCacheMeta: (meta: CacheMeta | null) => void;
   setContractAddresses: (addresses: ContractAddressesByNetwork) => void;
+  setRefreshing: (isRefreshing: boolean) => void;
+  bumpRefreshToken: () => void;
   reset: () => void;
   // Indexing actions
   setCurrentStep: (step: IndexingStep | null) => void;
@@ -204,16 +217,36 @@ export const useWrapStore = create<WrapStoreState>()(
       cacheMeta: null,
       currentContractAddress: null,
       contractAddresses: {},
+      refreshToken: 0,
+      isRefreshing: false,
       // Indexing initial state
       ...initialIndexingState,
       setAddress: (address) => set({ address }),
       setPeriod: (period) => set({ period }),
-      setNetwork: (network) => set({ network, ...syncContractState(network) }),
+      setNetwork: (network) => {
+        // Drop previous network's result/cache so stale wrap data cannot leak across networks.
+        // Keep intentional preferences (period, address).
+        resetCache();
+        // Clear Horizon response cache to prevent stale network data
+        horizonIndexer.clearCache();
+        // Cancel any in-flight indexing operation
+        get().cancelIndexing();
+        set({
+          network,
+          ...syncContractState(network),
+          result: null,
+          cacheMeta: null,
+          status: "idle",
+          error: null,
+        });
+      },
       setStatus: (status) => set({ status }),
       setError: (error) => set({ error }),
       setResult: (result) => set({ result }),
       setCacheMeta: (cacheMeta) => set({ cacheMeta }),
       setContractAddresses: (contractAddresses) => set({ contractAddresses }),
+      setRefreshing: (isRefreshing) => set({ isRefreshing }),
+      bumpRefreshToken: () => set((s) => ({ refreshToken: s.refreshToken + 1 })),
       reset: () =>
         set({
           address: null,
@@ -225,6 +258,8 @@ export const useWrapStore = create<WrapStoreState>()(
           cacheMeta: null,
           currentContractAddress: null,
           contractAddresses: {},
+          refreshToken: 0,
+          isRefreshing: false,
           ...initialIndexingState,
         }),
 
@@ -236,11 +271,21 @@ export const useWrapStore = create<WrapStoreState>()(
       },
 
       setStepProgress: (step, progress) => {
-        const clamped = Math.max(0, Math.min(100, progress));
-        set((state) => ({
+        const state = get();
+        // Ignore stale updates after the step is already complete
+        if (state.completedStepRecord[step]) {
+          return;
+        }
+        const next = Math.max(0, Math.min(100, progress));
+        const current = state.stepProgress[step] ?? 0;
+        // Monotonic: never allow progress to regress within a run
+        if (next < current) {
+          return;
+        }
+        set((s) => ({
           stepProgress: {
-            ...state.stepProgress,
-            [step]: clamped,
+            ...s.stepProgress,
+            [step]: next,
           },
         }));
         get().updateOverallProgress();
@@ -380,6 +425,9 @@ export const useWrapStore = create<WrapStoreState>()(
           stepTimings,
           startTime: state.startTime,
           timestamp: Date.now(),
+          address: state.address,
+          network: state.network,
+          period: state.period,
         };
 
         if (typeof window !== "undefined") {
@@ -400,8 +448,21 @@ export const useWrapStore = create<WrapStoreState>()(
 
           const persistedState: PersistedIndexingState = JSON.parse(saved);
           const now = Date.now();
+          const state = get();
 
-          if (now - persistedState.timestamp > PERSISTENCE_TIMEOUT) {
+          const ts = persistedState?.timestamp;
+          const timestampValid = typeof ts === "number" && Number.isFinite(ts);
+
+          if (!timestampValid || now - ts >= PERSISTENCE_TIMEOUT) {
+            localStorage.removeItem(PERSISTENCE_KEY);
+            return false;
+          }
+
+          if (
+            persistedState.address !== state.address ||
+            persistedState.network !== state.network ||
+            persistedState.period !== state.period
+          ) {
             localStorage.removeItem(PERSISTENCE_KEY);
             return false;
           }
@@ -423,6 +484,11 @@ export const useWrapStore = create<WrapStoreState>()(
           return true;
         } catch (error) {
           console.warn("Failed to load persisted indexing state:", error);
+          try {
+            localStorage.removeItem(PERSISTENCE_KEY);
+          } catch {
+            // best effort
+          }
           return false;
         }
       },

@@ -83,6 +83,7 @@ export const STEP_ORDER: IndexingStep[] = [
 
 export interface IndexingMetrics {
   transactionCount: number;
+  totalTransactions: number | null;
   assetCount: number;
   contractCount: number;
   volumeProcessed: string; // Total volume as string (for large numbers)
@@ -118,4 +119,7 @@ export interface PersistedIndexingState {
   stepTimings: Record<IndexingStep, number>; // time taken per step
   startTime: number | null;
   timestamp: number; // when state was saved
+  address: string | null;
+  network: string;
+  period: string;
 }

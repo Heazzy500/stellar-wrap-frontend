@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-export type ThemeColor = 'green' | 'pink' | 'yellow' | 'red' | 'purple';
+export type ThemeColor = 'green' | 'pink' | 'yellow' | 'red' | 'purple' | 'cosmic-purple';
 export type ThemeMode = 'dark' | 'light';
 
 interface ThemeContextType {
@@ -50,6 +50,13 @@ export const themeColors = {
     background: '#0d0208',
     name: 'Deep Purple',
     gradient: 'linear-gradient(135deg, #9D4EDD, #7209B7)',
+  },
+  'cosmic-purple': {
+    primary: '#8B5CF6',
+    primaryRgb: '139, 92, 246',
+    background: '#0a0416',
+    name: 'Cosmic Purple',
+    gradient: 'linear-gradient(135deg, #8B5CF6, #A78BFA, #C4B5FD)',
   },
 };
 

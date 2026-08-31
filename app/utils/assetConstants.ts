@@ -101,6 +101,12 @@ export const DEFAULT_ASSET_LOGO =
 export const ASSET_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 /**
+ * Increment when cached metadata shape or resolution policy changes.
+ * Entries with an older version are treated as stale and evicted on read.
+ */
+export const ASSET_CACHE_VERSION = 1;
+
+/**
  * Asset directory API endpoints
  */
 export const ASSET_DIRECTORY_URLS = {

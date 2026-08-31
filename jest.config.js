@@ -13,9 +13,14 @@ const customJestConfig = {
     '^@/(.*)$': '<rootDir>/$1',
   },
   testMatch: [
-    '**/__tests__/**/*.[jt]s?(x)',
-    '**/?(*.)+(spec|test).[jt]s?(x)',
+    '<rootDir>/__tests__/**/*.[jt]s?(x)',
+    '**/__tests__/**/*.test.[jt]s?(x)',
+    '!**/__tests__/**/*.comprehensive.test.ts',
+    '!**/__tests__/**/*.edge.test.ts',
   ],
+  collectCoverage: true,
+  coverageReporters: ['text', 'html'],
+  coverageDirectory: './coverage',
   collectCoverageFrom: [
     'src/services/**/*.{js,jsx,ts,tsx}',
     '!src/services/**/__tests__/**',

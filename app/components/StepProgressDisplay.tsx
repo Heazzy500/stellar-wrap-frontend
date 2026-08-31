@@ -23,6 +23,8 @@ export function StepProgressDisplay({
     indexingError,
     estimatedTimeRemaining,
     isLoading,
+    metrics,
+    startTime,
   } = useWrapStore();
 
   const formatTime = (ms: number): string => {
@@ -33,6 +35,27 @@ export function StepProgressDisplay({
     const minutes = Math.ceil(seconds / 60);
     return `${minutes}m`;
   };
+
+  // Calculate better ETA using transaction metrics if available
+  const calculateETA = (): number | null => {
+    if (
+      metrics.totalTransactions &&
+      metrics.transactionCount > 0 &&
+      startTime
+    ) {
+      const elapsed = Date.now() - startTime;
+      const transactionsProcessed = metrics.transactionCount;
+      const transactionsRemaining =
+        metrics.totalTransactions - transactionsProcessed;
+      if (transactionsRemaining <= 0) return 0;
+
+      const timePerTransaction = elapsed / transactionsProcessed;
+      return transactionsRemaining * timePerTransaction;
+    }
+    return estimatedTimeRemaining;
+  };
+
+  const eta = calculateETA();
 
   if (!isLoading && !indexingError) {
     return null;
@@ -48,6 +71,11 @@ export function StepProgressDisplay({
     >
       {/* Main Progress Container */}
       <div className="relative rounded-2xl border border-white/10 bg-linear-to-b from-white/5 to-transparent backdrop-blur-xl p-8 space-y-6">
+        {/* Screen Reader Progress Announcer */}
+        <div className="sr-only" aria-live="polite" aria-atomic="true">
+          {!indexingError && (currentStep ? `Step ${completedSteps + 1} of ${totalSteps}: ${INDEXING_STEPS[currentStep].label}. ${Math.floor(overallProgress / 20) * 20}% complete.` : "Preparing your data...")}
+        </div>
+
         {/* Header Section */}
         <div className="space-y-2">
           <h2 className="text-2xl md:text-3xl font-black text-white">
@@ -213,18 +241,15 @@ export function StepProgressDisplay({
         </div>
 
         {/* Time Estimate */}
-        {estimatedTimeRemaining && !indexingError && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center text-sm text-neutral-400"
-          >
-            Estimated time remaining:{" "}
-            <span className="font-semibold text-white">
-              {formatTime(estimatedTimeRemaining)}
-            </span>
-          </motion.div>
-        )}
+    {eta !== null && eta > 5000 && !indexingError && (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center text-sm text-neutral-400"
+      >
+        Est. ~<span className="font-semibold text-white">{formatTime(eta)}</span> remaining
+      </motion.div>
+    )}
 
         {/* Error State */}
         <AnimatePresence>
@@ -234,6 +259,8 @@ export function StepProgressDisplay({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
               className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 space-y-3"
+              role="alert"
+              aria-live="assertive"
             >
               <div className="flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />

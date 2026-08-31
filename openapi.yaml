@@ -1,0 +1,327 @@
+openapi: "3.1.0"
+info:
+  title: Stellar Wrap API
+  version: "1.0.0"
+  description: |
+    API routes exposed by the Stellar Wrap Next.js application.
+
+    Two public endpoints are available:
+    - **GET /api/wrapped** — returns aggregated on-chain statistics for a Stellar address.
+    - **GET /api/og** — returns a 1200 × 1200 PNG share card (served from Vercel Edge Runtime).
+
+servers:
+  - url: https://stellar-wrap.vercel.app
+    description: Production
+  - url: http://localhost:3000
+    description: Local development
+
+paths:
+  /api/wrapped:
+    get:
+      operationId: getWrapped
+      summary: Get aggregated wrap data for a Stellar account
+      description: |
+        Fetches and indexes on-chain transaction history for the given Stellar
+        address and returns aggregated statistics for the requested period.
+
+        **Caching**: Results are cached in IndexedDB for 60 minutes.
+        Subsequent requests within that window return `cached: true` and may
+        trigger a background re-index (`refreshingInBackground: true`).
+
+        **Rate limiting**: Horizon may respond with HTTP 429. The server
+        propagates this as a 429 response to the caller.
+      parameters:
+        - name: accountId
+          in: query
+          required: true
+          description: Stellar public key (56 characters, starting with "G").
+          schema:
+            type: string
+            pattern: "^G[A-Z2-7]{55}$"
+            example: "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN"
+        - name: network
+          in: query
+          required: false
+          description: Stellar network to query. Defaults to `mainnet`.
+          schema:
+            type: string
+            enum: [mainnet, testnet]
+            default: mainnet
+        - name: period
+          in: query
+          required: false
+          description: Reporting period. Defaults to `monthly`.
+          schema:
+            type: string
+            enum: [weekly, monthly, yearly]
+            default: monthly
+      responses:
+        "200":
+          description: Successfully indexed account statistics.
+          headers:
+            Cache-Control:
+              description: No server-side cache; IndexedDB caching is handled client-side.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WrappedResponse"
+              example:
+                username: "alice.stellar"
+                address: "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN"
+                totalTransactions: 142
+                totalVolume: 58432.5
+                percentile: 87
+                persona: "The DeFi Patron"
+                personaDescription: "You move capital with purpose across Stellar's DEX."
+                dapps:
+                  - name: "Stellar DEX"
+                    transactions: 80
+                    color: "#6366f1"
+                    gradient: "linear-gradient(135deg,#6366f1,#8b5cf6)"
+                vibes:
+                  - type: "Power User"
+                    percentage: 72
+                    color: "#f59e0b"
+                    label: "Power User"
+                cached: false
+                cacheTimestamp: null
+                refreshingInBackground: false
+        "400":
+          description: Missing or invalid request parameters.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                missingAccountId:
+                  value:
+                    error: "Missing accountId parameter"
+                invalidFormat:
+                  value:
+                    error: "Invalid account ID format"
+                invalidNetwork:
+                  value:
+                    error: "Invalid network"
+                invalidPeriod:
+                  value:
+                    error: "Invalid period"
+        "404":
+          description: Account not found on the specified network.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Account not found on this network"
+                details: "Make sure you selected the correct network (mainnet/testnet) where the account exists"
+        "429":
+          description: Horizon rate limit exceeded. Retry after a short delay.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Rate limited. Please try again later."
+        "500":
+          description: Unexpected server or Horizon error.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: "Failed to fetch wrapped data"
+                details: "Horizon server error"
+
+  /api/og:
+    get:
+      operationId: getOgImage
+      summary: Generate a 1200 × 1200 PNG share card
+      description: |
+        Runs on **Vercel Edge Runtime** and returns a binary PNG image
+        suitable for use as an Open Graph / social media share card.
+
+        **Cache**: `Cache-Control: public, s-maxage=86400, stale-while-revalidate=604800`
+        — the CDN caches the image for 24 hours and can serve stale content for
+        up to 7 days while revalidating in the background.
+
+        The image is also called by social media crawlers when the page URL is
+        shared on X, Facebook, WhatsApp, etc.
+      parameters:
+        - name: username
+          in: query
+          required: false
+          description: Stellar username or truncated address shown on the card.
+          schema:
+            type: string
+            default: StellarUser
+            example: "alice.stellar"
+        - name: transactions
+          in: query
+          required: false
+          description: Total transaction count (stringified integer).
+          schema:
+            type: string
+            default: "0"
+            example: "142"
+        - name: persona
+          in: query
+          required: false
+          description: Persona / archetype label displayed on the card.
+          schema:
+            type: string
+            default: "Network Pioneer"
+            example: "The DeFi Patron"
+        - name: topVibe
+          in: query
+          required: false
+          description: Top vibe label (e.g. "Steady", "Power User").
+          schema:
+            type: string
+            default: Steady
+            example: "Power User"
+        - name: vibePercentage
+          in: query
+          required: false
+          description: Percentage for the top vibe (0–100, stringified).
+          schema:
+            type: string
+            default: "0"
+            example: "72"
+        - name: archetypeImage
+          in: query
+          required: false
+          description: |
+            Path to the archetype image relative to the app's public directory.
+            Defaults to a slug derived from the `persona` parameter.
+          schema:
+            type: string
+            example: "/archetypes/defi-patron.png"
+      responses:
+        "200":
+          description: 1200 × 1200 PNG share card image.
+          headers:
+            Cache-Control:
+              description: CDN caching directive.
+              schema:
+                type: string
+                example: "public, s-maxage=86400, stale-while-revalidate=604800"
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "500":
+          description: Image generation failed.
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: "Failed to generate the image"
+
+components:
+  schemas:
+    WrappedDapp:
+      type: object
+      required: [name, transactions, color, gradient]
+      properties:
+        name:
+          type: string
+          example: "Stellar DEX"
+        transactions:
+          type: integer
+          example: 80
+        color:
+          type: string
+          example: "#6366f1"
+        gradient:
+          type: string
+          example: "linear-gradient(135deg,#6366f1,#8b5cf6)"
+
+    WrappedVibe:
+      type: object
+      required: [type, percentage, color, label]
+      properties:
+        type:
+          type: string
+          example: "Power User"
+        percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 72
+        color:
+          type: string
+          example: "#f59e0b"
+        label:
+          type: string
+          example: "Power User"
+
+    WrappedResponse:
+      type: object
+      required:
+        - username
+        - address
+        - totalTransactions
+        - totalVolume
+        - percentile
+        - persona
+        - personaDescription
+        - dapps
+        - vibes
+        - cached
+        - cacheTimestamp
+        - refreshingInBackground
+      properties:
+        username:
+          type: string
+          example: "alice.stellar"
+        address:
+          type: string
+          example: "GAAZI4TCR3TY5OJHCTJC2A4QSY6CJWJH5IAJTGKIN2ER7LBNVKOCCWN"
+        totalTransactions:
+          type: integer
+          example: 142
+        totalVolume:
+          type: number
+          example: 58432.5
+        percentile:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 87
+        persona:
+          type: string
+          example: "The DeFi Patron"
+        personaDescription:
+          type: string
+          example: "You move capital with purpose across Stellar's DEX."
+        dapps:
+          type: array
+          items:
+            $ref: "#/components/schemas/WrappedDapp"
+        vibes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WrappedVibe"
+        cached:
+          type: boolean
+          description: True when served from the 60-minute IndexedDB cache.
+        cacheTimestamp:
+          type: string
+          format: date-time
+          nullable: true
+          description: ISO-8601 creation time of the cache entry, or null.
+        refreshingInBackground:
+          type: boolean
+          description: True when a background re-index has been triggered.
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+        details:
+          type: string

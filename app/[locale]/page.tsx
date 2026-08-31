@@ -1,3 +1,6 @@
+import { Metadata } from "next";
+import { JsonLd } from "../components/JsonLd";
+import { LandingPage } from "../components/LandingPage";
 
 export const metadata: Metadata = {
   title: "Stellar Wrap | Reveal Your On-Chain Persona",
@@ -53,7 +56,7 @@ const faqJsonLd = {
 
 export default function Home() {
   return (
-    <main>
+    <main id="main-content">
       <JsonLd data={faqJsonLd} />
       <LandingPage />
     </main>

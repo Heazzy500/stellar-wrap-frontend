@@ -10,14 +10,14 @@ export const ColorToggle = () => {
 
   // Exclude 'white' if originally it was 'red' in the new file, but actually 'white' was in the *old* my-code. 
   // Original file had ['green', 'pink', 'yellow', 'red', 'purple'].
-  const colorOptions: ThemeColor[] = ['green', 'pink', 'yellow', 'red', 'purple'];
+  const colorOptions: ThemeColor[] = ['green', 'pink', 'yellow', 'red', 'purple', 'cosmic-purple'];
 
   return (
     <div className="relative z-50">
       {/* Toggle Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-14 h-14 rounded-full border-2 flex items-center justify-center shadow-lg"
+        className="w-12 h-12 md:w-14 md:h-14 rounded-full border-2 flex items-center justify-center shadow-lg"
         style={{
           backgroundColor: mode === 'dark' ? '#000' : '#fff',
           borderColor: `var(--color-theme-primary)`,
@@ -30,6 +30,9 @@ export const ColorToggle = () => {
         aria-haspopup="menu"
       >
         {isOpen ? (
+          <X size={20} className="md:w-6 md:h-6" style={{ color: `var(--color-theme-primary)` }} />
+        ) : (
+          <Palette size={20} className="md:w-6 md:h-6" style={{ color: `var(--color-theme-primary)` }} />
         )}
       </motion.button>
 
@@ -41,10 +44,10 @@ export const ColorToggle = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
+            className="rounded-xl p-3 border absolute top-full left-1/2 -translate-x-1/2 mt-2 w-[160px] sm:w-[200px] z-50"
             style={{
               backgroundColor: mode === 'dark' ? 'rgba(0,0,0,0.9)' : 'rgba(255,255,255,0.95)',
               borderColor: mode === 'dark' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
-              minWidth: '200px',
             }}
           >
             {/* Title */}

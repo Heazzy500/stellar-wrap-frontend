@@ -37,6 +37,33 @@ export interface SorobanBuilderSummary {
   builderScore: number;
 }
 
+export interface TopAsset {
+  assetCode: string;
+  percentage: number;
+}
+
+export interface PortfolioDiversitySummary {
+  score: number;
+  label: string;
+  uniqueAssetsCount: number;
+  topAssets: TopAsset[];
+}
+
+export interface BiggestDaySummary {
+  date: string;
+  transactionCount: number;
+  typeBreakdown: Record<string, number>;
+  topActivity: string;
+  tagline: string;
+  busiestDayOfWeek: string;
+}
+
+export interface NftActivitySummary {
+  mintCount: number;
+  topCreatorAddress: string | null;
+  topCreatorMintCount: number;
+}
+
 export interface IndexerResult {
   accountId: string;
   totalTransactions: number;
@@ -46,6 +73,17 @@ export interface IndexerResult {
   gasSpent: number;
   dapps: DappInfo[];
   vibes: VibeTag[];
+  nftActivitySummary?: NftActivitySummary;
+  dexTradingSummary?: DexTradingSummary;
+  sorobanBuilderSummary?: SorobanBuilderSummary;
+  portfolioDiversitySummary?: PortfolioDiversitySummary;
+  biggestDaySummary?: BiggestDaySummary;
+  largestTransaction?: { amount: number; assetCode: string };
+  /**
+   * Computed persona archetype for this account, e.g. "The Yield Farmer".
+   * Assigned by detectPersona() in achievementCalculator.
+   */
+  persona?: string;
 }
 
 /** Cache entry version for schema migrations and validation */
@@ -76,12 +114,24 @@ export const NEXT_PUBLIC_RPC_ENDPOINTS = {
   testnet: "https://horizon-testnet.stellar.org",
 };
 
+/**
+ * Normalizes a raw period query-string value into a valid WrapPeriod.
+ * Handles casing differences and trims whitespace.
+ * Returns `null` when the input cannot be mapped to a known period.
+ */
+export function normalizePeriod(raw: string | null | undefined): WrapPeriod | null {
+  if (raw == null) return null;
+  const trimmed = raw.trim().toLowerCase();
+  if (trimmed in PERIODS) return trimmed as WrapPeriod;
+  return null;
+}
+
 export function getCacheKey(
   accountId: string,
   network: "mainnet" | "testnet",
   period: WrapPeriod,
 ): string {
-  return `${accountId}:${network}:${period}`;
+  return `${accountId}:${network}:${period}:${CACHE_VERSION}`;
 }
 
 export function isCacheValid(
