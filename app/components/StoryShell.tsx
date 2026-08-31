@@ -218,9 +218,10 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
       <div className="flex-1 relative z-10 flex flex-col items-center justify-center">
         <Suspense fallback={null}>
           {isThemeSelectorOpen && <ThemeSelector />}
+        </Suspense>
+        <Suspense fallback={null}>
           {children}
         </Suspense>
-        {children}
       </div>
 
       <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 gap-4">
