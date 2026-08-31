@@ -108,6 +108,9 @@ const SIMULATION_CACHE_DURATION = 30000; // 30 seconds
 /** Simulation cache */
 const simulationCache = new Map<string, { result: SimulationResult; timestamp: number }>();
 
+const RPC_REQUEST_TIMEOUT = 30000;
+const TRANSACTION_SUBMIT_TIMEOUT = 60000;
+
 // ─── Helper Functions ───────────────────────────────────────────────────────
 
 /**
@@ -120,6 +123,25 @@ function createSorobanServer(network: Network): Server {
 
 function getNetworkPassphrase(network: Network): string {
   return NETWORK_PASSPHRASES[network];
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, context: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${context} timed out after ${ms}ms`));
+    }, ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  });
+}
+
+function formatStellarAmount(amount: number): string {
+  return amount.toFixed(7);
 }
 
 function emitState(
@@ -169,7 +191,11 @@ async function waitForConfirmation(
     });
 
     try {
-      const response = await server.getTransaction(transactionHash);
+      const response = await withTimeout(
+        server.getTransaction(transactionHash),
+        RPC_REQUEST_TIMEOUT,
+        'Soroban get transaction',
+      );
 
       if (response.status === Api.GetTransactionStatus.SUCCESS) {
         const ledger = response.ledger ?? 0;
@@ -270,7 +296,11 @@ async function buildMintTransaction(
 
   let account;
   try {
-    account = await sorobanServer.getAccount(accountAddress);
+    account = await withTimeout(
+      sorobanServer.getAccount(accountAddress),
+      RPC_REQUEST_TIMEOUT,
+      'Soroban load account',
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes('Not Found') || errorMessage.includes('404')) {
@@ -370,7 +400,7 @@ function getSimulationCacheKey(transaction: Transaction, accountAddress: string)
   // Use transaction hash or XDR as cache key
   try {
     const xdr = transaction.toXDR();
-    return `${accountAddress}:${xdr.substring(0, 50)}`;
+    return `${accountAddress}:${xdr}`;
   } catch {
     // Fallback to account address + timestamp if we can't get XDR
     return `${accountAddress}:${Date.now()}`;
@@ -419,7 +449,11 @@ async function simulateTransaction(
   }
 
   try {
-    const simulation = await server.simulateTransaction(transaction);
+    const simulation = await withTimeout(
+      server.simulateTransaction(transaction),
+      RPC_REQUEST_TIMEOUT,
+      'Soroban simulate transaction',
+    );
 
     // Check if simulation failed
     const simulationAny = simulation as unknown as Record<string, unknown>;
@@ -453,12 +487,30 @@ async function simulateTransaction(
         }
       : undefined;
 
+    const minResourceFee = Number(simulationAny.minResourceFee ?? 0);
+    if (Number.isFinite(minResourceFee) && minResourceFee > 0) {
+      transaction.fee = String(minResourceFee);
+    }
+
+    const txData = simulationAny.transactionData as { sorobanData?: unknown } | undefined;
+    if (typeof txData?.sorobanData === 'string') {
+      transaction.sorobanData = xdr.SorobanTransactionData.fromXDR(
+        txData.sorobanData,
+        'base64',
+      );
+    }
+
+    const estimatedFee =
+      Number.isFinite(minResourceFee) && minResourceFee > 0
+        ? minResourceFee / 10000000
+        : calculateEstimatedFee(simulationAny as { cost?: SimulationCost });
+
     const result: SimulationResult = {
       success: true,
       cost,
       footprint,
       result: simulationAny.result,
-      estimatedFee: calculateEstimatedFee(simulationAny as { cost?: SimulationCost }),
+      estimatedFee,
       requiresRestore: !!(simulationAny.restorePreamble),
     };
 
@@ -471,7 +523,7 @@ async function simulateTransaction(
       );
 
       if (!balanceCheck.sufficient) {
-        const errorMessage = `Insufficient balance. Required: ${balanceCheck.required.toFixed(7)} XLM, Available: ${balanceCheck.balance.toFixed(7)} XLM`;
+        const errorMessage = `Insufficient balance. Required: ${formatStellarAmount(balanceCheck.required)} XLM, Available: ${formatStellarAmount(balanceCheck.balance)} XLM`;
         result.success = false;
         result.error = errorMessage;
         emitState(observer, 'failed', { error: errorMessage, simulation: result });
@@ -552,7 +604,11 @@ async function submitTransaction(
       '*', // wildcard passphrase — we are only re-submitting, not re-signing
     ) as Transaction;
 
-    const response = await server.sendTransaction(signedTransaction);
+    const response = await withTimeout(
+      server.sendTransaction(signedTransaction),
+      TRANSACTION_SUBMIT_TIMEOUT,
+      'Soroban submit transaction',
+    );
 
     if (response.errorResult) {
       const errorMessage = parseContractError(response.errorResult);
