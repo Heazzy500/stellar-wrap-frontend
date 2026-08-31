@@ -104,6 +104,7 @@ interface InitialsBadgeProps {
   size: number;
   className?: string;
   decorative?: boolean;
+  alt?: string;
 }
 
 /**
@@ -115,10 +116,11 @@ const InitialsBadge: React.FC<InitialsBadgeProps> = ({
   size,
   className = "",
   decorative = false,
+  alt,
 }) => (
   <span
     role={decorative ? undefined : "img"}
-    aria-label={decorative ? undefined : `${code} icon`}
+    aria-label={decorative ? undefined : alt || `${code} icon`}
     aria-hidden={decorative || undefined}
     className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${iconSizeClass(size)} ${initialsSizeClass(size)} ${initialsColor(code)} ${className}`}
   >
@@ -167,6 +169,7 @@ const AssetIconSlot: React.FC<AssetIconSlotProps> = ({
         size={size}
         className={className}
         decorative={alt === ""}
+        alt={alt || undefined}
       />
     );
   }
@@ -242,6 +245,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   if (loading) {
     return (
       <div role="status" className={`flex items-center gap-2 ${className}`}>
+        {!showCode && <span className="sr-only">Loading asset</span>}
         {showLogo && (
           <div
             aria-hidden="true"
