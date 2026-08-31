@@ -18,7 +18,7 @@ export function DexTradingSummary({ summary }: DexTradingSummaryProps) {
       className="mt-6 sm:mt-8"
     >
       <h3 className="text-xs sm:text-sm font-black tracking-[0.25em] text-white/50 mb-3 sm:mb-4">
-        DEX TRADING SUMMARY
+        DEY TRADING SUMMARY
       </h3>
       <div className="relative backdrop-blur-sm p-4 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl border border-white/10">
         <motion.div
@@ -26,30 +26,31 @@ export function DexTradingSummary({ summary }: DexTradingSummaryProps) {
           style={{ backgroundColor: "var(--color-theme-primary)" }}
         />
         <div className="relative space-y-4">
-          {hasActivity ? (
-            <>
-              <div className="flex items-center justify-between">
+          {hasEntity ? (
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-medium text-white/70">Total Volume</span>
-                <span className="text-xl font-black text-white">
+                <span className="text-lg sm:text-xl font-black text-white">
                   {summary.totalVolume.toFixed(2)} XLM
                 </span>
               </div>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-sm font-medium text-white/70">Total Trades</span>
-                <span className="text-xl font-black text-white">
+                <span className="text-lg sm:text-xl font-black text-white">
                   {summary.tradeCount}
                 </span>
               </div>
               {summary.mostTradedPair && (
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-medium text-white/70">Most Traded Pair</span>
-                  <span className="text-lg font-bold text-white">
+                  <span className="text-base sm:text-lg font-bold text-white text-right">
                     {summary.mostTradedPair}
                   </span>
                 </div>
-              )}
+              )
+              }
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm font-medium text-white/70">Buy vs Sell</span>
                   <span className="text-sm font-medium text-white/70">
                     {summary.buyCount} Buy / {summary.sellCount} Sell
@@ -92,7 +93,8 @@ export function DexTradingSummary({ summary }: DexTradingSummaryProps) {
                 No DEX trades this period — try StellarX!
               </p>
             </div>
-          )}
+          )
+          }
         </div>
       </div>
     </motion.div>
