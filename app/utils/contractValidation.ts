@@ -4,7 +4,7 @@
  */
 
 import { Network, SOROBAN_RPC_URLS, isValidNetwork } from "../../src/config";
-import { getContractAddress } from "../../config/contracts";
+import { getContractAddress } from "../../src/config/contracts";
 import {
   ContractNotFoundError,
   ContractValidationError,
@@ -129,7 +129,7 @@ export function toStroops(amount: string | number): string {
   if (!/^\d+(\.\d{1,7})?$/.test(normalized)) {
     throw new Error(`Invalid amount '${amountStr}'. Maximum 7 decimal places are supported.`);
   }
-  const [wholePart, fractionPart = ""] = amountStr.split(".");
+  const [wholePart, fractionPart = ""] = normalized.split(".");
   const paddedFraction = fractionPart.padEnd(7, "0");
   const value = (BigInt(wholePart) * 10000000n) + BigInt(paddedFraction);
   return (negative ? -value : value).toString();
@@ -329,19 +329,30 @@ export async function sendSorobanContract(
   }
 
   const server = await getServer(params.network);
-  const sent = await withTimeout(
+  const sendDeadline = Date.now() + (params.timeoutMs ?? 30000);
+  let sent = await withTimeout(
     server.sendTransaction(signedXdr),
-    params.timeoutMs ?? 30000,
+    Math.max(0, sendDeadline - Date.now()),
     "Sending transaction timed out"
   );
+
+  while (sent.status === "TRY_AGAIN_LATER") {
+    const remaining = sendDeadline - Date.now();
+    if (remaining < 1000) {
+      throw new Error("Stellar RPC is busy. Please retry shortly.");
+    }
+    await delay(Math.min(1000, remaining - 500));
+    sent = await withTimeout(
+      server.sendTransaction(signedXdr),
+      Math.max(0, sendDeadline - Date.now()),
+      "Sending transaction timed out"
+    );
+  }
 
   if (sent.status === "ERROR") {
     const message =
       sent.errorResult?.result?.message ?? sent.errorResult?.error ?? "Unknown error";
     throw new Error(`Failed to send transaction: ${message}`);
-  }
-  if (sent.status === "TRY_AGAIN_LATER") {
-    throw new Error("Stellar RPC is busy. Please retry shortly.");
   }
 
   return pollForTransaction(server, sent.hash, params.timeoutMs ?? 30000);
