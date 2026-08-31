@@ -6,13 +6,9 @@ import { useState, useEffect, lazy, Suspense, KeyboardEvent } from "react";
 import { useSound } from "../hooks/useSound";
 import { SOUND_NAMES } from "../utils/soundManager";
 
-const HomeIcon = lazy(() =>
-  import("lucide-react").then((module) => ({ default: module.Home })),
-);
+const HomeIcon = lazy(() => import("lucide-react/icons/home"));
 
-const ArrowRightIcon = lazy(() =>
-  import("lucide-react").then((module) => ({ default: module.ArrowRight })),
-);
+const ArrowRightIcon = lazy(() => import("lucide-react/icons/arrow-right"));
 
 interface ProgressIndicatorProps {
   currentStep: number;
