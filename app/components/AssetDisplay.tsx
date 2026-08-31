@@ -56,13 +56,47 @@ function assetInitials(code: string): string {
  * asset always gets the same colour, which looks intentional rather than
  * random.
  */
+const INITIALS_BG_CLASSES: string[] = [
+  "bg-red-800",
+  "bg-orange-800",
+  "bg-amber-800",
+  "bg-green-800",
+  "bg-teal-800",
+  "bg-blue-800",
+  "bg-indigo-800",
+  "bg-purple-800",
+  "bg-pink-800",
+  "bg-gray-800",
+];
+
 function initialsColor(code: string): string {
   let hash = 0;
   for (let i = 0; i < code.length; i++) {
     hash = (hash * 31 + code.charCodeAt(i)) >>> 0;
   }
-  const hue = hash % 360;
-  return `hsl(${hue} 45% 24%)`;
+  return INITIALS_BG_CLASSES[hash % INITIALS_BG_CLASSES.length] ?? "bg-gray-800";
+}
+
+/** Fixed Tailwind size classes for the three supported icon slot sizes. */
+function iconSizeClass(size: number): string {
+  if (size === 16) {
+    return "h-4 w-4";
+  }
+  if (size === 24) {
+    return "h-6 w-6";
+  }
+  return "h-8 w-8";
+}
+
+/** Fixed Tailwind font-size class for initials inside an icon slot. */
+function initialsSizeClass(size: number): string {
+  if (size === 16) {
+    return "text-[8px]";
+  }
+  if (size === 24) {
+    return "text-[9px]";
+  }
+  return "text-[12px]";
 }
 
 interface InitialsBadgeProps {
@@ -83,13 +117,7 @@ const InitialsBadge: React.FC<InitialsBadgeProps> = ({
   <span
     role="img"
     aria-label={`${code} icon`}
-    className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${className}`}
-    style={{
-      width: size,
-      height: size,
-      fontSize: Math.max(8, Math.floor(size * 0.4)),
-      backgroundColor: initialsColor(code),
-    }}
+    className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${iconSizeClass(size)} ${initialsSizeClass(size)} ${initialsColor(code)} ${className}`}
   >
     {assetInitials(code)}
   </span>
@@ -137,10 +165,8 @@ const AssetIconSlot: React.FC<AssetIconSlotProps> = ({
       alt={code}
       width={size}
       height={size}
-      className={`rounded-full ${className}`}
+      className={`shrink-0 rounded-full ${iconSizeClass(size)} ${className}`}
       onError={() => setImgError(true)}
-      // Prevent the image from collapsing its container before it loads
-      style={{ minWidth: size, minHeight: size }}
     />
   );
 };
@@ -207,11 +233,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
         {showLogo && (
           <div
             aria-hidden="true"
-            className="shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"
-            style={{
-              width: sizeConfig.logo,
-              height: sizeConfig.logo,
-            }}
+            className={`shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700 ${iconSizeClass(sizeConfig.logo)}`}
           />
         )}
         {showCode && (
