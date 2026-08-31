@@ -19,6 +19,7 @@ export interface ResolveAssetOptions {
 }
 
 const ASSET_CACHE_STORAGE_KEY = "stellar.assetResolver.cache.v1";
+const ASSET_LIST_STORAGE_KEY = "stellar.assetList.state.v1";
 
 function readPersistedAssetMap(): Record<string, AssetMetadata> {
   if (typeof window === "undefined") return {};
@@ -61,6 +62,39 @@ function removePersistedAssetMapKey(cacheKey: string): void {
   if (!(cacheKey in assetMap)) return;
   delete assetMap[cacheKey];
   writePersistedAssetMap(assetMap);
+}
+
+function readPersistedAssetList(): Array<{ code: string; issuer?: string }> {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(ASSET_LIST_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as Array<{ code: string; issuer?: string }>;
+  } catch {
+    return [];
+  }
+}
+
+function writePersistedAssetList(
+  assets: Array<{ code: string; issuer?: string }>,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ASSET_LIST_STORAGE_KEY, JSON.stringify(assets));
+  } catch {
+    // Ignore storage write failures
+  }
+}
+
+function clearPersistedAssetList(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(ASSET_LIST_STORAGE_KEY);
+  } catch {
+    // Ignore storage access failures
+  }
 }
 
 // Note: Type definition kept for future use with Horizon API responses
@@ -147,9 +181,11 @@ class AssetResolver {
   async resolveAssets(
     assets: Array<{ code: string; issuer?: string }>,
   ): Promise<AssetMetadata[]> {
-    return Promise.all(
+    const resolved = await Promise.all(
       assets.map((asset) => this.resolveAsset(asset.code, asset.issuer)),
     );
+    writePersistedAssetList(assets);
+    return resolved;
   }
 
   /**
@@ -386,6 +422,18 @@ export async function refreshAsset(
 
 export function invalidateStaleAssetCache(): number {
   return assetResolver.invalidateStaleCache();
+}
+
+export function persistAssetList(assets: Array<{ code: string; issuer?: string }>): void {
+  writePersistedAssetList(assets);
+}
+
+export function getPersistedAssetList(): Array<{ code: string; issuer?: string }> {
+  return readPersistedAssetList();
+}
+
+export function clearAssetList(): void {
+  clearPersistedAssetList();
 }
 
 // ---------------------------------------------------------------------------
