@@ -23,6 +23,7 @@ import { MuteToggle } from "@/app/components/MuteToggle";
 import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimeline";
 import { NotificationPrompt } from "@/app/components/NotificationPrompt";
 import { generatePersonaDescription } from "@/app/actions/generate-persona";
+import { AssetList } from "@/app/components/AssetList";
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string, enabled = true) => {
@@ -701,6 +702,18 @@ export default function ArchetypeReveal(): JSX.Element {
               transition={{ delay: 1.4 }}
             >
               <PersonaRarityChart userArchetype={archetypeKey} />
+            </motion.div>
+          )}
+
+          {/* Asset List - wallet holdings */}
+          {isFlipped && (
+            <motion.div
+              className="relative z-10 w-full mt-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.6 }}
+            >
+              <AssetList showSelection={false} />
             </motion.div>
           )}
 
