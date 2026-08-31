@@ -480,3 +480,5 @@ export function Screen4VibeCheck({
     </div>
   );
 }
+
+export default Screen4VibeCheck;
