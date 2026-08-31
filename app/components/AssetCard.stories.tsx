@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs";
+import React from "react";
 import AssetCard from "./AssetCard";
 import type { AssetMetadata } from "../types/asset";
 
@@ -85,7 +86,7 @@ export const LongIssuer: Story = {
   args: {
     asset: {
       code: "SRT",
-      issuer: "GAAAAABBBBCCCCCDDDDDEEEEEFFFFGGGGHHHHIIIIJJJJ",
+      issuer: "GAAAAABBBBCCCCCDDDDEEEEEFFFFGGGHHHIIIIJJJJ",
       name: "Super Long Token Name That Should Truncate Gracefully",
       domain: "example.com",
       isNative: false,
@@ -107,6 +108,20 @@ export const Interactive: Story = {
       <AssetCard {...args} />
       <AssetCard {...args} asset={{ ...args.asset, code: "ETH", name: "Ethereum" }} />
       <AssetCard {...args} asset={{ ...args.asset, code: "XLM", name: "Stellar" }} />
+    </div>
+  ),
+};
+
+export const Responsive: Story = {
+  parameters: {
+    layout: "fullscreen",
+  },
+  render: (args) => (
+    <div className="flex flex-col gap-4">
+      <div className="w-full max-w-xs"><AssetCard {...args} /></div>
+      <div className="w-full max-w-sm"><AssetCard {...args} /></div>
+      <div className="w-full max-w-md"><AssetCard {...args} /></div>
+      <div className="w-full max-w-lg"><AssetCard {...args} /></div>
     </div>
   ),
 };
