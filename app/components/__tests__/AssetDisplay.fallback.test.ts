@@ -31,7 +31,7 @@ function initialsColor(code: string): string {
     hash = (hash * 31 + code.charCodeAt(i)) >>> 0;
   }
   const hue = hash % 360;
-  return `hsl(${hue} 52% 32%)`;
+  return `hsl(${hue} 52% 30%)`;
 }
 
 /**
@@ -93,7 +93,7 @@ describe("assetInitials", () => {
 describe("initialsColor", () => {
   it("returns a valid hsl() string", () => {
     const color = initialsColor("XLM");
-    expect(color).toMatch(/^hsl\(\d+ 52% 32%\)$/);
+    expect(color).toMatch(/^hsl\(\d+ 52% 30%\)$/);
   });
 
   it("is deterministic — same code always produces the same colour", () => {
@@ -225,13 +225,13 @@ function getAssetBadgeA11yLabel(code: string, name?: string): string {
 
 /** Convert an hsl() string to an [r,g,b] tuple (0-255). */
 function hslToRgb(hsl: string): [number, number, number] {
-  const match = hsl.match(/^hsl\((\d+) 52% 32%\)$/);
+  const match = hsl.match(/^hsl\((\d+) 52% (\d+)%\)$/);
   if (!match) {
     throw new Error(`Invalid hsl format: ${hsl}`);
   }
   const h = parseInt(match[1], 10) / 360; // normalize to [0,1]
   const s = 0.52;
-  const l = 0.32;
+  const l = parseInt(match[2], 10) / 100;
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((h * 6) % 2) - 1));
   const m = l - c / 2;
@@ -297,14 +297,13 @@ describe("getAssetBadgeA11yLabel", () => {
 // --------------------------------------------------------------------------
 
 describe("fallback badge color contrast", () => {
-  it("initialsColor produces a background with 4.5::1 contrast against white text", () => {
-    const testCodes = ["XLM", "USDC", "BTC", "ETH", "EUR", "UNKNOWN", "X", "MARI", "ST-RT", "usdc", "---"];
-    for (const code of testCodes) {
-      const color = initialsColor(code);
+  it("fallback badge background color has 4.5:1 contrast against white text for every possible hue", () => {
+    for (let hue = 0; hue < 360; hue++) {
+      const color = `hsl(${hue} 52% 30%)`;
       const rgb = hslToRgb(color);
       const white: [number, number, number] = [255, 255, 255];
       const ratio = contrastRatio(rgb, white);
-      expect(ratio, `Code ${code} contrast ratio ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
+      expect(ratio, `Hue ${hue} contrast ratio ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
     }
   });
 });
