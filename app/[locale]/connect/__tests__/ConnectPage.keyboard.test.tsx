@@ -135,7 +135,7 @@ describe("ConnectPage Keyboard Interactions", ()=> {
     // (exact order depends on rendered components, but they should all be focusable)
     expect(input.tabIndex).toBe(0);
     expect(pasteButton.tabIndex).toBe(0);
-    expect(freighterButton.tabIndex).toBe(o);
+    expect(freighterButton.tabIndex).toBe(0);
   });
 
   it("should have no accessibility violations on initial render", async () => {
