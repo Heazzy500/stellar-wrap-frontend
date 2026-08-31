@@ -34,6 +34,7 @@ import {
   useReducedMotion,
   reducedMotionTransition,
 } from "@/app/hooks/useReducedMotion";
+import { useNativeShare } from "@/app/hooks/useNativeShare";
 
 const SocialIcons = {
   X: XIcon,
