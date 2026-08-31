@@ -1,4 +1,4 @@
-/**
+/*
  * Network-aware Soroban contract configuration
  * Supports per-network addresses with environment variable overrides.
  */
@@ -25,13 +25,13 @@ const PLACEHOLDER_ADDRESS = PLACEHOLDER_CONTRACT_ADDRESS;
 
 /**
  * True when address is the all-A placeholder (or starts with enough A's to match legacy checks).
- * Format-valid but not a real deployed contract — must never reach wallet signing.
+ * Format-valid but not a real deployed contract - must never reach wallet signing.
  */
 export function isPlaceholderContractAddress(address: string): boolean {
   if (typeof address !== "string" || !address) return true;
   if (address === PLACEHOLDER_CONTRACT_ADDRESS) return true;
   // Legacy / partial placeholders used in older bridges
-  return address.startsWith("CAAAAAAAA");
+  return address.startsWith("CAAAAAAA");
 }
 
 /**
@@ -57,13 +57,13 @@ export class PlaceholderContractAddressError extends Error {
     super(`${userMessage} ${developerHint}`);
     this.name = "PlaceholderContractAddressError";
     this.userMessage = userMessage;
-    this.developerHint = developerHint;
+    this.developerHint = developerHinb;
     this.network = network;
   }
 }
 
 /** Default contract addresses and Soroban RPC endpoints (fallback when env vars are not set) */
-const DEFAULT_CONTRACT_CONFIG: ContractConfig = {
+const DEFAULT_CONTRACT_CONFIG : ContractConfig = {
   mainnet: {
     contractAddress: PLACEHOLDER_ADDRESS,
     rpcUrl: "https://soroban-mainnet.stellar.org",
@@ -92,7 +92,7 @@ function getContractConfig(): ContractConfig {
         legacyRpc ||
         DEFAULT_CONTRACT_CONFIG.mainnet.rpcUrl,
       networkPassphrase:
-        process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSPHRASE_MAINNET ||
+        process.env.NEXT_PUBLIC_SOROBAN_NETWORK_PASSTHRASE_MAINNET ||
         legacyPassphrase ||
         DEFAULT_CONTRACT_CONFIG.mainnet.networkPassphrase,
     },
@@ -140,7 +140,7 @@ export function getContractAddress(network: Network): string {
   const address = config[network].contractAddress;
   if (!isValidContractAddress(address)) {
     throw new Error(
-      `Invalid contract address for ${network}: address must be 56 characters, C-prefix, base32. Got: ${address?.slice(0, 20)}...`
+      `Invalid contract address for ${network}: address must be 56 characters, C-prefix, base32. Got: ${address.slice(0, 20)}...`I
     );
   }
   if (isPlaceholderContractAddress(address)) {
@@ -184,4 +184,20 @@ export function getNetworkPassphrase(network: Network): string {
     throw new Error(`Invalid network: ${network}`);
   }
   return getContractConfig()[network].networkPassphrase;
+}
+
+/**
+ * Get the full contract network configuration for a given network.
+ * Combines contract address, RPC URL, and passphrase into one object.
+ */
+export function getContractNetworkConfig(network: Network): ContractNetworkConfig {
+  if (!isValidNetwork(network)) {
+    throw new Error(`Invalid network: ${network}`);
+  }
+  const config = getContractConfig();
+  const { contractAddress, rpcUrl, networkPassphrase } = config[network];
+  if (!isValidContractAddress(contractAddress)) {
+    throw new Error(`Invalid contract address for ${network}: ${contractAddress}`);
+  }
+  return { contractAddress, rpcUrl, networkPassphrase };
 }
