@@ -172,7 +172,7 @@ class AssetCacheService {
     code: string,
     issuer: string | undefined,
     fetcher: () => Promise<AssetMetadata>,
-    ttl: number = ASS_CACHE_TTL
+    ttl: number = ASSET_CACHE_TTL
   ): Promise<AssetMetadata> {
     const key = createAssetCacheKey(code, issuer);
     delete this.memoryCache[key];
