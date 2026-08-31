@@ -109,7 +109,10 @@ describe("initialsColor", () => {
     const codes = ["XLM", "USDC", "BTC", "ETH", "EUR", "UNKNOWN", "X"];
     for (const code of codes) {
       const color = initialsColor(code);
-      const match = color.match(/hsl\(\d+ /);
+      const match = color.match(/hsl\((\d+) /);
+      if (!match) {
+        throw new Error(`Invalid color format: ${color}`);
+      }
       expect(match).not.toBe(null);
       const hue = parseInt(match[1], 10);
       expect(hue).toBeGreaterThanOrEqual(0);
@@ -169,7 +172,7 @@ describe("SIZE_CONFIGS — icon slot dimensions", () => {
 
   it("icon slot dimensions are positive integers (no layout collapse to 0)", () => {
     for (const [, cfg] of Object.entries(SIZE_CONFIGS)) {
-      expect(cfg.logo).toBereaterThan(0);
+      expect(cfg.logo).toBeGreaterThan(0);
       expect(Number.isInteger(cfg.logo)).toBe(true);
     }
   });
@@ -197,7 +200,7 @@ describe("InitialsBadge font-size calculation", () => {
   });
 
   it("lg (32px) badge font is at least 8px", () => {
-    expect(badgeFontSize(32)).toBgGreaterThanOrEqual(8); // floor(12.8)=12 → 12
+    expect(badgeFontSize(32)).toBeGreaterThanOrEqual(8); // floor(12.8)=12 → 12
   });
 
   it("font size never goes below 8px regardless of slot size", () => {
@@ -222,7 +225,7 @@ function getAssetBadgeA11yLabel(code: string, name?: string): string {
 
 /** Convert an hsl() string to an [r,g,b] tuple (0-255). */
 function hslToRgb(hsl: string): [number, number, number] {
-  const match = hsl.match(/^hsl\(\d+ 52% 32%^)$/);
+  const match = hsl.match(/^hsl\((\d+) 52% 32%\)$/);
   if (!match) {
     throw new Error(`Invalid hsl format: ${hsl}`);
   }
@@ -301,7 +304,7 @@ describe("fallback badge color contrast", () => {
       const rgb = hslToRgb(color);
       const white: [number, number, number] = [255, 255, 255];
       const ratio = contrastRatio(rgb, white);
-      expect(ratio, `Code ${code} contrast ratio ${ratio.toFixed(2)}`).toBgGreaterThanOrEqual(4.5);
+      expect(ratio, `Code ${code} contrast ratio ${ratio.toFixed(2)}`).toBeGreaterThanOrEqual(4.5);
     }
   });
 });
