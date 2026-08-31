@@ -1,9 +1,18 @@
 "use client";
 
 import { lazy, Suspense } from "react";
-import { AlertCircle, RotateCcw, X } from "lucide-react";
 import { useWrapStore } from "@/app/store/wrapStore";
 import { INDEXING_STEPS, STEP_ORDER } from "@/app/types/indexing";
+
+const AlertCircle = lazy(() =>
+  import("lucide-react").then((m) => ({ default: m.AlertCircle }))
+);
+const RotateCcw = lazy(() =>
+  import("lucide-react").then((m) => ({ default: m.RotateCcw }))
+);
+const X = lazy(() =>
+  import("lucide-react").then((m) => ({ default: m.X }))
+);
 
 const motion = {
   div: lazy(() =>
