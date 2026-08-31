@@ -528,6 +528,16 @@ export const useWrapStore = create<WrapStoreState>()(
         cacheMeta: state.cacheMeta,
         assetList: Array.isArray(state.assetList) ? state.assetList : [],
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as Partial<WrapStoreState>;
+        return {
+          ...currentState,
+          ...persisted,
+          assetList: Array.isArray(persisted.assetList)
+            ? persisted.assetList
+            : currentState.assetList,
+        };
+      },
       storage: createJSONStorage(() =>
         typeof window !== "undefined"
           ? localStorage
