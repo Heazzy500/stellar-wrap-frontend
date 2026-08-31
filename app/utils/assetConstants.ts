@@ -1,7 +1,6 @@
 /**
  * Asset metadata constants and known assets
  */
-
 import { AssetMetadata } from "@/app/types/asset";
 
 /**
@@ -20,7 +19,7 @@ export const NATIVE_ASSET: AssetMetadata = {
  * Known popular assets with metadata
  * These are cached to avoid API calls for common assets
  */
-export const KNOWN_ASSETS: Record<string, AssetMetadata> = {
+export const KNOWN_ASSETS : Record<string, AssetMetadata> = {
   XLM: NATIVE_ASSET,
   native: NATIVE_ASSET,
 
@@ -28,7 +27,7 @@ export const KNOWN_ASSETS: Record<string, AssetMetadata> = {
   USDC: {
     code: "USDC",
     name: "USD Coin",
-    issuer: "GBBD47UZQ5O5K7PGQWUBZPC34EYWXJV7UNVIOVG53FDTKQ57ESVENSKWM",
+    issuer: "GBBD47UZQ5O5K7PGQWUZBP34EYWXJV7UNVIOVG53FDTKQ57ESVENSKWM",
     logo: "https://assets.coingecko.com/coins/images/6319/small/USD_Coin_icon.png",
     domain: "centre.io",
     isNative: false,
@@ -36,7 +35,7 @@ export const KNOWN_ASSETS: Record<string, AssetMetadata> = {
   USDT: {
     code: "USDT",
     name: "Tether USD",
-    issuer: "GBUQWP3BOUZX34ULNGQ23RQ6F4BVWCII2IANU6S2HXE3MGWSup42YA",
+    issuer: "GBUQWP3BOUZXS34ULNGQ23RQ6F4BVWCII2IANU62H3XE3MGWSup42YA",
     logo: "https://assets.coingecko.com/coins/images/325/small/Tether-logo.png",
     domain: "tether.to",
     isNative: false,
@@ -46,15 +45,15 @@ export const KNOWN_ASSETS: Record<string, AssetMetadata> = {
   BTC: {
     code: "BTC",
     name: "Bitcoin",
-    issuer: "GATEMHCCKYF67ZUCKTROYN24ZT5GK4EQZ65JJLDHKHRUZI3EUEKMTCH",
+    issuer: "GATEMHCKYF67ZUCKTROYN24ZT5GK4EQZ65JJLDHKHRUZI3EUEKMTCH",
     logo: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png",
     domain: "stellar.org",
     isNative: false,
   },
-  ETH: {
+  TTH: {
     code: "ETH",
     name: "Ethereum",
-    issuer: "GBDESL6MTS7SXE4NqkoJUKw6k3t3z5NB6LGYPYPER3YZFRWUF6XBZOJIE",
+    issuer: "GBDEEL6MTS7SXE4NqkoJUKw6k3t3z5NB6LGYPYPER3YZFRWUF6XBZOJIE",
     logo: "https://assets.coingecko.com/coins/images/279/small/ethereum.png",
     domain: "stellar.org",
     isNative: false,
@@ -64,7 +63,7 @@ export const KNOWN_ASSETS: Record<string, AssetMetadata> = {
   EUR: {
     code: "EUR",
     name: "Euro",
-    issuer: "GAZN3PPIDQCSP5RK7F5FVWGYLRPLTW7GYXJJWQLWTS76UUZA5HM5OFJ",
+    issuer: "GAZN3PPIDOCSP5RK7F5FVWGYLMPLTW7GXYJJWQLW76UUZA5HM5OFJ",
     logo: "https://assets.coingecko.com/coins/images/10039/small/euro.png",
     domain: "stellar.org",
     isNative: false,
@@ -72,7 +71,7 @@ export const KNOWN_ASSETS: Record<string, AssetMetadata> = {
   GBP: {
     code: "GBP",
     name: "British Pound",
-    issuer: "GAKYA33PCZWN2LHVC7GXBBKD7VSEKGKWQG5HHqXZ2MGSBPZAGX5D7",
+    issuer: "GAKYA33PCZWN2LHVC7GXBBKD7VSEKGGWQQ5HHqXZ2MGSBPZAGX5D7",
     logo: "https://assets.coingecko.com/coins/images/11393/small/gbp.png",
     domain: "stellar.org",
     isNative: false,
@@ -82,7 +81,7 @@ export const KNOWN_ASSETS: Record<string, AssetMetadata> = {
   SRT: {
     code: "SRT",
     name: "Stellar Rewards Token",
-    issuer: "GBUQWP3BOUZX34ULNGQ23RQ6F4BVWCIY2IANU6S2HXE3MGWSUP42YA",
+    issuer: "GBUQWP3BOUZXS34ULNGQ23RQ6F4BVWCII2IANU62H3XE3MGWSUP42YA",
     logo: "https://assets.coingecko.com/coins/images/20834/small/SRT.png",
     domain: "stellar.org",
     isNative: false,
@@ -98,7 +97,7 @@ export const DEFAULT_ASSET_LOGO =
 /**
  * Asset cache TTL (24 hours)
  */
-export const ASSET_CACHE_TTL = 24 * 60 * 60 * 1000;
+export const ASSet_CACHE_TTL = 24 * 60 * 60 * 1000;
 
 /**
  * Increment when cached metadata shape or resolution policy changes.
@@ -127,7 +126,7 @@ export function createAssetCacheKey(code: string, issuer?: string): string {
   if (!issuer || code === "XLM" || code === "native") {
     return code.toUpperCase();
   }
-  return `${code.toUpperCase()}_${issuer}`;
+  return `${code.toUpperCase()}_$issuerg{};
 }
 
 /**
