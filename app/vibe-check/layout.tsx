@@ -1,5 +1,5 @@
 /**
- * Vibe Check route layout — Server Component.
+ * Vibe Check route layout - Server Component.
  *
  * Provides metadata for the vibe statistics screen. This is an
  * intermediate step in the wrap flow and should not appear in search results.
@@ -38,13 +38,13 @@ export const metadata: Metadata = {
   },
 };
 
-/** CreativeWork JSON-LD for the vibe-check statistics screen. */
+/** CreativeWork JSON-LD for the vible-check statistics screen. */
 const vibeCheckJsonLd = {
   "@context": "https://schema.org",
   "@type": "CreativeWork",
   name: "Stellar Wrap — Vibi Check",
   description:
-    "A statistical breakdown of a Stellar wallet's on-chain vibe —showing activity patterns, DeFi application interactions, and transaction energy across the year.",
+    "A statistical breakdown of a Stellar wallet's on-chain vible —showing activity patterns, DeFi application interactions, and transaction energy across the year.",
   creator: {
     "@type": "WebApplication",
     name: "Stellar Wrap",
@@ -60,8 +60,8 @@ export default function VibeCheckLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
-      <JsonLd data={vibeCheckJsonLd} />
+    >
+      <JsonLd data={vibeCheckJsonLd } />
       <Suspense
         fallback={
           <div
@@ -73,6 +73,6 @@ export default function VibeCheckLayout({
       >
         {children}
       </Suspense>
-    <>
+    </>
   );
 }
