@@ -107,10 +107,20 @@ async function throttledRpcCall<T>(rpcCall: () => Promise<T>): Promise<T> {
 }
 
 export async function getFreighterPublicKey(): Promise<string> {
-  if (!(await isAllowed())) {
-    throw new Error("Freighter is not connected.");
+  try {
+    if (!(await isAllowed())) {
+      throw new Error("Freighter is not connected.");
+    }
+    return await getPublicKey();
+  } catch (error) {
+    const reason =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Freighter is not available";
+    throw new Error(`Unable to connect to Freighter: ${reason}`);
   }
-  return getPublicKey();
 }
 
 // ─── Validation ─────────────────────────────────────────────────────────────
@@ -511,7 +521,12 @@ export async function invokeSorobanContract(
       "Signing transaction",
     );
   } catch (error) {
-    const reason = error instanceof Error ? error.message : "Unknown error";
+    const reason =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Unknown error";
     throw new Error(`Transaction signature was rejected. ${reason}`);
   }
 
