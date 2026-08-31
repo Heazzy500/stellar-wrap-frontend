@@ -1,19 +1,26 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Network as NetworkIcon, Loader2, AlertCircle } from 'lucide-react';
+import { Network as NetworkIcon, Loader2, AlertCircle, X } from 'lucide-react';
 import { useWrapStore } from '../store/wrapStore';
 import { NETWORKS, Network } from '../../src/config';
 import { getNetworkDisplayName } from '../../src/utils/networkUtils';
 import { clearContractCache } from '../utils/contractBridge';
 import { useDialogFocusManagement } from '../hooks/useDialogFocusManagement';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { verifyWalletForNetwork } from '../services/transactionSigner';
+
+/** Upper bound for the wallet re-check on the toggle so its state never hangs. */
+const NETWORK_TOGGLE_GUARD_TIMEOUT_MS = 10_000;
 
 export function NetworkToggle() {
   const { network, setNetwork, status } = useWrapStore();
+  const isOnline = useOnlineStatus();
   const [isSwitching, setIsSwitching] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingNetwork, setPendingNetwork] = useState<Network | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -34,16 +41,36 @@ export function NetworkToggle() {
     }
   };
 
-  const performNetworkSwitch = (newNetwork: Network) => {
-    setIsSwitching(true);
+  const performNetworkSwitch = useCallback((newNetwork: Network) => {
     setShowConfirmation(false);
     setPendingNetwork(null);
-    clearContractCache();
-    setNetwork(newNetwork);
-    requestAnimationFrame(() => {
-      setTimeout(() => setIsSwitching(false), 300);
-    });
-  };
+    setWalletError(null);
+
+    if (!isOnline) {
+      setWalletError('You are offline. Please reconnect to the internet before switching networks.');
+      return;
+    }
+
+    setIsSwitching(true);
+
+    void verifyWalletForNetwork(newNetwork, NETWORK_TOGGLE_GUARD_TIMEOUT_MS)
+      .then((guard) => {
+        if (!guard.ok) {
+          setWalletError(guard.message);
+          setIsSwitching(false);
+          return;
+        }
+        clearContractCache();
+        setNetwork(newNetwork);
+        requestAnimationFrame(() => {
+          setTimeout(() => setIsSwitching(false), 300);
+        });
+      })
+      .catch(() => {
+        setWalletError('Could not verify your wallet for this network. Please try again.');
+        setIsSwitching(false);
+      });
+  }, [isOnline, setNetwork]);
 
   const handleConfirm = () => {
     if (pendingNetwork) {
@@ -153,6 +180,35 @@ export function NetworkToggle() {
           />
         </motion.button>
       </motion.div>
+
+      {/* Wallet network re-check failure */}
+      <AnimatePresence>
+        {walletError && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            className="fixed top-20 right-4 md:top-28 md:right-24 z-50 w-72 p-4 rounded-xl bg-[#12122a]/95 backdrop-blur-xl border border-amber-500/40 shadow-2xl"
+            role="alert"
+          >
+            <div className="flex items-start gap-3">
+              <AlertCircle
+                className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0"
+                aria-hidden="true"
+              />
+              <p className="text-sm text-amber-200/90 flex-1">{walletError}</p>
+              <button
+                type="button"
+                onClick={() => setWalletError(null)}
+                aria-label="Dismiss wallet warning"
+                className="flex-shrink-0 p-1 rounded-md text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Network switch confirmation dialog */}
       <AnimatePresence>

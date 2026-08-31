@@ -8,15 +8,17 @@ import {
 } from 'stellar-sdk';
 import { Horizon } from 'stellar-sdk';
 import { Server, Api } from 'stellar-sdk/rpc';
-import { signTransaction } from '@stellar/freighter-api';
 import { Network, NETWORK_PASSPHRASES, SOROBAN_RPC_URLS, RPC_ENDPOINTS } from '../config';
 import {
   getContractAddress,
   isPlaceholderContractAddress,
   PlaceholderContractAddressError,
 } from '../../config/contracts';
-import { buildMintWrapArgs, type MintWrapArgsInput, buildContractArgs, type ContractStatsInput } from '../utils/contractArgsBuilder';
+import { buildMintWrapArgs, type MintWrapArgsInput } from '../utils/contractArgsBuilder';
 import { mapContractError } from '../../app/utils/contractErrors';
+import { signWithFreighter } from '../../app/services/transactionSigner';
+import { sorobanQueue } from '../utils/sorobanRequestQueue';
+import { stroopsToXlm } from '../utils/stellarAmounts';
 
 export type TransactionState =
   | 'pending'
@@ -110,12 +112,21 @@ const simulationCache = new Map<string, { result: SimulationResult; timestamp: n
 
 // ─── Helper Functions ───────────────────────────────────────────────────────
 
+/** Reused Soroban RPC server per network (avoids re-creating clients per tx) */
+const sorobanServerRegistry: Partial<Record<Network, Server>> = {};
+
 /**
- * Creates a Soroban RPC server instance for the given network
+ * Creates and caches a Soroban RPC server instance for the given network.
  */
-function createSorobanServer(network: Network): Server {
+function getSorobanServer(network: Network): Server {
+  const cached = sorobanServerRegistry[network];
+  if (cached) {
+    return cached;
+  }
   const rpcUrl = SOROBAN_RPC_URLS[network];
-  return new Server(rpcUrl, { allowHttp: rpcUrl.startsWith('http://') });
+  const server = new Server(rpcUrl, { allowHttp: rpcUrl.startsWith('http://') });
+  sorobanServerRegistry[network] = server;
+  return server;
 }
 
 function getNetworkPassphrase(network: Network): string {
@@ -169,7 +180,9 @@ async function waitForConfirmation(
     });
 
     try {
-      const response = await server.getTransaction(transactionHash);
+      const response = await sorobanQueue.enqueue(() =>
+        server.getTransaction(transactionHash),
+      );
 
       if (response.status === Api.GetTransactionStatus.SUCCESS) {
         const ledger = response.ledger ?? 0;
@@ -266,11 +279,14 @@ async function buildMintTransaction(
     throw new Error(`${placeholderErr.userMessage} ${placeholderErr.developerHint}`);
   }
 
-  const sorobanServer = createSorobanServer(network);
+  const sorobanServer = getSorobanServer(network);
 
   let account;
   try {
-    account = await sorobanServer.getAccount(accountAddress);
+    account = await sorobanQueue.coalesce(
+      `account:${network}:${accountAddress}`,
+      () => sorobanServer.getAccount(accountAddress),
+    );
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     if (errorMessage.includes('Not Found') || errorMessage.includes('404')) {
@@ -327,7 +343,7 @@ function calculateEstimatedFee(simulation: { cost?: SimulationCost }, baseFee = 
   }
 
   // Convert stroops to XLM
-  return estimatedFee / 10000000;
+  return stroopsToXlm(estimatedFee);
 }
 
 /**
@@ -419,7 +435,10 @@ async function simulateTransaction(
   }
 
   try {
-    const simulation = await server.simulateTransaction(transaction);
+    const simulation = await sorobanQueue.coalesce(
+      `simulate:${network}:${cacheKey}`,
+      () => server.simulateTransaction(transaction),
+    );
 
     // Check if simulation failed
     const simulationAny = simulation as unknown as Record<string, unknown>;
@@ -512,27 +531,15 @@ async function signTransactionWithFreighter(
 ): Promise<string> {
   emitState(observer, 'signed');
 
-  try {
-    const result = await signTransaction(transactionXdr, {
-      networkPassphrase: getNetworkPassphrase(network),
-    });
+  const result = await signWithFreighter({ transactionXdr, network });
 
-    if (result.error) {
-      const errorMessage = parseContractError(result.error);
-      emitState(observer, 'failed', { error: errorMessage });
-      throw new Error(`Signing failed: ${errorMessage}`);
-    }
-
-    if (!result.signedTxXdr) {
-      throw new Error('Freighter returned empty signed transaction');
-    }
-
-    return result.signedTxXdr;
-  } catch (error) {
-    const errorMessage = parseContractError(error);
-    emitState(observer, 'failed', { error: errorMessage });
-    throw error;
+  if (!result.ok) {
+    const message = result.message || `Signing failed: ${result.code}`;
+    emitState(observer, 'failed', { error: message, code: result.code });
+    throw new Error(`Signing failed: ${message}`);
   }
+
+  return result.signedXdr;
 }
 
 
@@ -552,7 +559,10 @@ async function submitTransaction(
       '*', // wildcard passphrase — we are only re-submitting, not re-signing
     ) as Transaction;
 
-    const response = await server.sendTransaction(signedTransaction);
+    const response = await sorobanQueue.enqueue(
+      () => server.sendTransaction(signedTransaction),
+      { retry: false },
+    );
 
     if (response.errorResult) {
       const errorMessage = parseContractError(response.errorResult);
@@ -583,7 +593,7 @@ export async function mintWrap(options: MintWrapOptions): Promise<MintResult> {
     network,
   );
 
-    const server = createSorobanServer(network);
+    const server = getSorobanServer(network);
 
     // 3. Simulate transaction
     const simulationResult = await simulateTransaction(
