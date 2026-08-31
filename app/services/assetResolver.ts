@@ -109,6 +109,7 @@ class AssetResolver {
       // Only return if issuer matches or it's a native asset
       if (known.isNative || !issuer || known.issuer === issuer) {
         assetCache.set(known);
+        this.persistAsset(known);
         return known;
       }
     }
@@ -130,6 +131,7 @@ class AssetResolver {
     try {
       const metadata = await this.fetchAssetMetadata(normalizedCode, issuer);
       assetCache.set(metadata);
+      this.persistAsset(metadata);
       return metadata;
     } catch (error) {
       console.warn(`Failed to resolve asset ${normalizedCode}:`, error);
