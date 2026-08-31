@@ -41,6 +41,19 @@ const SIZE_CONFIGS = {
   lg: { logo: 32, text: "text-base" },
 };
 
+export type AssetCardVariant = "primary" | "secondary" | "disabled" | "loading";
+
+const CARD_VARIANTS: Record<AssetCardVariant, string> = {
+  primary: "bg-gray-100 dark:bg-gray-800",
+  secondary:
+    "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700",
+  disabled: "bg-gray-100 dark:bg-gray-800",
+  loading: "bg-gray-100 dark:bg-gray-800",
+};
+
+const CARD_INTERACTION_CLASSES =
+  "cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:shadow-sm";
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -287,25 +300,40 @@ export const AssetBadge: React.FC<Omit<AssetDisplayProps, "showFullName">> = (
 /**
  * Asset display with full metadata and a stable icon slot.
  */
-export const AssetCard: React.FC<
-  AssetDisplayProps & { showIssuer?: boolean }
-> = ({ showIssuer = false, ...props }) => {
+export interface AssetCardProps extends AssetDisplayProps {
+  showIssuer?: boolean;
+  variant?: AssetCardVariant;
+  disabled?: boolean;
+  loading?: boolean;
+  onClick?: () => void;
+}
+
+export const AssetCard: React.FC<AssetCardProps> = ({
+  showIssuer = false,
+  showLogo = true,
+  variant = "primary",
+  disabled = false,
+  loading: loadingProp = false,
+  onClick,
+  className = "",
+  ...props
+}) => {
   const [metadata, setMetadata] = useState<AssetMetadata | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
 
     const fetchAsset = async () => {
       try {
-        setLoading(true);
+        setIsLoading(true);
         const resolved = await resolveAsset(props.code, props.issuer);
         if (mounted) {
           setMetadata(resolved);
         }
       } finally {
         if (mounted) {
-          setLoading(false);
+          setIsLoading(false);
         }
       }
     };
@@ -317,37 +345,76 @@ export const AssetCard: React.FC<
     };
   }, [props.code, props.issuer]);
 
-  if (loading) {
+  const isDisabledVariant = variant === "disabled";
+  const isLoadingVariant = variant === "loading";
+  const resolvedDisabled = disabled || isDisabledVariant;
+  const resolvedLoading = loadingProp || isLoadingVariant;
+  const isLoadingOrProp = isLoading || resolvedLoading;
+  const cardClassName = `flex w-full items-center gap-3 rounded-lg p-3 text-left ${CARD_VARIANTS[variant]} ${className} ${
+    onClick && !resolvedDisabled && !isLoadingOrProp ? CARD_INTERACTION_CLASSES : ""
+  } ${resolvedDisabled ? "cursor-not-allowed opacity-60" : ""}`;
+
+  const cardContent = (children: React.ReactNode) => {
+    const interactive = Boolean(onClick) && !isLoadingOrProp;
+
     return (
-      <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+      <div
+        className={cardClassName}
+        role={interactive ? "button" : undefined}
+        tabIndex={interactive && !resolvedDisabled ? 0 : undefined}
+        aria-disabled={interactive && resolvedDisabled ? true : undefined}
+        onClick={interactive && !resolvedDisabled ? onClick : undefined}
+        onKeyDown={
+          interactive && !resolvedDisabled
+            ? (event: React.KeyboardEvent<HTMLDivElement>) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onClick?.();
+                }
+              }
+            : undefined
+        }
+      >
+        {children}
+      </div>
+    );
+  };
+
+  if (isLoadingOrProp) {
+    return cardContent(
+      <>
         {/* Icon skeleton — fixed 32×32 so the layout doesn't shift */}
-        <div
-          aria-hidden="true"
-          className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600"
-        />
+        {showLogo && (
+          <div
+            aria-hidden="true"
+            className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600"
+          />
+        )}
         <div className="space-y-1">
           <div className="h-4 w-24 animate-pulse rounded bg-gray-300 dark:bg-gray-600" />
           <div className="h-3 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
         </div>
-      </div>
+      </>,
     );
   }
 
   if (!metadata) {
-    return (
-      <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+    return cardContent(
+      <>
         {/* Reserve the icon slot even for the fallback state */}
-        <InitialsBadge code={props.code} size={32} />
+        {showLogo && (
+          <InitialsBadge code={props.code} size={32} />
+        )}
         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
           {props.code}
         </span>
-      </div>
+      </>,
     );
   }
 
-  return (
-    <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
-      {props.showLogo && (
+  return cardContent(
+    <>
+      {showLogo && (
         <AssetIconSlot logo={metadata.logo} code={metadata.code} size={32} />
       )}
       <div className="flex-1">
@@ -366,7 +433,7 @@ export const AssetCard: React.FC<
           </div>
         )}
       </div>
-    </div>
+    </>,
   );
 };
 
