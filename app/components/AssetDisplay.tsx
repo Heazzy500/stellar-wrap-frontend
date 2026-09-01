@@ -36,6 +36,19 @@ const SIZE_CONFIGS = {
   lg: { logo: 32, text: "text-base" },
 };
 
+export type AssetCardVariant = "primary" | "secondary" | "disabled" | "loading";
+
+const CARD_VARIANTS: Record<AssetCardVariant, string> = {
+  primary: "bg-gray-100 dark:bg-gray-800",
+  secondary:
+    "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700",
+  disabled: "bg-gray-100 dark:bg-gray-800",
+  loading: "bg-gray-100 dark:bg-gray-800",
+};
+
+const CARD_INTERACTION_CLASSES =
+  "cursor-pointer transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 active:shadow-sm";
+
 // ---------------------------------------------------------------------------
 // Shared helpers
 // ---------------------------------------------------------------------------
@@ -259,35 +272,65 @@ export const AssetCard: React.FC<
 
   if (isLoading) {
     return (
-      <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+      <div
+        className={cardClassName}
+        role={interactive ? "button" : isLoadingOrProp ? "status" : undefined}
+        tabIndex={interactive && !resolvedDisabled ? 0 : undefined}
+        aria-disabled={interactive && resolvedDisabled ? true : undefined}
+        aria-busy={isLoadingOrProp ? true : undefined}
+        aria-label={isLoadingOrProp ? "Loading asset" : undefined}
+        onClick={interactive && !resolvedDisabled ? onClick : undefined}
+        onKeyDown={
+          interactive && !resolvedDisabled
+            ? (event: React.KeyboardEvent<HTMLDivElement>) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onClick?.();
+                }
+              }
+            : undefined
+        }
+      >
+        {children}
+      </div>
+    );
+  };
+
+  if (isLoadingOrProp) {
+    return cardContent(
+      <>
         {/* Icon skeleton — fixed 32×32 so the layout doesn't shift */}
-        <div
-          aria-hidden="true"
-          className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600"
-        />
+        {showLogo && (
+          <div
+            aria-hidden="true"
+            className="h-8 w-8 shrink-0 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600"
+          />
+        )}
         <div className="space-y-1">
           <div className="h-4 w-24 animate-pulse rounded bg-gray-300 dark:bg-gray-600" />
           <div className="h-3 w-16 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
         </div>
-      </div>
+      </>,
     );
   }
 
   if (!metadata) {
-    return (
-      <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+    return cardContent(
+      <>
         {/* Reserve the icon slot even for the fallback state */}
-        <InitialsBadge code={props.code} size={32} />
+        {showLogo && (
+          <InitialsBadge code={props.code} size={32} />
+        )}
         <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
           {props.code}
         </span>
-      </div>
+      </>,
     );
   }
 
-  return (
-    <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
-      {props.showLogo && (
+  return cardContent(
+    <>
+      {showLogo && (
         <AssetIconSlot logo={metadata.logo} code={metadata.code} size={32} />
       )}
       <div className="flex-1">
@@ -306,8 +349,133 @@ export const AssetCard: React.FC<
           </div>
         )}
       </div>
-    </div>
+    </>,
   );
 };
 
-export default AssetDisplay;
+const meta = {
+  title: "Components/AssetCard",
+  component: AssetCard,
+  parameters: {
+    layout: "centered",
+    viewport: {
+      viewports: {
+        mobile: { name: "Mobile", styles: { width: "375px", height: "667px" } },
+        tablet: { name: "Tablet", styles: { width: "768px", height: "1024px" } },
+        desktop: { name: "Desktop", styles: { width: "1280px", height: "800px" } },
+      },
+    },
+  },
+  decorators: [
+    (Story) => (
+      <div className="max-w-sm">
+        <Story />
+      </div>
+    ),
+  ],
+  argTypes: {
+    variant: {
+      control: { type: "select" },
+      options: ["primary", "secondary", "disabled", "loading"],
+    },
+    showIssuer: { control: "boolean" },
+    disabled: { control: "boolean" },
+    loading: { control: "boolean" },
+  },
+} satisfies Meta<typeof AssetCard>;
+
+export default meta;
+
+type Story = StoryObj<typeof meta>;
+
+export const Primary: Story = {
+  args: {
+    code: "USD",
+    issuer: "GA5X",
+    variant: "primary",
+    showIssuer: true,
+  },
+};
+
+export const Mobile: Story = {
+  args: {
+    ...Primary.args,
+  },
+  parameters: {
+    viewport: {
+      defaultViewport: "mobile",
+    },
+  },
+};
+
+export const Tablet: Story = {
+  args: {
+    ...Primary.args,
+  },
+  parameters: {
+    viewport: {
+      defaultViewport: "tablet",
+    },
+  },
+};
+
+export const Desktop: Story = {
+  args: {
+    ...Primary.args,
+  },
+  parameters: {
+    viewport: {
+      defaultViewport: "desktop",
+    },
+  },
+};
+
+export const DarkMode: Story = {
+  args: {
+    ...Primary.args,
+  },
+  decorators: [
+    (Story) => (
+      <div className="dark">
+        <Story />
+      </div>
+    ),
+  ],
+};
+
+export const Secondary: Story = {
+  args: {
+    code: "EUR",
+    issuer: "GBY",
+    variant: "secondary",
+    showIssuer: true,
+  },
+};
+
+export const Disabled: Story = {
+  args: {
+    code: "BTC",
+    issuer: "GABC",
+    variant: "disabled",
+    disabled: true,
+    onClick: () => undefined,
+  },
+};
+
+export const Loading: Story = {
+  args: {
+    code: "XRP",
+    issuer: "GXYZ",
+    variant: "loading",
+    loading: true,
+  },
+};
+
+export const Interactive: Story = {
+  args: {
+    code: "ETH",
+    issuer: "GETH",
+    variant: "primary",
+    onClick: () => undefined,
+  },
+};
