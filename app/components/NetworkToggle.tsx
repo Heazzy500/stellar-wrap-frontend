@@ -1,18 +1,20 @@
 "use client"
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Network as NetworkIcon, Loader2, AlertCircle } from 'lucide-react';
 import { useWrapStore } from '../store/wrapStore';
 import { NETWORKS, Network } from '../../src/config';
 import { getNetworkDisplayName } from '../../src/utils/networkUtils';
 import { clearContractCache } from '../utils/contractBridge';
+import { useDialogFocusManagement } from '../hooks/useDialogFocusManagement';
 
 export function NetworkToggle() {
   const { network, setNetwork, status } = useWrapStore();
   const [isSwitching, setIsSwitching] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [pendingNetwork, setPendingNetwork] = useState<Network | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const state = useWrapStore.getState();
@@ -53,6 +55,8 @@ export function NetworkToggle() {
     setShowConfirmation(false);
     setPendingNetwork(null);
   };
+
+  useDialogFocusManagement(showConfirmation, handleCancel, dialogRef);
 
   const isMainnet = network === NETWORKS.MAINNET;
 
@@ -111,7 +115,7 @@ export function NetworkToggle() {
 
           {/* Network label */}
           <div className="relative flex flex-col items-start">
-            <span className="text-[8px] md:text-[10px] font-black tracking-wider text-white/50 uppercase">
+            <span className="text-[8px] md:text-[10px] font-black tracking-wider text-white/80 uppercase">
               Network
             </span>
             <span
@@ -161,6 +165,8 @@ export function NetworkToggle() {
             role="dialog"
             aria-modal="true"
             aria-labelledby="network-switch-title"
+            aria-describedby="network-switch-description"
+            ref={dialogRef}
           >
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
@@ -174,7 +180,7 @@ export function NetworkToggle() {
                   <h2 id="network-switch-title" className="font-bold text-lg text-amber-400">
                     Switch Networks?
                   </h2>
-                  <p className="text-sm text-white/70 mt-2">
+                  <p id="network-switch-description" className="text-sm text-white/70 mt-2">
                     You have an active wrap session. Switching networks will reset your current wrap data and restart indexing on {getNetworkDisplayName(pendingNetwork)}.
                   </p>
                 </div>
