@@ -21,6 +21,7 @@ import { ProgressIndicator } from "@/app/components/ProgressIndicator";
 import { MuteToggle } from "@/app/components/MuteToggle";
 import { NotificationPrompt } from "@/app/components/NotificationPrompt";
 import { generatePersonaDescription } from "@/app/actions/generate-persona";
+import { AssetList } from "@/app/components/AssetList";
 
 const PersonaEvolutionTimeline = lazy(() =>
   import("@/app/components/PersonaEvolutionTimeline").then((m) => ({
@@ -715,6 +716,18 @@ export default function ArchetypeReveal(): JSX.Element {
               <Suspense fallback={<div className="h-48 rounded-2xl bg-white/5 animate-pulse" aria-hidden="true" />}>
                 <PersonaRarityChart userArchetype={archetypeKey} />
               </Suspense>
+            </motion.div>
+          )}
+
+          {/* Asset List - wallet holdings */}
+          {isFlipped && (
+            <motion.div
+              className="relative z-10 w-full mt-6"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.6 }}
+            >
+              <AssetList showSelection={false} />
             </motion.div>
           )}
 
