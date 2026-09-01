@@ -1,11 +1,10 @@
 "use client";
 
-import { type ReactNode, useEffect, useState } from "react";
+import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Home, Share2, ChevronRight, Palette } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { MuteToggle } from "./MuteToggle";
-import { ThemeSelector } from "./ThemeSelector";
+const MuteToggle = lazy(() => import("./MuteToggle").then((m) => ({ default: m.MuteToggle })));
 import {
   useReducedMotion,
   reducedMotionTransition,
@@ -17,6 +16,10 @@ import {
   getStorySegmentVisualState,
 } from "./storyShellProgress";
 
+const ThemeSelector = lazy(() =>
+  import("./ThemeSelector").then((module) => ({ default: module.ThemeSelector })),
+);
+
 interface StoryShellProps {
   children: ReactNode;
   activeSegment?: number;
@@ -26,6 +29,7 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
   const router = useRouter();
   const prefersReducedMotion = useReducedMotion();
   const segmentLabel = getStorySegmentLabel(activeSegment);
+  const [isThemeSelectorOpen, setIsThemeSelectorOpen] = useState(false);
 
   useEffect(() => {
     const id = window.setTimeout(() => {
@@ -188,7 +192,9 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
         </motion.div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <MuteToggle />
+          <Suspense fallback={null}>
+            <MuteToggle />
+          </Suspense>
           {/* Palette Button */}
           <motion.button
             type="button"
@@ -198,6 +204,8 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
               delay: 0.35,
             })}
             className="p-3 rounded-full bg-black/50 border border-[#1DB954]/30 backdrop-blur-xl hover:bg-[#1DB954]/10 hover:border-[#1DB954]/50 transition-all shadow-[0_0_20px_rgba(29,185,84,0.15)]"
+            onClick={() => setIsThemeSelectorOpen((open) => !open)}
+            aria-expanded={isThemeSelectorOpen}
             aria-label="Open color theme picker"
           >
             <Palette className="w-5 h-5 text-[#1DB954]" aria-hidden="true" />
@@ -210,7 +218,12 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
       </div>
 
       <div className="flex-1 relative z-10 flex flex-col items-center justify-center">
-        {children}
+        <Suspense fallback={null}>
+          {isThemeSelectorOpen && <ThemeSelector />}
+        </Suspense>
+        <Suspense fallback={null}>
+          {children}
+        </Suspense>
       </div>
 
       <div className="relative z-50 flex justify-between items-center px-3 sm:px-6 md:px-8 lg:px-12 py-4 sm:py-6 md:py-8 gap-4">
