@@ -15,6 +15,7 @@ import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useStellarAddressValidation } from "../../../src/hooks/useStellarAddressValidation";
 import { ProgressIndicator } from "../../components/ProgressIndicator";
 import { MuteToggle } from "../../components/MuteToggle";
+import { ConnectWalletButton } from "../../components/ConnectWalletButton";
 import {
   connectFreighter,
   connectAlbedo,
@@ -78,7 +79,6 @@ export default function ConnectPage() {
   const backButtonRef = useRef<HTMLButtonElement>(null);
   const addressInputRef = useRef<HTMLInputElement>(null);
   const connectButtonRef = useRef<HTMLButtonElement>(null);
-  const freighterButtonRef = useRef<HTMLButtonElement>(null);
   const demoButtonRef = useRef<HTMLButtonElement>(null);
 
   // Load last-used address from localStorage on mount
