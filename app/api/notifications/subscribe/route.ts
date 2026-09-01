@@ -1,9 +1,3 @@
-/**
- * POST /api/notifications/subscribe
- *
- * Stores a push subscription for a wallet address.
- */
-
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, SUB_KEY } from "../_lib/kv";
 import {
@@ -15,8 +9,32 @@ import {
 } from "../_lib/rateLimit";
 import type { SubscriptionRecord, PeriodPrefs } from "@/app/types/notifications";
 
+const VALID_PERIODS = ["weekly", "monthly", "yearly"] as const;
+
 function isValidWallet(address: string): boolean {
   return typeof address === "string" && address.startsWith("G") && address.length === 56;
+}
+
+async function syncPeriodIndex(
+  walletAddress: string,
+  previousPeriods: PeriodPrefs | undefined,
+  currentPeriods: PeriodPrefs,
+) {
+  const ops = VALID_PERIODS.map((period) => {
+    const key = PERIOD_KEY(period);
+    const enabled = !!currentPeriods[period];
+    const wasEnabled = !!previousPeriods?[period];
+
+    if (enabled) {
+      return kvSAdd(key, walletAddress);
+    }
+    if (wasEnabled) {
+      return kvSRem(key, walletAddress);
+    }
+    return Promise.resolve();
+  });
+
+  await Promise.all(ops);
 }
 
 export async function POST(request: NextRequest) {
@@ -47,10 +65,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid push subscription" }, { status: 400 });
     }
 
-    const existing = (await kvGet<SubscriptionRecord>(SUB_KEY(walletAddress))) ?? {
-      walletAddress,
-      consentGiven: true,
-      consentTimestamp: new Date().toISOString(),
+    const existing =
+      (await kvGet<SubscriptionRecord>(SUB_KEY(walletAddress))) ?? {
+        walletAddress,
+        consentGiven: true,
+        consentTimestamp: new Date().toISOString(),
+      };
+
+    const previousPeriods = existing.push?.periods;
+
+    const normalizedPeriods: PeriodPrefs = periods ?? {
+      weekly: false,
+      monthly: false,
+      yearly: false,
     };
 
     const updated: SubscriptionRecord = {
@@ -63,6 +90,8 @@ export async function POST(request: NextRequest) {
     };
 
     await kvSet(SUB_KEY(walletAddress), updated);
+
+    await syncPeriodIndex(walletAddress, previousPeriods, normalizedPeriods);
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {

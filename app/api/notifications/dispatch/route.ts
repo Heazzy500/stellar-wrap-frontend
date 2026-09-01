@@ -12,17 +12,17 @@ import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { kvGet, kvSet, kvKeys, SUB_KEY, LOG_KEY } from "../_lib/kv";
 import { sendEmail } from "../_lib/email";
-import { formatPushPayload } from "@/app/utils/notifications/pushPayloadFormatter";
-import { renderEmailTemplate } from "@/app/utils/notifications/emailTemplate";
+import { formatPushPayload } from "@app/utils/notifications/pushPayloadFormatter";
+import { renderEmailTemplate } from "@app/utils/notifications/emailTemplate";
 import {
   getPeriodKey,
   getActivePeriodsForNow,
-} from "@/app/utils/notifications/periodKey";
+} from "@app/utils/notifications/periodKey";
 import type {
   SubscriptionRecord,
   DispatchLogEntry,
   WrapPeriod,
-} from "@/app/types/notifications";
+} from "@app/types/notifications";
 
 const PERIOD_LABEL: Record<WrapPeriod, string> = {
   weekly: "Weekly",
