@@ -3,22 +3,16 @@
 /**
  * AssetDisplay Component
  * Displays resolved asset with logo, name, and code.
- *
- * Fix #280 — stable icon dimensions + polished fallback:
- *  - Icon slot is always rendered at the configured dimensions so the layout
- *    never shifts regardless of load/error state.
- *  - When the <Image> fails to load, an in-place initials badge replaces it
- *    while keeping the same reserved size.
- *  - AssetCard applies the same treatment to its own image.
+ * Uses React Query (useAssetQuery) for caching and retry logic.
  */
 
 import React, { useState, useEffect } from "react";
 import { AssetMetadata } from "@/app/types/asset";
 import {
-  resolveAsset,
   getAssetDisplayName,
   getAssetShortName,
 } from "@/app/services/assetResolver";
+import { useAssetQuery } from "@/app/hooks/useAssetQuery";
 import Image from "next/image";
 import { useQuery } from "@tanstack/react-query";
 
@@ -176,16 +170,9 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   if (isLoading) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
-        {showLogo && (
-          <div
-            aria-hidden="true"
-            className="shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"
-            style={{
-              width: sizeConfig.logo,
-              height: sizeConfig.logo,
-            }}
-          />
-        )}
+        <div
+          className={`animate-pulse rounded-full bg-gray-200 dark:bg-gray-700 h-[${sizeConfig.logo}px] w-[${sizeConfig.logo}px]`}
+        />
         {showCode && (
           <span className={`${sizeConfig.text} text-gray-400`}>Loading...</span>
         )}
