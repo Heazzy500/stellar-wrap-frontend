@@ -27,19 +27,47 @@ function errorResponse(
   status: number,
   error: string,
   code: WrappedApiErrorCode,
+  details?: string,
 ) {
-  return NextResponse.json({ error, code }, { status });
+  return NextResponse.json(
+    {
+      error,
+      code,
+      ...(details !== undefined && { details }),
+    },
+    { status },
+  );
 }
 
 export async function GET(request: NextRequest) {
   try {
+    const rateLimitConfig = getRateLimitConfig();
+
+    // 1. Enforce per-IP rate limit
+    const clientIp = getClientIp(request);
+    const ipRateLimit = await checkRateLimit(`rl:ip:${clientIp}`, {
+      windowSeconds: rateLimitConfig.windowSeconds,
+      maxRequests: rateLimitConfig.ipMax,
+    });
+
+    if (!ipRateLimit.allowed) {
+      return rateLimitResponse(
+        "IP rate limit exceeded. Please try again later.",
+        ipRateLimit.retryAfterSeconds,
+        ipRateLimit.limit,
+        ipRateLimit.remaining,
+        ipRateLimit.resetTime,
+      );
+    }
+
     const searchParams = request.nextUrl.searchParams;
     const accountId = searchParams.get("accountId");
     const network =
-      (searchParams.get("network") as "mainnet" | "testnet") || "mainnet";
-    const period = (searchParams.get("period") as WrapPeriod) || "monthly";
+      (searchParams.get("network") as Network) || "mainnet";
+    const rawPeriod = searchParams.get("period");
+    const period = (rawPeriod ? rawPeriod.toLowerCase() : "monthly") as WrapPeriod;
 
-    // Validate inputs
+    // 2. Validate inputs
     if (!accountId) {
       return errorResponse(
         400,
@@ -48,7 +76,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const validationResult = validateStellarAddress(accountId, network as any);
+    const validationResult = validateStellarAddress(accountId, network);
     if (!validationResult.isValid) {
       return errorResponse(
         400,
@@ -62,7 +90,28 @@ export async function GET(request: NextRequest) {
     }
 
     if (!PERIODS[period]) {
-      return errorResponse(400, "Invalid period", "INVALID_PERIOD");
+      return errorResponse(
+        400,
+        "Invalid period",
+        "INVALID_PERIOD",
+        "Valid periods: weekly, monthly, yearly",
+      );
+    }
+
+    // 3. Enforce per-account rate limit
+    const accountRateLimit = await checkRateLimit(`rl:account:${accountId}`, {
+      windowSeconds: rateLimitConfig.windowSeconds,
+      maxRequests: rateLimitConfig.accountMax,
+    });
+
+    if (!accountRateLimit.allowed) {
+      return rateLimitResponse(
+        "Account rate limit exceeded. Please try again later.",
+        accountRateLimit.retryAfterSeconds,
+        accountRateLimit.limit,
+        accountRateLimit.remaining,
+        accountRateLimit.resetTime,
+      );
     }
 
     // Server-safe indexer (no IndexedDB) — returns live Horizon data
@@ -81,7 +130,7 @@ export async function GET(request: NextRequest) {
     // Handle specific error cases
     const err = error as Record<string, unknown>;
     const message = (err?.message as string) || "";
-    const statusCode = err?.statusCode as number | undefined;
+    const statusCode = (err?.statusCode ?? err?.status) as number | undefined;
 
     // Check for NotFoundError (account doesn't exist on this network)
     if (
@@ -105,6 +154,19 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check for timeout errors
+    if (
+      statusCode === 408 ||
+      message.toLowerCase().includes("timeout") ||
+      message.toLowerCase().includes("timed out")
+    ) {
+      return errorResponse(
+        408,
+        "Network timed out. Please try again later.",
+        "HORIZON_ERROR",
+      );
+    }
+
     // Check for Horizon server errors
     if (statusCode === 500) {
       return errorResponse(500, "Horizon server error", "HORIZON_ERROR");
@@ -119,6 +181,8 @@ export async function GET(request: NextRequest) {
       500,
       "Failed to fetch wrapped data. Please try again later.",
       "WRAPPED_FETCH_FAILED",
+      message,
     );
   }
 }
+
