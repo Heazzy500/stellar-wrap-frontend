@@ -379,7 +379,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
         )}
         {showCode && (
           <span
-            className={`${sizeConfig.text} text-gray-600 dark:text-gray-400`}
+            className={`${sizeConfig.text} min-w-0 truncate text-gray-600 dark:text-gray-400`}
           >
             {code}
           </span>
@@ -409,7 +409,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
         />
       )}
       <span
-        className={`${sizeConfig.text} font-medium text-gray-900 dark:text-gray-100`}
+        className={`${sizeConfig.text} min-w-0 truncate font-medium text-gray-900 dark:text-gray-100`}
       >
         {displayName}
       </span>
@@ -512,11 +512,11 @@ export const AssetCard: React.FC<
       {showLogo && (
         <AssetIconSlot logo={metadata.logo} code={metadata.code} size={32} />
       )}
-      <div className="flex-1">
-        <div className="font-medium text-gray-900 dark:text-gray-100">
+      <div className="min-w-0 flex-1">
+        <div className="truncate font-medium text-gray-900 dark:text-gray-100">
           {metadata.name}
         </div>
-        <div className="text-xs text-gray-600 dark:text-gray-400">
+        <div className="truncate text-xs text-gray-600 dark:text-gray-400">
           {metadata.code}
           {showIssuer && metadata.issuer && (
             <span className="ml-2">({metadata.issuer.slice(0, 8)}...)</span>
