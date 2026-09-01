@@ -6,6 +6,13 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, SUB_KEY } from "../_lib/kv";
+import {
+  getClientIp,
+  checkRateLimit,
+  rateLimitResponse,
+  SUBSCRIBE_IP_LIMIT,
+  SUBSCRIBE_IP_WINDOW,
+} from "../_lib/rateLimit";
 import type { SubscriptionRecord, PeriodPrefs } from "@/app/types/notifications";
 
 function isValidWallet(address: string): boolean {
@@ -14,6 +21,17 @@ function isValidWallet(address: string): boolean {
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const ipLimitResult = await checkRateLimit(
+      `ratelimit:ip:subscribe:${ip}`,
+      SUBSCRIBE_IP_LIMIT,
+      SUBSCRIBE_IP_WINDOW,
+    );
+
+    if (!ipLimitResult.allowed) {
+      return rateLimitResponse(ipLimitResult.resetInSeconds);
+    }
+
     const body = await request.json();
     const { walletAddress, subscription, periods } = body as {
       walletAddress: string;
@@ -40,7 +58,7 @@ export async function POST(request: NextRequest) {
       push: {
         subscription,
         periods: periods ?? { weekly: false, monthly: false, yearly: false },
-        createdAt: new Date().toISOString(),
+        createdAt: existing.push?.createdAt ?? new Date().toISOString(),
       },
     };
 
