@@ -8,6 +8,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, SUB_KEY } from "../_lib/kv";
 import { sendEmail } from "../_lib/email";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("api:subscribe-email");
 import {
   getClientIp,
   checkRateLimit,
@@ -120,7 +123,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, status }, { status: 200 });
   } catch (err) {
-    console.error("[POST /api/notifications/subscribe-email]", err);
+    log.error("Internal error creating email subscription:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

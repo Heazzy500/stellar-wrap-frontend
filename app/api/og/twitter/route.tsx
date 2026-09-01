@@ -1,8 +1,10 @@
 import { ImageResponse } from '@vercel/og';
 import { NextRequest } from 'next/server';
-import React from "react";
+import React from 'react';
+import { parseSharePreviewParams } from '@/app/utils/sharePreviewParams';
+import { logger } from '@/app/utils/logger';
 
-export const runtime = 'edge';
+const log = logger.child('api:og-twitter');
 
 const CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=604800';
 
@@ -210,7 +212,7 @@ export async function GET(req: NextRequest) {
     return imageResponse;
   } catch (e) {
     if (e instanceof Error) {
-      console.error(e.message);
+      log.error("Twitter OG image generation failed:", e.message);
     }
     return new Response(`Failed to generate the image`, { status: 500 });
   }

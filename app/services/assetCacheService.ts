@@ -14,6 +14,9 @@ import {
   ASSET_CACHE_VERSION,
   createAssetCacheKey,
 } from "@/app/utils/assetConstants";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("assetCacheService");
 
 class AssetCacheService {
   private memoryCache: AssetCache = {};
@@ -43,7 +46,7 @@ class AssetCacheService {
         }
       }
     } catch (error) {
-      console.error("Failed to initialize asset cache from storage:", error);
+      log.error("Failed to initialize asset cache from storage:", error);
       // Continue with empty cache
     }
   }
@@ -195,7 +198,7 @@ class AssetCacheService {
 
       localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.memoryCache));
     } catch (error) {
-      console.error("Failed to persist asset cache to storage:", error);
+      log.error("Failed to persist asset cache to storage:", error);
       // Continue even if storage fails
     }
   }

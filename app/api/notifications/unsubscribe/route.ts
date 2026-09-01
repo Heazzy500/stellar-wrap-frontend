@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ error: "Provide either token or walletAddress and channel" }, { status: 400 });
   } catch (err) {
-    console.error("[POST /api/notifications/unsubscribe]", err);
+    log.error("Internal error processing unsubscribe:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -7,6 +7,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { indexAccount } from "@/app/services/indexerServer";
 import { WrapPeriod, PERIODS } from "@/app/utils/indexer";
 import { validateStellarAddress } from "@/src/utils/validateStellarAddress";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("api:wrapped");
 
 /** Structured codes the frontend can branch on without reading raw internals. */
 export type WrappedApiErrorCode =
@@ -73,7 +76,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     // Detailed errors stay server-side only — never leak to clients
-    console.error("Error in /api/wrapped:", error);
+    log.error("Internal error fetching wrapped data:", error);
 
     // Handle specific error cases
     const err = error as Record<string, unknown>;

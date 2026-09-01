@@ -11,6 +11,9 @@ import { IndexerResult } from "@/app/utils/indexer";
 import { useAssetQuery } from "@/app/hooks/useAssetQuery";
 import { AssetDisplay, AssetBadge } from "./AssetDisplay";
 import { Sparkles } from "lucide-react";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("AchievementDisplay");
 
 interface AchievementDisplayProps {
   result: IndexerResult | null;

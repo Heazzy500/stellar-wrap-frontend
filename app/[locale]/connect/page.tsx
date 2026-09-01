@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, KeyboardEvent, ChangeEvent, FormEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, Wallet, CheckCircle, XCircle, Copy, ChevronRight, QrCode } from "lucide-react";
+import { logger } from "@/app/utils/logger";
 import { Horizon } from "stellar-sdk";
 import { useTranslations } from "next-intl";
 import { useWrapStore } from "../../store/wrapStore";
@@ -151,7 +152,7 @@ export default function ConnectPage() {
         .call();
       setPreviewTxCount(txPage.records.length);
     } catch (error) {
-      console.error("Failed to fetch account preview:", error);
+      log.error("Failed to fetch account preview:", error);
       setPreviewBalance("0");
       setPreviewTxCount(0);
     } finally {

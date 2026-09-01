@@ -233,7 +233,7 @@ export default function ArchetypeReveal(): JSX.Element {
         }
       } catch (error) {
         if (cancelled) return;
-        console.error("Failed to generate persona:", error);
+        log.error("Failed to generate persona:", error);
         // Fall back to existing description
         setStreamedDescription(result?.personaDescription || data.description);
       }

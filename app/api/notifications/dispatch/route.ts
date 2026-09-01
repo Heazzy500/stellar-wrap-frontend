@@ -62,7 +62,7 @@ async function sendPushNotification(
   const vapidSubject = process.env.VAPID_SUBJECT ?? "mailto:noreply@stellarwrapped.app";
 
   if (!vapidPrivateKey || !vapidPublicKey) {
-    console.warn("[dispatch] VAPID keys not configured — skipping push");
+    log.warn("VAPID keys not configured — skipping push");
     return;
   }
 
@@ -246,7 +246,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true, dispatched, periods: activePeriods });
   } catch (err) {
-    console.error("[POST /api/notifications/dispatch]", err);
+    log.error("Internal error during dispatch:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

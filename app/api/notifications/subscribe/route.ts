@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, SUB_KEY } from "../_lib/kv";
+import { logger } from "@/app/utils/logger";
 import {
   getClientIp,
   checkRateLimit,
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
-    console.error("[POST /api/notifications/subscribe]", err);
+    log.error("Internal error creating push subscription:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

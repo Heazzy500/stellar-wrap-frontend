@@ -3,6 +3,9 @@
 import { streamText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { createStreamableValue } from "ai/rsc";
+import { logger } from "@/app/utils/logger";
+
+const log = logger.child("generate-persona");
 
 export interface PersonaMetrics {
   username?: string;
@@ -62,18 +65,18 @@ function logSafeDiagnostics(): void {
     process.env.OPENAI_API_KEY === "sk-your-key-here";
 
   if (!hasKey) {
-    console.warn(
-      "[generate-persona] OPENAI_API_KEY is not set. AI persona generation will not be available. " +
+    log.warn(
+      "OPENAI_API_KEY is not set. AI persona generation will not be available. " +
         "Set OPENAI_API_KEY in your environment to enable AI-powered persona descriptions.",
     );
   } else if (isDefaultPlaceholder) {
-    console.warn(
-      "[generate-persona] OPENAI_API_KEY is set to the default placeholder value. " +
+    log.warn(
+      "OPENAI_API_KEY is set to the default placeholder value. " +
         "Update OPENAI_API_KEY to a valid key to enable AI-powered persona descriptions.",
     );
   } else {
-    console.log(
-      "[generate-persona] OPENAI_API_KEY is configured (masked: " +
+    log.info(
+      "OPENAI_API_KEY is configured (masked: " +
         process.env.OPENAI_API_KEY.slice(0, 8) +
         "..." +
         process.env.OPENAI_API_KEY.slice(-4) +
@@ -149,8 +152,8 @@ Generate a single witty persona description. Do NOT use any formatting like aste
 
       // Handle empty stream — no chunks were received from the AI
       if (chunkCount === 0) {
-        console.warn(
-          "[generate-persona] AI stream returned empty — no chunks received. Falling back to deterministic description.",
+        log.warn(
+          "AI stream returned empty — no chunks received. Falling back to deterministic description.",
         );
         const fallback = pickFallbackDescription(metrics);
         streamable.append(fallback);
@@ -158,7 +161,7 @@ Generate a single witty persona description. Do NOT use any formatting like aste
 
       streamable.done();
     } catch (error) {
-      console.error("[generate-persona] Error generating persona:", error);
+      log.error("Error generating persona:", error);
       // Safe diagnostic: log whether the error is configuration-related
       if (error instanceof Error) {
         const message = error.message.toLowerCase();
@@ -169,8 +172,8 @@ Generate a single witty persona description. Do NOT use any formatting like aste
           message.includes("401") ||
           message.includes("insufficient_quota")
         ) {
-          console.warn(
-            "[generate-persona] AI configuration or quota error detected. Falling back to deterministic description.",
+          log.warn(
+            "AI configuration or quota error detected. Falling back to deterministic description.",
           );
         }
       }

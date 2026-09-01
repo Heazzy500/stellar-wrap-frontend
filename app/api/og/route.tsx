@@ -218,7 +218,7 @@ const archetypeImagePath =
     return imageResponse;
   } catch (e) {
     if (e instanceof Error) {
-      console.error(e.message);
+      log.error("OG image generation failed:", e.message);
     }
     return new Response(`Failed to generate the image`, { status: 500 });
   }
