@@ -1,9 +1,11 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, Share2, Link2, Check } from "lucide-react";
 import { useSearchParams } from "next/navigation";
+import { useNativeShare } from "@/app/hooks/useNativeShare";
 import { mockData } from "@/app/data/mockData";
 import { GOLDEN_USER } from "@/src/data/mockData";
 import { ProgressIndicator } from "@/app/components/ProgressIndicator";
@@ -45,8 +47,19 @@ const SocialIcons = {
 
 export default function SharePageClient() {
   const searchParams = useSearchParams();
+  const locale = useLocale();
+  const t = useTranslations("SharePage");
+  const cardT = useTranslations("ShareCard");
+  const cardLabels = {
+    stellarWrapped: cardT("stellarWrapped"),
+    totalTransactions: cardT("totalTransactions"),
+    persona: cardT("persona"),
+    topVibe: cardT("topVibe"),
+    scanToView: cardT("scanToView"),
+    scanToViewAlt: cardT("scanToViewAlt"),
+    noVibeData: cardT("noVibeData"),
+  };
   const [shareOpen, setShareOpen] = useState<boolean>(false);
-  const [shareUrl, setShareUrl] = useState<string>("");
   const [cardFormat, setCardFormat] = useState<"square" | "stories">("square");
   const shareMenuRef = useRef<HTMLDivElement | null>(null);
   const shareBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -97,11 +110,11 @@ export default function SharePageClient() {
     return computedColor || themeColors[color].primary;
   });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const shareUrl = useMemo(() => {
+    if (typeof window === "undefined") return "";
     const query = buildSharePreviewSearchParams(storePreview).toString();
     const path = `${window.location.pathname}?${query}`;
-    setShareUrl(`${window.location.origin}${path}`);
+    return `${window.location.origin}${path}`;
   }, [storePreview]);
 
   const [copied, setCopied] = useState(false);
@@ -128,8 +141,13 @@ export default function SharePageClient() {
     }
   };
 
-  const shareTitle = "Stellar Wrapped 2026";
-  const shareText = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
+  const shareTitle = t("title");
+  const shareText = t("shareText", {
+    transactions,
+    persona,
+    vibePercentage,
+    topVibe,
+  });
 
   /**
    * Primary share button. Prefers the native share sheet when the browser
@@ -167,29 +185,29 @@ export default function SharePageClient() {
   const handleShare = (platform: string) => {
     trackEvent("share_clicked", { platform });
     const url = shareUrl || window.location.href;
-    const text = `Check out my Stellar Wrapped 2026! ${transactions} transactions, ${persona} persona, ${vibePercentage}% ${topVibe}! 🎉 #StellarWrapped`;
-    let shareUrl = "";
+    const text = shareText;
+    let platformShareUrl = "";
 
     switch (platform) {
       case "x":
-        shareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
+        platformShareUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`;
         break;
       case "whatsapp":
-        shareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
+        platformShareUrl = `https://wa.me/?text=${encodeURIComponent(text + " " + url)}`;
         break;
       case "facebook":
-        shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+        platformShareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
         break;
       case "linkedin":
-        shareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+        platformShareUrl = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
         break;
       case "telegram":
-        shareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+        platformShareUrl = `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
         break;
     }
 
-    if (shareUrl) {
-      window.open(shareUrl, "_blank", "width=600,height=500");
+    if (platformShareUrl) {
+      window.open(platformShareUrl, "_blank", "width=600,height=500");
     }
     setShareOpen(false);
   };
@@ -248,7 +266,7 @@ export default function SharePageClient() {
               style={{ backgroundColor: "rgba(0, 0, 0, 0.5)" }}
             >
               <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
-              View full history on Stellar.expert
+              {t("viewHistory")}
             </a>
           )}
         </div>
@@ -260,9 +278,9 @@ export default function SharePageClient() {
         style={{ left: "-9999px", top: 0 }}
       >
         {cardFormat === "stories" ? (
-          <ShareImageCardStories themeColor={themeColor} archetypeImage={GOLDEN_USER.archetype.image} shareUrl={shareUrl} />
+          <ShareImageCardStories themeColor={themeColor} archetypeImage={GOLDEN_USER.archetype.image} shareUrl={shareUrl} locale={locale} labels={cardLabels} />
         ) : (
-          <ShareImageCard themeColor={themeColor} archetypeImage={GOLDEN_USER.archetype.image} shareUrl={shareUrl} />
+          <ShareImageCard themeColor={themeColor} archetypeImage={GOLDEN_USER.archetype.image} shareUrl={shareUrl} locale={locale} labels={cardLabels} />
         )}
       </div>
 
@@ -394,7 +412,7 @@ export default function SharePageClient() {
                   }}
                   className="flex items-center cursor-pointer pl-4 gap-3 p-2 w-42 h-15 rounded-xl bg-[#0F0F10] hover:bg-[#1a1a1c] transition-colors"
                   aria-live="polite"
-                  aria-label={copied ? "Link copied to clipboard" : "Copy link to clipboard"}
+                  aria-label={copied ? t("linkCopied") : t("copyLink")}
                 >
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#6366f1]">
                     {copied ? (
@@ -404,7 +422,7 @@ export default function SharePageClient() {
                     )}
                   </div>
                   <span className="font-bold text-white tracking-wide">
-                    {copied ? "Copied!" : "Copy link"}
+                    {copied ? t("copied") : t("copyLink")}
                   </span>
                 </button>
 
@@ -422,7 +440,7 @@ export default function SharePageClient() {
             type="button"
             onClick={() => setShareOpen(!shareOpen)}
             className="flex h-12 w-12 sm:h-16 sm:w-16 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:bg-white/5"
-            aria-label={shareOpen ? "Close share menu" : "Open share menu"}
+            aria-label={shareOpen ? t("closeMenu") : t("openMenu")}
             aria-expanded={shareOpen}
             aria-haspopup="menu"
           >

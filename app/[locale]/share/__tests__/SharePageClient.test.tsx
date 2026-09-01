@@ -46,7 +46,7 @@ jest.mock('../store/wrapStore', () => {
       mockPeriod = p;
     },
   };
-}));
+});
 
 jest.mock('../../utils/plausible', () => ({
   trackEvent: jest.fn(),

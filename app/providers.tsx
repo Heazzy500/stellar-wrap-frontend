@@ -20,10 +20,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }));
 
   useEffect(() => {
-    // Dynamically import walletKit so that stellar-sdk and
-    // @creit-tech/stellar-wallets-kit are NOT included in the initial
-    // landing-page bundle.  They are only loaded here, client-side, after
-    // the user's first interaction with the app.
     if (typeof window !== "undefined") {
       import("@/app/utils/wallet").then(({ initWalletKit }) => {
         initWalletKit();
