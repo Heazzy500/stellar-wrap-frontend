@@ -29,10 +29,7 @@ function getIntensityColor(count: number, max: number): string {
   return "var(--color-theme-primary)";
 }
 
-export function TransactionHeatmap({
-  dailyActivity,
-  period,
-}: TransactionHeatmapProps) {
+export function TransactionHeatmap({ dailyActivity, period }: TransactionHeatmapProps) {
   const [tooltip, setTooltip] = useState<{
     date: string;
     count: number;
@@ -92,9 +89,9 @@ export function TransactionHeatmap({
       return (
         <div
           key={cell.date}
-          className="relative w-[var(--cell-size)] h-[var(--cell-size)] rounded-sm cursor-pointer transition-transform hover:scale-125"
-          style={ backgroundColor: getIntensityColor(cell.count, maxCount) }
-          onMouseEnter={ (e) => {
+          className="relative h-[var(--cell-size)] w-[var(--cell-size)] cursor-pointer rounded-sm transition-transform hover:scale-125"
+          style={{ backgroundColor: getIntensityColor(cell.count, maxCount) }}
+          onMouseEnter={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             setTooltip({
               date: cell.date,
@@ -104,7 +101,7 @@ export function TransactionHeatmap({
             });
           }}
           onMouseLeave={() => setTooltip(null)}
-          onClick={ () =>
+          onClick={() =>
             setTooltip({
               date: cell.date,
               count: cell.count,
@@ -112,10 +109,10 @@ export function TransactionHeatmap({
               y: 0,
             })
           }
-          title={+`${cell.count} transaction${cell.count === 1 ? "" : "s"} on ${formatTooltipDate(cell.date)}`}
+          title={`${cell.count} transaction${cell.count === 1 ? "" : "s"} on ${formatTooltipDate(cell.date)}`}
         >
           {isPeak && (
-            <Star className="absolute -top-1 -right-1 w-2.5 h-2.5 text-yellow-400 fill-yellow-400" />
+            <Star className="absolute -top-1 -right-1 h-2.5 w-2.5 fill-yellow-400 text-yellow-400" />
           )}
         </div>
       );
@@ -123,23 +120,23 @@ export function TransactionHeatmap({
 
   return (
     <motion.div
-      initial={ opacity: 0, y: 16 }
-      animate={ opacity: 1, y: 0 }
-      transition={ delay: 0.6 }
-      className="mt-8 sm:mt-10 w-full"
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.6 }}
+      className="mt-8 w-full sm:mt-10"
     >
-      <h3 className="text-xs sm:text-sm font-black tracking-[0.25em] text-white/50 mb-3 sm:mb-4">
+      <h3 className="mb-3 text-xs font-black tracking-[0.25em] text-white/50 sm:mb-4 sm:text-sm">
         ACTIVITY HEATMAP
       </h3>
 
       <div
-        className={`rounded-xl sm:rounded-2xl border border-white/10 bg-white/5 backdrop-blur p-4 sm:p-5 [--cell-size:0.75rem] sm:[--cell-size:1rem] ${
+        className={`rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur [--cell-size:0.75rem] sm:rounded-2xl sm:p-5 sm:[--cell-size:1rem] ${
           isScrollable ? "overflow-x-auto" : ""
         }`}
       >
-      {! isYearly && (
+        {!isYearly && (
           <div
-            className="grid gap-1 mb-2 text-[10px] text-white/40 font-bold mx-auto w-max"
+            className="mx-auto mb-2 grid w-max gap-1 text-[10px] font-bold text-white/40"
             style={{ gridTemplateColumns: `repeat(7, var(--cell-size))` }}
           >
             {dayLabels.map((label, i) => (
@@ -153,7 +150,7 @@ export function TransactionHeatmap({
         {isYearly ? (
           <div className="flex w-max">
             <div
-              className="grid gap-1 mr-1 text-[10px] text-white/40 font-bold"
+              className="mr-1 grid gap-1 text-[10px] font-bold text-white/40"
               style={{ gridTemplateRows: `repeat(7, var(--cell-size))` }}
             >
               {dayLabels.map((label, i) => (
@@ -167,24 +164,21 @@ export function TransactionHeatmap({
             </div>
           </div>
         ) : (
-          <div className="grid gap-1 mx-auto w-max" style={gridStyle}>
+          <div className="mx-auto grid w-max gap-1" style={gridStyle}>
             {renderCells()}
           </div>
         )}
 
-        <!-- Legend -->
-        <div className="flex items-center gap-2 mt-4 text-[10px] text-white/50">
+        {/* Legend */}
+        <div className="mt-4 flex items-center gap-2 text-[10px] text-white/50">
           <span>Less</span>
           {[0, 0.25, 0.5, 0.75, 1].map((level) => (
             <div
               key={level}
-              className="w-3 h-3 rounded-sm"
-              style={
-                backgroundColor: getIntensityColor(
-                  level * (maxCount || 1),
-                  maxCount || 1,
-                ),
-              }
+              className="h-3 w-3 rounded-sm"
+              style={{
+                backgroundColor: getIntensityColor(level * (maxCount || 1), maxCount || 1),
+              }}
             />
           ))}
           <span>More</span>
@@ -192,8 +186,8 @@ export function TransactionHeatmap({
       </div>
 
       {tooltip && (
-        <div className="mt-2 text-center text-sm text-white/70 font-medium">
-          {tooltip.count} transaction{tooltip.count === 1 ? "" : "s"} on{}
+        <div className="mt-2 text-center text-sm font-medium text-white/70">
+          {tooltip.count} transaction{tooltip.count === 1 ? "" : "s"} on{" "}
           {formatTooltipDate(tooltip.date)}
         </div>
       )}

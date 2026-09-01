@@ -4,7 +4,7 @@ const VALID_PERIODS = ["weekly", "monthly", "yearly"] as const;
 const redis = new Redis();
 
 (async () => {
-  for await const key of redis.scanIterator({ match: "notif:sub:*" })) {
+  for await (const key of redis.scanIterator({ match: "notif:sub:*" })) {
     const raw = await redis.get(key);
     if (!raw) continue;
     const record = JSON.parse(raw) as {

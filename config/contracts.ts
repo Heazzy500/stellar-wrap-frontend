@@ -11,11 +11,7 @@ import {
   TransactionBuilder,
   xdr,
 } from "@stellar/stellar-sdk";
-import {
-  getPublicKey,
-  isConnected,
-  signTransaction,
-} from "@stellar/freighter-api";
+import { getPublicKey, isConnected, signTransaction } from "@stellar/freighter-api";
 
 import { Network, isValidNetwork } from "../src/config";
 
@@ -77,7 +73,7 @@ export class PlaceholderContractAddressError extends Error {
 }
 
 /** Default contract addresses and Soroban RPC endpoints (fallback when env vars are not set) */
-const DEFAULT_CONTRACT_CONFIG : ContractConfig = {
+const DEFAULT_CONTRACT_CONFIG: ContractConfig = {
   mainnet: {
     contractAddress: PLACEHOLDER_ADDRESS,
     rpcUrl: "https://soroban-mainnet.stellar.org",
@@ -260,7 +256,7 @@ export function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       (error: unknown) => {
         clearTimeout(timer);
         reject(error instanceof Error ? error : new Error(String(error)));
-      },
+      }
     );
   });
 }
@@ -301,7 +297,7 @@ export interface SorobanInvocation {
  */
 export async function simulateSorobanCall(
   invocation: SorobanInvocation,
-  network: Network),
+  network: Network
 ): Promise<xdr.ScVal> {
   const server = getSorobanServer(network);
   const contractAddress = getContractAddress(network);
@@ -317,7 +313,7 @@ export async function simulateSorobanCall(
         contract: contractAddress,
         function: invocation.method,
         args: invocation.args,
-      }),
+      })
     )
     .setTimeout(30)
     .build();
@@ -342,7 +338,7 @@ export async function simulateSorobanCall(
  */
 export async function sendSorobanCall(
   invocation: SorobanInvocation,
-  network: Network),
+  network: Network
 ): Promise<string> {
   const server = getSorobanServer(network);
   const contractAddress = getContractAddress(network);
@@ -359,7 +355,7 @@ export async function sendSorobanCall(
         contract: contractAddress,
         function: invocation.method,
         args: invocation.args,
-      }),
+      })
     )
     .setTimeout(30)
     .build();
