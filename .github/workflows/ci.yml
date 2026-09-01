@@ -31,7 +31,7 @@ jobs:
           fi
           echo "⌈ Lock file validation passed"
 
-  build-and-lint:
+  build-and-test:
     runs-on: ubuntu-latest
     needs: check-lock-files
     
