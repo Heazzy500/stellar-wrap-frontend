@@ -64,19 +64,55 @@ function assetInitials(code: string): string {
  * asset always gets the same colour, which looks intentional rather than
  * random.
  */
+const INITIALS_BG_CLASSES: string[] = [
+  "bg-red-800",
+  "bg-orange-800",
+  "bg-amber-800",
+  "bg-green-800",
+  "bg-teal-800",
+  "bg-blue-800",
+  "bg-indigo-800",
+  "bg-purple-800",
+  "bg-pink-800",
+  "bg-gray-800",
+];
+
 function initialsColor(code: string): string {
   let hash = 0;
   for (let i = 0; i < code.length; i++) {
     hash = (hash * 31 + code.charCodeAt(i)) >>> 0;
   }
-  const hue = hash % 360;
-  return `hsl(${hue} 52% 32%)`;
+  return INITIALS_BG_CLASSES[hash % INITIALS_BG_CLASSES.length] ?? "bg-gray-800";
+}
+
+/** Fixed Tailwind size classes for the three supported icon slot sizes. */
+function iconSizeClass(size: number): string {
+  if (size === 16) {
+    return "h-4 w-4";
+  }
+  if (size === 24) {
+    return "h-6 w-6";
+  }
+  return "h-8 w-8";
+}
+
+/** Fixed Tailwind font-size class for initials inside an icon slot. */
+function initialsSizeClass(size: number): string {
+  if (size === 16) {
+    return "text-[8px]";
+  }
+  if (size === 24) {
+    return "text-[9px]";
+  }
+  return "text-[12px]";
 }
 
 interface InitialsBadgeProps {
   code: string;
   size: number;
   className?: string;
+  decorative?: boolean;
+  alt?: string;
 }
 
 /**
@@ -87,16 +123,14 @@ const InitialsBadge: React.FC<InitialsBadgeProps> = ({
   code,
   size,
   className = "",
+  decorative = false,
+  alt,
 }) => (
   <span
-    aria-label={`${code} icon`}
-    className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${className}`}
-    style={{
-      width: size,
-      height: size,
-      fontSize: Math.max(8, Math.floor(size * 0.4)),
-      backgroundColor: initialsColor(code),
-    }}
+    role={decorative ? undefined : "img"}
+    aria-label={decorative ? undefined : alt || `${code} icon`}
+    aria-hidden={decorative || undefined}
+    className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white ${iconSizeClass(size)} ${initialsSizeClass(size)} ${initialsColor(code)} ${className}`}
   >
     {assetInitials(code)}
   </span>
@@ -111,6 +145,7 @@ interface AssetIconSlotProps {
   code: string;
   size: number;
   className?: string;
+  alt?: string;
 }
 
 /**
@@ -126,6 +161,7 @@ const AssetIconSlot: React.FC<AssetIconSlotProps> = ({
   code,
   size,
   className = "",
+  alt,
 }) => {
   const [imgError, setImgError] = useState(false);
 
@@ -135,19 +171,25 @@ const AssetIconSlot: React.FC<AssetIconSlotProps> = ({
   }, [logo]);
 
   if (!logo || imgError) {
-    return <InitialsBadge code={code} size={size} className={className} />;
+    return (
+      <InitialsBadge
+        code={code}
+        size={size}
+        className={className}
+        decorative={alt === ""}
+        alt={alt || undefined}
+      />
+    );
   }
 
   return (
     <Image
       src={logo}
-      alt={code}
+      alt={alt ?? code}
       width={size}
       height={size}
-      className={`rounded-full ${className}`}
+      className={`shrink-0 rounded-full ${iconSizeClass(size)} ${className}`}
       onError={() => setImgError(true)}
-      // Prevent the image from collapsing its container before it loads
-      style={{ minWidth: size, minHeight: size }}
     />
   );
 };
@@ -187,7 +229,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
           className={`animate-pulse rounded-full bg-gray-200 dark:bg-gray-700 h-[${sizeConfig.logo}px] w-[${sizeConfig.logo}px]`}
         />
         {showCode && (
-          <span className={`${sizeConfig.text} text-gray-400`}>Loading...</span>
+          <span className={`${sizeConfig.text} text-gray-600 dark:text-gray-400`}>Loading...</span>
         )}
       </div>
     );
@@ -202,6 +244,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
             code={code}
             size={sizeConfig.logo}
             className={logoClassName}
+            decorative={showCode}
           />
         )}
         {showCode && (
@@ -218,6 +261,11 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   const displayName = showFullName
     ? getAssetDisplayName(metadata)
     : getAssetShortName(metadata);
+  const logoAlt = displayName
+    .toLowerCase()
+    .includes(metadata.code.toLowerCase())
+    ? ""
+    : metadata.code;
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
@@ -227,6 +275,7 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
           code={metadata.code}
           size={sizeConfig.logo}
           className={logoClassName}
+          alt={logoAlt}
         />
       )}
       <span
@@ -344,7 +393,7 @@ export const AssetCard: React.FC<
           )}
         </div>
         {metadata.description && (
-          <div className="mt-1 text-xs text-gray-500 dark:text-gray-500">
+          <div className="mt-1 text-xs text-gray-600 dark:text-gray-400">
             {metadata.description}
           </div>
         )}

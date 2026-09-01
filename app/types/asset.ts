@@ -6,15 +6,17 @@
 /*
  * Represents resolved asset metadata
  */
-export interface AssetMetadata {
+export type AssetMetadata = {
   code: string;
   issuer?: string;
   name: string;
-  logo?: string;
   domain?: string;
   description?: string;
   isNative: boolean;
-}
+} & (
+  | { logo?: undefined; logoAlt?: undefined }
+  | { logo: string; logoAlt: string }
+);
 
 /*
  * Asset cache entry with expiration
