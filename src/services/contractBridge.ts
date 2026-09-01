@@ -110,6 +110,9 @@ const SIMULATION_CACHE_DURATION = 30000; // 30 seconds
 /** Simulation cache */
 const simulationCache = new Map<string, { result: SimulationResult; timestamp: number }>();
 
+const RPC_REQUEST_TIMEOUT = 30000;
+const TRANSACTION_SUBMIT_TIMEOUT = 60000;
+
 // ─── Helper Functions ───────────────────────────────────────────────────────
 
 /** Reused Soroban RPC server per network (avoids re-creating clients per tx) */
@@ -131,6 +134,25 @@ function getSorobanServer(network: Network): Server {
 
 function getNetworkPassphrase(network: Network): string {
   return NETWORK_PASSPHRASES[network];
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, context: string): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${context} timed out after ${ms}ms`));
+    }, ms);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  });
+}
+
+function formatStellarAmount(amount: number): string {
+  return amount.toFixed(7);
 }
 
 function emitState(
@@ -383,14 +405,18 @@ async function validateAccountBalance(
  * Generates a cache key for simulation results
  */
 function getSimulationCacheKey(transaction: Transaction, accountAddress: string): string {
-  // Use transaction hash or XDR as cache key
+  // Use transaction hash as a stable cache key
   try {
-    const xdr = transaction.toXDR();
-    return `${accountAddress}:${xdr.substring(0, 50)}`;
+    const hash = transaction.hash().toString('hex');
+    return `${accountAddress}:${hash}`;
   } catch {
-    // Fallback to account address + timestamp if we can't get XDR
+    // Fallback to a pseudo-unique key if hashing fails
     return `${accountAddress}:${Date.now()}`;
   }
+}
+
+export async function executeMintWrap(options: MintWrapOptions): Promise<MintResult> {
+  return mintWrap(options);
 }
 
 /**
@@ -472,12 +498,30 @@ async function simulateTransaction(
         }
       : undefined;
 
+    const minResourceFee = Number(simulationAny.minResourceFee ?? 0);
+    if (Number.isFinite(minResourceFee) && minResourceFee > 0) {
+      transaction.fee = String(minResourceFee);
+    }
+
+    const txData = simulationAny.transactionData as { sorobanData?: unknown } | undefined;
+    if (typeof txData?.sorobanData === 'string') {
+      transaction.sorobanData = xdr.SorobanTransactionData.fromXDR(
+        txData.sorobanData,
+        'base64',
+      );
+    }
+
+    const estimatedFee =
+      Number.isFinite(minResourceFee) && minResourceFee > 0
+        ? minResourceFee / 10000000
+        : calculateEstimatedFee(simulationAny as { cost?: SimulationCost });
+
     const result: SimulationResult = {
       success: true,
       cost,
       footprint,
       result: simulationAny.result,
-      estimatedFee: calculateEstimatedFee(simulationAny as { cost?: SimulationCost }),
+      estimatedFee,
       requiresRestore: !!(simulationAny.restorePreamble),
     };
 
@@ -490,7 +534,7 @@ async function simulateTransaction(
       );
 
       if (!balanceCheck.sufficient) {
-        const errorMessage = `Insufficient balance. Required: ${balanceCheck.required.toFixed(7)} XLM, Available: ${balanceCheck.balance.toFixed(7)} XLM`;
+        const errorMessage = `Insufficient balance. Required: ${formatStellarAmount(balanceCheck.required)} XLM, Available: ${formatStellarAmount(balanceCheck.balance)} XLM`;
         result.success = false;
         result.error = errorMessage;
         emitState(observer, 'failed', { error: errorMessage, simulation: result });

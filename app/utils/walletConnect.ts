@@ -1,4 +1,12 @@
-import { isConnected, getAddress, requestAccess, getNetworkDetails } from "@stellar/freighter-api";
+import { isConnected, getAddress, requestAccess, getNetworkDetails, signTransaction } from "@stellar/freighter-api";
+import {
+  BASE_FEE,
+  Contract,
+  SorobanRpc,
+  Transaction,
+  TransactionBuilder,
+  xdr,
+} from "@stellar/stellar-sdk";
 import { Network, NETWORK_PASSPHRASES } from "../../src/config";
 import type { WalletProvider } from "../store/walletStore";
 
@@ -43,6 +51,7 @@ export interface Albedo {
 
 declare global {
   interface Window {
+    freighter?: unknown;
     albedo?: Albedo;
   }
 }
@@ -181,6 +190,242 @@ export const getCurrentPublicKey = async (): Promise<string | null> => {
   } catch {
     return null;
   }
+};
+const RPC_URLS: Record<Network, string> = {
+  mainnet: "https://soroban-rpc.mainnet.stellar.org",
+  testnet: "https://soroban-testnet.stellar.org",
+};
+
+const SOROBAN_TIMEOUT_MS = 10_000;
+
+const SOROBAN_RETRY_MAX_ATTEMPTS = 3;
+const SOROBAN_RETRY_BASE_DELAY_MS = 500;
+
+const sorobanServers = new Map<Network, SorobanRpc.Server>();
+
+export const getSorobanRpcServer = (network: Network): SorobanRpc.Server => {
+  const cached = sorobanServers.get(network);
+  if (cached) {
+    return cached;
+  }
+
+  const server = new SorobanRpc.Server(RPC_URLS[network]);
+  sorobanServers.set(network, server);
+  return server;
+};
+
+const withTimeout = async <T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  message: string,
+): Promise<T> => {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
+};
+
+export const stellarToStroops = (amount: string | number): bigint => {
+  const normalized = String(amount).trim();
+  const [whole, fraction = ""] = normalized.split(".");
+  const isNegative = whole.startsWith("-");
+  const unsignedWhole = isNegative ? whole.slice(1) : whole;
+
+  if (!/^\d+$/.test(unsignedWhole) || !/^\d*$/.test(fraction)) {
+    throw new Error("Invalid Stellar amount.");
+  }
+
+  if (fraction.length > 7) {
+    throw new Error("Stellar amount cannot have more than 7 decimal places.");
+  }
+
+  const stroops = BigInt(unsignedWhole) * 10_000_000n + BigInt(fraction.padEnd(7, "0"));
+
+  return isNegative ? -stroops : stroops;
+};
+
+export const stroopsToStellar = (stroops: bigint): string => {
+  const sign = stroops < 0n ? "-" : "";
+  const absolute = stroops < 0n ? -stroops : stroops;
+  const whole = absolute / 10_000_000n;
+  const fraction = absolute % 10_000_000n;
+
+  return `${sign}${whole}.${fraction.toString().padStart(7, "0")}`;
+};
+
+export const isValidContractAddress = (address: string): boolean => {
+  return /^C[A-Z2-7]{55}$/.test(address.trim());
+};
+
+export interface SorobanInvocation {
+  network: Network;
+  contractId: string;
+  method: string;
+  args: xdr.ScVal[];
+  source: string;
+  signerAddress?: string;
+}
+
+type FreighterSignResult = string | { signedTxXDR: string };
+
+const signSorobanTransactionWithFreighter = async (
+  transactionXdr: string,
+  networkPassphrase: string,
+  address: string,
+): Promise<string> => {
+  const installed = await isFreighterInstalled();
+  if (!installed) {
+    throw new FreighterNotInstalledError();
+  }
+
+  try {
+    const signed = (await signTransaction(transactionXdr, {
+      networkPassphrase,
+      address,
+    })) as FreighterSignResult;
+
+    if (typeof signed === "string") {
+      if (!signed) {
+        throw new Error("Freighter returned an empty signature.");
+      }
+      return signed;
+    }
+
+    if (typeof signed.signedTxXDR === "string") {
+      return signed.signedTxXDR;
+    }
+
+    throw new Error("Freighter returned an invalid signature response.");
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    const normalizedMessage = message.toLowerCase();
+    if (
+      normalizedMessage.includes("declined") ||
+      normalizedMessage.includes("rejected") ||
+      normalizedMessage.includes("cancel") ||
+      normalizedMessage.includes("denied")
+    ) {
+      throw new Error("Transaction signature rejected by user.");
+    }
+
+    if (error instanceof Error) {
+      throw error;
+    }
+
+    throw new Error(message || "Failed to sign the Soroban transaction.");
+  }
+};
+
+export const simulateSorobanTransaction = async (
+  transaction: Transaction,
+  network: Network,
+): Promise<Transaction> => {
+  const server = getSorobanRpcServer(network);
+
+  return withTimeout(
+    server.prepareTransaction(transaction),
+    SOROBAN_TIMEOUT_MS,
+    "Soroban RPC timed out while simulating the transaction.",
+  );
+};
+
+export const sendSorobanTransaction = async (
+  transaction: Transaction,
+  network: Network,
+): Promise<string> => {
+  const server = getSorobanRpcServer(network);
+
+  let sendResponse = await withTimeout(
+    server.sendTransaction(transaction),
+    SOROBAN_TIMEOUT_MS,
+    "Soroban RPC timed out while sending the transaction.",
+  );
+
+  for (
+    let attempt = 1;
+    sendResponse.status === "TRY_AGAIN_LATER" && attempt <= SOROBAN_RETRY_MAX_ATTEMPTS;
+    attempt += 1
+  ) {
+    await new Promise<void>((resolve) => {
+      setTimeout(resolve, SOROBAN_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+    });
+    sendResponse = await withTimeout(
+      server.sendTransaction(transaction),
+      SOROBAN_TIMEOUT_MS,
+      "Soroban RPC timed out while sending the transaction.",
+    );
+  }
+
+  if (sendResponse.status === "TRY_AGAIN_LATER") {
+    throw new Error("Soroban RPC is rate limited. Please retry shortly.");
+  }
+
+  if (
+    sendResponse.status !== "PENDING" &&
+    sendResponse.status !== "DUPLICATE"
+  ) {
+    throw new Error("Soroban transaction submission failed.");
+  }
+
+  return sendResponse.hash;
+};
+
+export const invokeSorobanContract = async (
+  invocation: SorobanInvocation,
+): Promise<string> => {
+  const { network, contractId, method, args, source, signerAddress } = invocation;
+
+  if (!isValidContractAddress(contractId)) {
+    throw new Error("Invalid Soroban contract ID.");
+  }
+
+  if (!isValidStellarAddress(source)) {
+    throw new Error("Invalid source account.");
+  }
+
+  if (signerAddress !== undefined && !isValidStellarAddress(signerAddress)) {
+    throw new Error("Invalid signer address.");
+  }
+
+  const server = getSorobanRpcServer(network);
+  const networkPassphrase = NETWORK_PASSPHRASES[network];
+
+  const account = await withTimeout(
+    server.getAccount(source),
+    SOROBAN_TIMEOUT_MS,
+    "Soroban RPC timed out while loading the account.",
+  );
+
+  const contract = new Contract(contractId);
+  const transaction = new TransactionBuilder(account, {
+    fee: BASE_FEE,
+    networkPassphrase,
+  })
+    .addOperation(contract.call(method, ...args))
+    .setTimeout(0)
+    .build();
+
+  const preparedTransaction = await simulateSorobanTransaction(transaction, network);
+
+  const signedTransactionXdr = await signSorobanTransactionWithFreighter(
+    preparedTransaction.toXDR(),
+    networkPassphrase,
+    signerAddress ?? source,
+  );
+  const signedTransaction = TransactionBuilder.fromXDR(
+    signedTransactionXdr,
+    networkPassphrase,
+  );
+
+  return sendSorobanTransaction(signedTransaction, network);
 };
 
 /**
