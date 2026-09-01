@@ -12,12 +12,32 @@ export class FreighterNotInstalledError extends Error {
   }
 }
 
-interface AlbedoPublicKeyResult {
+export interface AlbedoPublicKeyResult {
   publicKey: string;
 }
 
-interface Albedo {
+export interface AlbedoTxParams {
+  /** Base64 transaction XDR to sign. */
+  tx: string;
+  /** Network passphrase (required — Albedo refuses unsigned unknown networks). */
+  network: string;
+  /** If true, Albedo submits the signed transaction to its own fleet. */
+  submit?: boolean;
+  /** Restrict signing to this public key. */
+  pubkey?: string;
+}
+
+export interface AlbedoTxResult {
+  /** Signed transaction XDR (base64). */
+  tx: string;
+  signed: boolean;
+  network: string;
+  pubkey: string;
+}
+
+export interface Albedo {
   publicKey: (params?: Record<string, unknown>) => Promise<AlbedoPublicKeyResult>;
+  tx: (params: AlbedoTxParams) => Promise<AlbedoTxResult>;
 }
 
 declare global {

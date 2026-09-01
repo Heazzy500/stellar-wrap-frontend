@@ -1,13 +1,18 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Network as NetworkIcon, Loader2, AlertCircle } from 'lucide-react';
+import { Network as NetworkIcon, Loader2, AlertCircle, X } from 'lucide-react';
 import { useWrapStore } from '../store/wrapStore';
 import { NETWORKS, Network } from '../../src/config';
 import { getNetworkDisplayName } from '../../src/utils/networkUtils';
 import { clearContractCache } from '../utils/contractBridge';
 import { useDialogFocusManagement } from '../hooks/useDialogFocusManagement';
+import { useOnlineStatus } from '../hooks/useOnlineStatus';
+import { verifyWalletForNetwork } from '../services/transactionSigner';
+
+/** Upper bound for the wallet re-check on the toggle so its state never hangs. */
+const NETWORK_TOGGLE_GUARD_TIMEOUT_MS = 10_000;
 
 export function NetworkToggle() {
   const {
@@ -40,6 +45,7 @@ export function NetworkToggle() {
 
   /** Pending network the confirmation dialog is waiting on. */
   const [pendingNetwork, setPendingNetwork] = useState<Network | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // ── Cleanup helpers ───────────────────────────────────────────────────────
