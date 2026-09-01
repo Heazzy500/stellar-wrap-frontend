@@ -1,7 +1,6 @@
 "use client";
 
-import React, { JSX, useCallback, useEffect, useRef, useState } from "react";
-import { PersonaRarityChart } from "@/app/components/PersonaRarityChart";
+import React, { JSX, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { motion, useAnimation, AnimatePresence } from "framer-motion";
 import { Home, Share2, ChevronRight, X, ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -20,9 +19,20 @@ import { useSound } from "@/app/hooks/useSound";
 import { SOUND_NAMES } from "@/app/utils/soundManager";
 import { ProgressIndicator } from "@/app/components/ProgressIndicator";
 import { MuteToggle } from "@/app/components/MuteToggle";
-import { PersonaEvolutionTimeline } from "@/app/components/PersonaEvolutionTimeline";
 import { NotificationPrompt } from "@/app/components/NotificationPrompt";
 import { generatePersonaDescription } from "@/app/actions/generate-persona";
+
+const PersonaEvolutionTimeline = lazy(() =>
+  import("@/app/components/PersonaEvolutionTimeline").then((m) => ({
+    default: m.PersonaEvolutionTimeline,
+  })),
+);
+
+const PersonaRarityChart = lazy(() =>
+  import("@/app/components/PersonaRarityChart").then((m) => ({
+    default: m.PersonaRarityChart,
+  })),
+);
 
 // Removed theme system - using standard CSS variables from globals.css
 const useConfetti = (color?: string, enabled = true) => {
@@ -689,7 +699,9 @@ export default function ArchetypeReveal(): JSX.Element {
 
           {/* Persona evolution timeline */}
           <div className="relative z-10 w-full mt-8">
-            <PersonaEvolutionTimeline useDemo={process.env.NODE_ENV === "development"} />
+            <Suspense fallback={<div className="h-32 rounded-2xl bg-white/5 animate-pulse" aria-hidden="true" />}>
+              <PersonaEvolutionTimeline useDemo={process.env.NODE_ENV === "development"} />
+            </Suspense>
           </div>
 
           {/* Persona rarity / archetype comparison */}
@@ -700,7 +712,9 @@ export default function ArchetypeReveal(): JSX.Element {
               animate={{ opacity: 1 }}
               transition={{ delay: 1.4 }}
             >
-              <PersonaRarityChart userArchetype={archetypeKey} />
+              <Suspense fallback={<div className="h-48 rounded-2xl bg-white/5 animate-pulse" aria-hidden="true" />}>
+                <PersonaRarityChart userArchetype={archetypeKey} />
+              </Suspense>
             </motion.div>
           )}
 

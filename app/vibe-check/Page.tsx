@@ -1,13 +1,19 @@
 
 "use client";
 
+import React, { lazy, Suspense } from "react";
 import { useRouter } from "next/navigation";
-import { Screen4VibeCheck } from "@/app/components/Screen4VibeCheck";
 import { ProgressIndicator } from "@/app/components/ProgressIndicator";
 import { ShareButtons } from "@/app/components/ShareButtons";
 import { MuteToggle } from "@/app/components/MuteToggle";
 import { useWrapStore } from "@/app/store/wrapStore";
 import { motion } from "framer-motion";
+
+const Screen4VibeCheck = lazy(() =>
+  import("@/app/components/Screen4VibeCheck").then((m) => ({
+    default: m.Screen4VibeCheck,
+  })),
+);
 
 export default function VibeCheckPage() {
   const router = useRouter();
@@ -22,7 +28,27 @@ export default function VibeCheckPage() {
 
   return (
     <div className="relative w-full h-screen">
-      <Screen4VibeCheck vibes={vibes} dapps={dapps} dexTradingSummary={dexTradingSummary} sorobanBuilderSummary={sorobanBuilderSummary} portfolioDiversitySummary={portfolioDiversitySummary} biggestDaySummary={biggestDaySummary} nftActivitySummary={nftActivitySummary} />
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center w-full h-screen bg-black">
+            <span className="sr-only">Loading vibe check…</span>
+            <div
+              className="w-10 h-10 rounded-full border-4 border-white/20 border-t-white animate-spin"
+              aria-hidden="true"
+            />
+          </div>
+        }
+      >
+        <Screen4VibeCheck
+          vibes={vibes}
+          dapps={dapps}
+          dexTradingSummary={dexTradingSummary}
+          sorobanBuilderSummary={sorobanBuilderSummary}
+          portfolioDiversitySummary={portfolioDiversitySummary}
+          biggestDaySummary={biggestDaySummary}
+          nftActivitySummary={nftActivitySummary}
+        />
+      </Suspense>
 
       <ProgressIndicator
         currentStep={4}
