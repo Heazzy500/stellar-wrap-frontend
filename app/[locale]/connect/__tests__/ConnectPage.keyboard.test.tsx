@@ -13,6 +13,43 @@ jest.mock("next/navigation", () => ({
   useRouter: jest.fn(),
 }));
 
+// Mock next-intl
+jest.mock("next-intl", () => ({
+  useTranslations: () => {
+    const translationMap: Record<string, string> = {
+      back: "BACK",
+      backAria: "Go back to previous page",
+      title: "CONNECT WALLET",
+      subtitle: "Enter your Stellar wallet address to unwrap your 2026 journey",
+      stellarAddressLabel: "STELLAR ADDRESS",
+      addressPlaceholder: "Paste your Stellar address here",
+      addressInputAria: "Stellar wallet address input",
+      pasteAria: "Paste from clipboard",
+      freighterButton: "Connect with Freighter",
+      freighterButtonAria: "Connect with Freighter wallet",
+      albedoButton: "Connect with Albedo",
+      albedoButtonAria: "Connect with Albedo wallet",
+      xbullButton: "Connect with xBull",
+      xbullButtonAria: "Connect with xBull wallet",
+      walletConnectButton: "Connect with WalletConnect",
+      walletConnectButtonAria: "Connect with WalletConnect mobile wallets",
+      useDifferentWallet: "Use a different wallet",
+      tryDemoMode: "Or click here to try demo mode →",
+      tryDemoModeAria: "Try demo mode",
+      startWrapping: "START WRAPPING",
+      startWrappingAria: "Start wrapping process",
+    };
+    const t = (key: string, values?: Record<string, string>) => {
+      if (key === "continueAs" && values?.shortAddress) {
+        return `Continue as ${values.shortAddress}`;
+      }
+      return translationMap[key] || key;
+    };
+    t.rich = (key: string) => translationMap[key] || key;
+    return t;
+  },
+}));
+
 // Mock the Zustand stores and hooks used by the component
 jest.mock("$app/store/wrapStore", () => ({
   useWrapStore: jest.fn(() => ({
