@@ -7,6 +7,7 @@ import { Horizon } from "stellar-sdk";
 import { useWrapStore } from "../../store/wrapStore";
 import { useTransactionStore } from "../../store/transactionStore";
 import { useMultiTimeframeStore } from "../../store/multiTimeframeStore";
+import { useWalletStore } from "../../store/walletStore";
 import { useSound } from "../../hooks/useSound";
 import { useOnlineStatus } from "../../hooks/useOnlineStatus";
 import { useStellarAddressValidation } from "../../../src/hooks/useStellarAddressValidation";
@@ -34,6 +35,7 @@ export default function ConnectPage() {
   const { setAddress, setError, setStatus, network, reset } = useWrapStore();
   const { resetTransaction } = useTransactionStore();
   const { reset: resetMultiTimeframe } = useMultiTimeframeStore();
+  const { connect: connectWalletSession } = useWalletStore();
   const { playSound } = useSound();
   const isOnline = useOnlineStatus();
 
@@ -116,6 +118,7 @@ export default function ConnectPage() {
       // Non-fatal, see saveAddressToLocalStorage.
     }
     setLastUsedAddress(null);
+    useWalletStore.getState().disconnect();
   };
 
   /**
@@ -172,6 +175,7 @@ export default function ConnectPage() {
     try {
       const publicKey = await connectFreighter(network);
       setAddress(publicKey);
+      connectWalletSession(publicKey, "freighter", network);
       saveAddressToLocalStorage(publicKey);
       setError(null);
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
@@ -210,6 +214,7 @@ export default function ConnectPage() {
     try {
       const publicKey = await connectAlbedo(network);
       setAddress(publicKey);
+      connectWalletSession(publicKey, "albedo", network);
       saveAddressToLocalStorage(publicKey);
       setError(null);
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
@@ -251,6 +256,7 @@ export default function ConnectPage() {
     try {
       const publicKey = await connectXBull(network);
       setAddress(publicKey);
+      connectWalletSession(publicKey, "xbull", network);
       setError(null);
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       router.push("/loading");
@@ -282,6 +288,7 @@ export default function ConnectPage() {
     try {
       const publicKey = await connectWalletConnect(network);
       setAddress(publicKey);
+      connectWalletSession(publicKey, "walletconnect", network);
       setError(null);
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       router.push("/loading");
@@ -330,6 +337,7 @@ export default function ConnectPage() {
     setAddress(trimmedAddress);
     setStatus("loading");
     setError(null);
+    connectWalletSession(trimmedAddress, "manual", network);
     saveAddressToLocalStorage(trimmedAddress);
     playSound(SOUND_NAMES.SLIDE_WHOOSH);
     fetchAccountPreview(walletAddress.trim());
@@ -380,6 +388,7 @@ export default function ConnectPage() {
     setTimeout(() => {
       setAddress(DEMO_STELLAR_ADDRESS);
       setStatus("loading");
+      connectWalletSession(DEMO_STELLAR_ADDRESS, "demo", network);
       playSound(SOUND_NAMES.SLIDE_WHOOSH);
       router.push("/loading");
     }, 100);
@@ -644,6 +653,7 @@ export default function ConnectPage() {
                 resetTransaction();
                 resetMultiTimeframe();
                 setAddress(lastUsedAddress);
+                connectWalletSession(lastUsedAddress, "manual", network);
                 playSound(SOUND_NAMES.SLIDE_WHOOSH);
                 router.push("/loading");
               }}

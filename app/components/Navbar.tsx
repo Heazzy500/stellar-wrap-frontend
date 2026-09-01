@@ -8,6 +8,8 @@ import { ColorToggle } from "./ColorToggle";
 import { DarkLightToggle } from "./DarkLightToggle";
 import { motion } from "framer-motion";
 import { useWrapStore, resetCache } from "@/app/store/wrapStore";
+import { useWalletStore } from "@/app/store/walletStore";
+import { useHydrateWallet } from "@/app/hooks/useHydrateWallet";
 import { useTheme } from "@/app/context/ThemeContext";
 
 function truncate(addr: string) {
@@ -17,11 +19,25 @@ function truncate(addr: string) {
 export function Navbar() {
   const router = useRouter();
   const { address, reset } = useWrapStore();
+  const network = useWrapStore((s) => s.network);
+  const disconnectWallet = useWalletStore((s) => s.disconnect);
   const { mode } = useTheme();
+
+  // Re-validate the persisted wallet session on load so a page refresh doesn't
+  // silently drop the user's connection.
+  useHydrateWallet(network);
 
   const handleDisconnect = () => {
     reset();
     resetCache();
+    disconnectWallet();
+    // Clear the remembered last-used address so a stale session isn't offered
+    // as a one-tap reconnect on the next visit.
+    try {
+      localStorage.removeItem("lastUsedStellarAddress");
+    } catch {
+      // Non-fatal.
+    }
     toast.success("Wallet disconnected");
     router.push("/");
   };

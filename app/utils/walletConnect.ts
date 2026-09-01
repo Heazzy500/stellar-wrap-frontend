@@ -1,5 +1,6 @@
 import { isConnected, getAddress, requestAccess, getNetworkDetails } from "@stellar/freighter-api";
 import { Network, NETWORK_PASSPHRASES } from "../../src/config";
+import type { WalletProvider } from "../store/walletStore";
 
 export const FREIGHTER_INSTALL_URL = "https://www.freighter.app/";
 
@@ -303,3 +304,106 @@ export const connectXBull = async (_network: Network): Promise<string> => {
     throw new Error("Failed to connect to xBull wallet. Please try again.");
   }
 };
+
+// ─── Session re-validation ──────────────────────────────────────────────────
+
+/**
+ * Races a promise against a timeout so a slow/hung wallet probe can never
+ * block the UI on app reload. Kept local to avoid coupling the wallet
+ * utilities to the transaction signer.
+ */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  timeoutMessage: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const guarded = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+    });
+    return await Promise.race([promise, guarded]);
+  } finally {
+    if (timer !== undefined) {
+      clearTimeout(timer);
+    }
+  }
+}
+
+export type WalletValidationResult =
+  | { ok: true }
+  | { ok: false; reason: "disconnected" | "network-mismatch" | "timeout" | "error" };
+
+const REVALIDATION_TIMEOUT_MS = 8_000;
+
+/**
+ * Non-interactively re-validates a persisted wallet session on app reload,
+ * without prompting the user.
+ *
+ * - Browser-extension wallets (Freighter/Albedo/xBull) are checked for
+ *   availability; Freighter is additionally checked for network match so a
+ *   switched-network session is flagged instead of silently indexing the wrong
+ *   chain.
+ * - "manual" and "demo" modes have no live wallet; they pass through (nothing
+ *   to validate) as long as the address is a valid Stellar address.
+ *
+ * Never throws: callers use this to gracefully decide whether a restored
+ * session can be trusted or should be marked `needsReconnect`.
+ */
+export async function validateWalletConnection(
+  provider: WalletProvider | null,
+  address: string,
+  network: Network,
+): Promise<WalletValidationResult> {
+  if (!address) {
+    return { ok: false, reason: "disconnected" };
+  }
+  if (!isValidStellarAddress(address)) {
+    return { ok: false, reason: "disconnected" };
+  }
+
+  switch (provider) {
+    case "manual":
+    case "demo":
+      // Address-only modes have nothing live to re-check.
+      return { ok: true };
+    case "freighter": {
+      try {
+        const installed = await withTimeout(
+          isFreighterInstalled(),
+          REVALIDATION_TIMEOUT_MS,
+          "Freighter availability check timed out.",
+        );
+        if (!installed) {
+          return { ok: false, reason: "disconnected" };
+        }
+        const walletNetwork = await withTimeout(
+          getFreighterNetwork(),
+          REVALIDATION_TIMEOUT_MS,
+          "Freighter network check timed out.",
+        );
+        if (walletNetwork !== null && walletNetwork !== network) {
+          return { ok: false, reason: "network-mismatch" };
+        }
+        return { ok: true };
+      } catch {
+        return { ok: false, reason: "timeout" };
+      }
+    }
+    case "albedo":
+      return isAlbedoInstalled() ? { ok: true } : { ok: false, reason: "disconnected" };
+    case "xbull":
+      return isXBullInstalled() ? { ok: true } : { ok: false, reason: "disconnected" };
+    case "walletconnect":
+      // WalletConnect has no non-interactive reachability probe; the modal
+      // would need the user to re-approve, so treat as connected until the
+      // user interacts (keeps the restored address visible).
+      return { ok: true };
+    case null:
+      return { ok: false, reason: "disconnected" };
+    default:
+      // Unreachable — WalletProvider|null is fully covered above. Kept for
+      // exhaustiveness so adding a provider is a compile-time reminder.
+      return { ok: false, reason: "disconnected" };
+  }
+}
