@@ -67,3 +67,68 @@ a:focus:not(:focus-visible),
   outline: 3px solid var(--color-theme-primary);
   outline-offset: 3px;
 }
+
+/* ─── Theme toggle utilities ───────────────────────────────────────────────
+   Replace all inline style= attributes in DarkLightToggle / ColorToggle.
+   Values that depend on runtime CSS custom properties are expressed with
+   var() so no JavaScript is needed for them. ────────────────────────────── */
+
+.theme-toggle-btn {
+  border-color: var(--color-theme-primary);
+  box-shadow: 0 0 15px rgba(var(--color-theme-primary-rgb), 0.3);
+}
+
+.theme-toggle-btn:hover {
+  box-shadow: 0 0 20px rgba(var(--color-theme-primary-rgb), 0.5);
+}
+
+/* Background adapts to dark/light mode via Tailwind's dark: variant */
+.theme-toggle-bg {
+  background-color: #000;
+}
+
+:root.light .theme-toggle-bg {
+  background-color: #fff;
+}
+
+/* Color picker panel */
+.color-picker-panel {
+  background-color: rgba(0, 0, 0, 0.9);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+:root.light .color-picker-panel {
+  background-color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(0, 0, 0, 0.1);
+}
+
+/* Color picker row */
+.color-option-row {
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+:root.light .color-option-row {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+/* Text colours inside the picker */
+.color-picker-title {
+  color: #fff;
+}
+
+:root.light .color-picker-title {
+  color: #000;
+}
+
+.color-picker-hint {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+:root.light .color-picker-hint {
+  color: rgba(0, 0, 0, 0.4);
+}
+
+/* Icon colour tracks the current theme primary */
+.theme-icon {
+  color: var(--color-theme-primary);
+}
