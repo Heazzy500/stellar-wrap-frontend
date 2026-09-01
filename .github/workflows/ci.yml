@@ -15,7 +15,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
       - name: Check for wrong lock files
         run: |
           if git ls-files --error-unmatch package-lock.json >/dev/null 2>&1; then

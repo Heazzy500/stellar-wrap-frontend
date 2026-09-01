@@ -18,6 +18,85 @@ export interface ResolveAssetOptions {
   forceRefresh?: boolean;
 }
 
+const ASSET_CACHE_STORAGE_KEY = "stellar.assetResolver.cache.v1";
+const ASSET_LIST_STORAGE_KEY = "stellar.assetList.state.v1";
+
+function readPersistedAssetMap(): Record<string, AssetMetadata> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(ASSET_CACHE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed as Record<string, AssetMetadata>;
+  } catch {
+    return {};
+  }
+}
+
+function writePersistedAssetMap(
+  assetMap: Record<string, AssetMetadata>,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(
+      ASSET_CACHE_STORAGE_KEY,
+      JSON.stringify(assetMap),
+    );
+  } catch {
+    // Ignore storage write failures
+  }
+}
+
+function clearPersistedAssetMap(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(ASSET_CACHE_STORAGE_KEY);
+  } catch {
+    // Ignore storage access failures
+  }
+}
+
+function removePersistedAssetMapKey(cacheKey: string): void {
+  const assetMap = readPersistedAssetMap();
+  if (!(cacheKey in assetMap)) return;
+  delete assetMap[cacheKey];
+  writePersistedAssetMap(assetMap);
+}
+
+function readPersistedAssetList(): Array<{ code: string; issuer?: string }> {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(ASSET_LIST_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed as Array<{ code: string; issuer?: string }>;
+  } catch {
+    return [];
+  }
+}
+
+function writePersistedAssetList(
+  assets: Array<{ code: string; issuer?: string }>,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(ASSET_LIST_STORAGE_KEY, JSON.stringify(assets));
+  } catch {
+    // Ignore storage write failures
+  }
+}
+
+function clearPersistedAssetList(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(ASSET_LIST_STORAGE_KEY);
+  } catch {
+    // Ignore storage access failures
+  }
+}
+
 // Note: Type definition kept for future use with Horizon API responses
 interface _HorizonAsset {
   asset_code: string;
@@ -46,6 +125,7 @@ class AssetResolver {
 
     if (options?.forceRefresh) {
       assetCache.clearAsset(normalizedCode, issuer);
+      removePersistedAssetMapKey(createAssetCacheKey(normalizedCode, issuer));
     }
 
     assetCache.invalidateExpired();
@@ -62,12 +142,19 @@ class AssetResolver {
       // Only return if issuer matches or it's a native asset
       if (known.isNative || !issuer || known.issuer === issuer) {
         assetCache.set(known);
+        this.persistAsset(known);
         return known;
       }
     }
 
-    // Return fallback immediately if we're already resolving this
     const cacheKey = createAssetCacheKey(normalizedCode, issuer);
+    const persisted = this.readPersistedAsset(cacheKey);
+    if (persisted) {
+      assetCache.set(persisted);
+      return persisted;
+    }
+
+    // Return fallback immediately if we're already resolving this
     if (this.isResolving.has(cacheKey)) {
       return this.createFallbackMetadata(normalizedCode, issuer);
     }
@@ -77,6 +164,7 @@ class AssetResolver {
     try {
       const metadata = await this.fetchAssetMetadata(normalizedCode, issuer);
       assetCache.set(metadata);
+      this.persistAsset(metadata);
       return metadata;
     } catch (error) {
       console.warn(`Failed to resolve asset ${normalizedCode}:`, error);
@@ -92,9 +180,11 @@ class AssetResolver {
   async resolveAssets(
     assets: Array<{ code: string; issuer?: string }>,
   ): Promise<AssetMetadata[]> {
-    return Promise.all(
+    const resolved = await Promise.all(
       assets.map((asset) => this.resolveAsset(asset.code, asset.issuer)),
     );
+    this.persistAssetList(assets);
+    return resolved;
   }
 
   /**
@@ -217,6 +307,18 @@ class AssetResolver {
     };
   }
 
+  private readPersistedAsset(cacheKey: string): AssetMetadata | null {
+    const persistedEntry = readPersistedAssetMap()[cacheKey];
+    return persistedEntry ?? null;
+  }
+
+  private persistAsset(metadata: AssetMetadata): void {
+    const cacheKey = createAssetCacheKey(metadata.code, metadata.issuer);
+    const assetMap = readPersistedAssetMap();
+    assetMap[cacheKey] = metadata;
+    writePersistedAssetMap(assetMap);
+  }
+
   /**
    * Get display name for an asset
    */
@@ -248,6 +350,28 @@ class AssetResolver {
    */
   clearCache(): void {
     assetCache.clear();
+    clearPersistedAssetMap();
+  }
+
+  /**
+   * Get the persisted asset list.
+   */
+  getPersistedAssetList(): Array<{ code: string; issuer?: string }> {
+    return readPersistedAssetList();
+  }
+
+  /**
+   * Persist the asset list state.
+   */
+  persistAssetList(assets: Array<{ code: string; issuer?: string }>): void {
+    writePersistedAssetList(assets);
+  }
+
+  /**
+   * Clear the persisted asset list state.
+   */
+  clearAssetList(): void {
+    clearPersistedAssetList();
   }
 
   /**
@@ -318,6 +442,18 @@ export async function refreshAsset(
 
 export function invalidateStaleAssetCache(): number {
   return assetResolver.invalidateStaleCache();
+}
+
+export function persistAssetList(assets: Array<{ code: string; issuer?: string }>): void {
+  assetResolver.persistAssetList(assets);
+}
+
+export function getPersistedAssetList(): Array<{ code: string; issuer?: string }> {
+  return assetResolver.getPersistedAssetList();
+}
+
+export function clearAssetList(): void {
+  assetResolver.clearAssetList();
 }
 
 // ---------------------------------------------------------------------------

@@ -152,6 +152,8 @@ interface WrapStoreState
   contractAddresses: ContractAddressesByNetwork;
   refreshToken: number;
   isRefreshing: boolean;
+  assetList: string[];
+  setAssetList: (assets: string[]) => void;
   // Indexing state
   currentStep: IndexingStep | null;
   stepProgress: Record<IndexingStep, number>;
@@ -235,6 +237,7 @@ export const useWrapStore = create<WrapStoreState>()(
       contractAddresses: {},
       refreshToken: 0,
       isRefreshing: false,
+      assetList: [],
       // Indexing initial state
       ...initialIndexingState,
       // Optimistic network switch initial state
@@ -264,6 +267,7 @@ export const useWrapStore = create<WrapStoreState>()(
       setCacheMeta: (cacheMeta) => set({ cacheMeta }),
       setContractAddresses: (contractAddresses) => set({ contractAddresses }),
       setRefreshing: (isRefreshing) => set({ isRefreshing }),
+      setAssetList: (assetList) => set({ assetList }),
       bumpRefreshToken: () => set((s) => ({ refreshToken: s.refreshToken + 1 })),
       reset: () =>
         set({
@@ -278,6 +282,7 @@ export const useWrapStore = create<WrapStoreState>()(
           contractAddresses: {},
           refreshToken: 0,
           isRefreshing: false,
+          assetList: [],
           ...initialIndexingState,
           ...initialOptimisticSwitchState,
         }),
@@ -603,7 +608,18 @@ export const useWrapStore = create<WrapStoreState>()(
         result: state.result,
         status: state.status,
         cacheMeta: state.cacheMeta,
+        assetList: Array.isArray(state.assetList) ? state.assetList : [],
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = (persistedState ?? {}) as Partial<WrapStoreState>;
+        return {
+          ...currentState,
+          ...persisted,
+          assetList: Array.isArray(persisted.assetList)
+            ? persisted.assetList
+            : currentState.assetList,
+        };
+      },
       storage: createJSONStorage(() =>
         typeof window !== "undefined"
           ? localStorage
