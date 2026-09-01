@@ -12,7 +12,7 @@
  *  - AssetCard applies the same treatment to its own image.
  */
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { AssetMetadata } from "@/app/types/asset";
 import {
   resolveAsset,
@@ -20,6 +20,7 @@ import {
   getAssetShortName,
 } from "@/app/services/assetResolver";
 import Image from "next/image";
+import { useQuery } from "@tanstack/react-query";
 
 interface AssetDisplayProps {
   code: string;
@@ -162,45 +163,17 @@ export const AssetDisplay: React.FC<AssetDisplayProps> = ({
   className = "",
   logoClassName = "",
 }) => {
-  const [metadata, setMetadata] = useState<AssetMetadata | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
   const sizeConfig = SIZE_CONFIGS[size];
 
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchAsset = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        const resolved = await resolveAsset(code, issuer);
-        if (mounted) {
-          setMetadata(resolved);
-        }
-      } catch (err) {
-        if (mounted) {
-          setError(
-            err instanceof Error ? err.message : "Failed to resolve asset",
-          );
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAsset();
-
-    return () => {
-      mounted = false;
-    };
-  }, [code, issuer]);
+  const { data: metadata, isLoading, error } = useQuery({
+    queryKey: ['asset', code, issuer],
+    queryFn: () => resolveAsset(code, issuer),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 2,
+  });
 
   // Loading state — icon slot is a pulse skeleton at the reserved dimensions
-  if (loading) {
+  if (isLoading) {
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         {showLogo && (
@@ -290,34 +263,14 @@ export const AssetBadge: React.FC<Omit<AssetDisplayProps, "showFullName">> = (
 export const AssetCard: React.FC<
   AssetDisplayProps & { showIssuer?: boolean }
 > = ({ showIssuer = false, ...props }) => {
-  const [metadata, setMetadata] = useState<AssetMetadata | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { data: metadata, isLoading } = useQuery({
+    queryKey: ['asset', props.code, props.issuer],
+    queryFn: () => resolveAsset(props.code, props.issuer),
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    retry: 2,
+  });
 
-  useEffect(() => {
-    let mounted = true;
-
-    const fetchAsset = async () => {
-      try {
-        setLoading(true);
-        const resolved = await resolveAsset(props.code, props.issuer);
-        if (mounted) {
-          setMetadata(resolved);
-        }
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAsset();
-
-    return () => {
-      mounted = false;
-    };
-  }, [props.code, props.issuer]);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center gap-3 rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
         {/* Icon skeleton — fixed 32×32 so the layout doesn't shift */}
