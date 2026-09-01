@@ -23,7 +23,7 @@ interface WrapperStore {
   disconnect: () => void;
 }
 
-export const useWrapperStore = create<WrapperStore>()>(
+export const useWrapperStore = create<WrapperStore>()(
   persist(
     (set) => ({
       address: null,
@@ -54,3 +54,4 @@ export const useWrapperStore = create<WrapperStore>()>(
       }),
     }
   )
+);

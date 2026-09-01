@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRateLimitStore } from '../store/rateLimitStore';
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useRateLimitStore } from "../store/rateLimitStore";
 
 const DEFAULT_RPC_TIMEOUT_MS = 30_000;
 const DEFAULT_MIN_INTERVAL_MS = 250;
@@ -8,7 +8,7 @@ interface RpcCallOptions {
   /** Maximum time to wait for the RPC call to complete. */
   timeoutMs?: number;
   /** Minimum time to wait between RPC calls to avoid rate limiting. */
-  minIntervalMS?: number;
+  minIntervalMs?: number;
 }
 
 /**
@@ -20,14 +20,14 @@ export class RpcError extends Error {
 
   constructor(message: string, code?: number, userRejected = false) {
     super(message);
-    this.name = 'RpcError';
+    this.name = "RpcError";
     this.code = code;
     this.userRejected = userRejected;
   }
 }
 
 function isUserRejection(error: unknown): boolean {
-  if (typeof error !== 'object' || error === null) {
+  if (typeof error !== "object" || error === null) {
     return false;
   }
 
@@ -36,7 +36,7 @@ function isUserRejection(error: unknown): boolean {
     return true;
   }
 
-  const message = typeof candidate.message === 'string' ? candidate.message : '';
+  const message = typeof candidate.message === "string" ? candidate.message : "";
   return /user rejected|request rejected|declined/i.test(message);
 }
 
@@ -51,7 +51,7 @@ function wait(ms: number): Promise<void> {
 export function useRateLimit() {
   const { isRateLimited, resetTime, retryAttempt, message } = useRateLimitStore();
   const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
-  const lastCallTimeRef = useRef<number(0);
+  const lastCallTimeRef = useRef<number>(0);
 
   useEffect(() => {
     // Guard: clear countdown when not rate limited
@@ -94,11 +94,12 @@ export function useRateLimit() {
    * Use this for Soroban RPC calls such as simulateTransaction and sendTransaction.
    */
   const callWithRateLimit = useCallback(
-    async <T(
+    async <T>(
       rpcCall: (signal?: AbortSignal) => Promise<T>,
       options: RpcCallOptions = {}
     ): Promise<T> => {
-      const { timeoutMs = DEFAULT_RPC_TIMEOUT_MS, minIntervalMs = DEFAULT_MIN_INTERVAL_MS } = options;
+      const { timeoutMs = DEFAULT_RPC_TIMEOUT_MS, minIntervalMs = DEFAULT_MIN_INTERVAL_MS } =
+        options;
 
       // Respect any active rate limit before making the call.
       await waitForReset();
@@ -116,14 +117,14 @@ export function useRateLimit() {
           throw new RpcError(`RPC call timed out after ${timeoutMs}ms`);
         }
         if (isUserRejection(error)) {
-          throw new RpcError('User rejected the transaction signature.', 4001, true);
+          throw new RpcError("User rejected the transaction signature.", 4001, true);
         }
         throw error;
       } finally {
         clearTimeout(timeoutId);
       }
     },
-    [waitForReset, throttleIfMeeded]
+    [waitForReset, throttleIfNeeded]
   );
 
   return {

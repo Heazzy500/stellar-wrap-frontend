@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { kvGet, kvSet, kvKeys, kvSRem, SUB_KEY, PERIOD_KEY } from "../_lib/kv";
 import type { SubscriptionRecord } from "@/app/types/notifications";
+import { logger } from "@/app/utils/logger";
 
 const VALID_PERIODS = ["weekly", "monthly", "yearly"] as const;
 
@@ -42,9 +43,7 @@ export async function POST(request: NextRequest) {
       }
 
       const updated: SubscriptionRecord =
-        body.channel === "push"
-          ? { ...record, push: undefined }
-          : { ...record, email: undefined };
+        body.channel === "push" ? { ...record, push: undefined } : { ...record, email: undefined };
 
       await kvSet(SUB_KEY(body.walletAddress), updated);
 
@@ -55,9 +54,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true }, { status: 200 });
     }
 
-    return NextResponse.json({ error: "Provide either token or walletAddress and channel" }, { status: 400 });
+    return NextResponse.json(
+      { error: "Provide either token or walletAddress and channel" },
+      { status: 400 }
+    );
   } catch (err) {
-    log.error("Internal error processing unsubscribe:", err);
+    logger.error("Internal error processing unsubscribe:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

@@ -27,6 +27,19 @@ export const localKv = {
     const prefix = pattern.replace("*", "");
     return [...store.keys()].filter((k) => k.startsWith(prefix));
   },
+  async sadd(key: string, member: string): Promise<number> {
+    const existing = store.get(key);
+    const members = existing instanceof Set ? existing : new Set<string>();
+    const sizeBefore = members.size;
+    members.add(member);
+    store.set(key, members);
+    return members.size - sizeBefore;
+  },
+  async srem(key: string, member: string): Promise<number> {
+    const existing = store.get(key);
+    if (!(existing instanceof Set)) return 0;
+    return existing.delete(member) ? 1 : 0;
+  },
   clear(): void {
     store.clear();
   },
@@ -34,10 +47,7 @@ export const localKv = {
 
 // Lazy-import so the package is optional at build time
 async function getKv() {
-  if (
-    process.env.KV_REST_API_URL &&
-    process.env.KV_REST_API_TOKEN
-  ) {
+  if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
     const mod = await import("@vercel/kv");
     return mod.kv;
   }
@@ -64,6 +74,16 @@ export async function kvDel(key: string): Promise<void> {
 export async function kvKeys(pattern: string): Promise<string[]> {
   const kv = await getKv();
   return kv.keys(pattern);
+}
+
+export async function kvSAdd(key: string, member: string): Promise<void> {
+  const kv = await getKv();
+  await kv.sadd(key, member);
+}
+
+export async function kvSRem(key: string, member: string): Promise<void> {
+  const kv = await getKv();
+  await kv.srem(key, member);
 }
 
 export function kvReset(): void {

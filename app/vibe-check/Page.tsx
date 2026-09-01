@@ -7,21 +7,11 @@ import { ShareButtons } from "@/app/components/ShareButtons";
 import { MuteToggle } from "@/app/components/MuteToggle";
 import { useWrapStore } from "@/app/store/wrapStore";
 import { motion } from "framer-motion";
-import { useWrapStore } from "@/app/store/wrapStore";
-
-const Screen4VibeCheck = lazy(() =>
-  import("@/app/components/Screen4VibeCheck").then((m) => ({ default: m.Screen4VibeCheck })));
-const ProgressIndicator = lazy(() =>
-  import("@/app/components/ProgressIndicator").then((m) => ({ default: m.ProgressIndicator })));
-const ShareButtons = lazy(() =>
-  import("@/app/components/ShareButtons").then((m) => ({ default: m.ShareButtons })));
-const MuteToggle = lazy(() =>
-  import("@/app/components/MuteToggle").then((m) => ({ default: m.MuteToggle })));
 
 const Screen4VibeCheck = lazy(() =>
   import("@/app/components/Screen4VibeCheck").then((m) => ({
     default: m.Screen4VibeCheck,
-  })),
+  }))
 );
 
 export default function VibeCheckPage() {
@@ -36,13 +26,13 @@ export default function VibeCheckPage() {
   const nftActivitySummary = result?.nftActivitySummary;
 
   return (
-    <div className="relative w-full h-screen">
+    <div className="relative h-screen w-full">
       <Suspense
         fallback={
-          <div className="flex items-center justify-center w-full h-screen bg-black">
+          <div className="flex h-screen w-full items-center justify-center bg-black">
             <span className="sr-only">Loading vibe check…</span>
             <div
-              className="w-10 h-10 rounded-full border-4 border-white/20 border-t-white animate-spin"
+              className="h-10 w-10 animate-spin rounded-full border-4 border-white/20 border-t-white"
               aria-hidden="true"
             />
           </div>
@@ -66,55 +56,26 @@ export default function VibeCheckPage() {
         showNext={true}
       />
 
-
       <motion.div
-        className="absolute top-6 right-6 md:top-8 md:right-8 z-30"
+        className="absolute top-6 right-6 z-30 md:top-8 md:right-8"
         initial={{ opacity: 0, x: 20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.2 }}
       >
-        <Screen4VibeCheck
-          vibes={vibes}
-          dapps={dapps}
-          dexTradingSummary={dexTradingSummary}
-          sorobanBuilderSummary={sorobanBuilderSummary}
-          portfolioDiversitySummary={portfolioDiversitySummary}
-          biggestDaySummary={biggestDaySummary}
-          nftActivitySummary={nftActivitySummary}
-        />
+        <MuteToggle />
+      </motion.div>
 
-        <ProgressIndicator
-          currentStep={4}
-          totalSteps={6}
-          onNext={() => router.push("/persona")}
-          showNext={true}
-        />
-
-        <motion.div
-          className="absolute top-6 right-6 md:top-8 md:right-8 z-30"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
-        >
-          <MuteToggle />
-        </motion.div>
-
-        <ShareButtons
-          title="My Vibe Check - Stellar Wrapped 2026"
-          text={
-            vibes.length
-              ? `My Stellar vibe: ${vibes[0].percentage}% ${vibes[0].label}! What's yours? 👑#StellabWrapped #DeFi`
-              : "Check out my Stellar Vibe Check! 👑#StellarWrapped #DeFi"
-          }
-          hashtags={["StellarWrapped", "DeFi", "CryptoVibe"]}
-          persona={result?.persona}
-          topStat={
-            vibes.length
-              ? `${vibes[0].percentage}% ${vibes[0].label}`
-              : undefined
-          }
-        />
-      </Suspense>
+      <ShareButtons
+        title="My Vibe Check - Stellar Wrapped 2026"
+        text={
+          vibes.length
+            ? `My Stellar vibe: ${vibes[0].percentage}% ${vibes[0].label}! What's yours? 👑#StellabWrapped #DeFi`
+            : "Check out my Stellar Vibe Check! 👑#StellarWrapped #DeFi"
+        }
+        hashtags={["StellarWrapped", "DeFi", "CryptoVibe"]}
+        persona={result?.persona}
+        topStat={vibes.length ? `${vibes[0].percentage}% ${vibes[0].label}` : undefined}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { kvGet, kvSet, SUB_KEY } from "../_lib/kv";
+import { kvGet, kvSet, kvSAdd, kvSRem, SUB_KEY, PERIOD_KEY } from "../_lib/kv";
 import { logger } from "@/app/utils/logger";
 import {
   getClientIp,
@@ -19,12 +19,12 @@ function isValidWallet(address: string): boolean {
 async function syncPeriodIndex(
   walletAddress: string,
   previousPeriods: PeriodPrefs | undefined,
-  currentPeriods: PeriodPrefs,
+  currentPeriods: PeriodPrefs
 ) {
   const ops = VALID_PERIODS.map((period) => {
     const key = PERIOD_KEY(period);
     const enabled = !!currentPeriods[period];
-    const wasEnabled = !!previousPeriods?[period];
+    const wasEnabled = !!previousPeriods?.[period];
 
     if (enabled) {
       return kvSAdd(key, walletAddress);
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const ipLimitResult = await checkRateLimit(
       `ratelimit:ip:subscribe:${ip}`,
       SUBSCRIBE_IP_LIMIT,
-      SUBSCRIBE_IP_WINDOW,
+      SUBSCRIBE_IP_WINDOW
     );
 
     if (!ipLimitResult.allowed) {
@@ -66,12 +66,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid push subscription" }, { status: 400 });
     }
 
-    const existing =
-      (await kvGet<SubscriptionRecord>(SUB_KEY(walletAddress))) ?? {
-        walletAddress,
-        consentGiven: true,
-        consentTimestamp: new Date().toISOString(),
-      };
+    const existing = (await kvGet<SubscriptionRecord>(SUB_KEY(walletAddress))) ?? {
+      walletAddress,
+      consentGiven: true,
+      consentTimestamp: new Date().toISOString(),
+    };
 
     const previousPeriods = existing.push?.periods;
 
@@ -96,7 +95,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (err) {
-    log.error("Internal error creating push subscription:", err);
+    logger.error("Internal error creating push subscription:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

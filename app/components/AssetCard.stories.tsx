@@ -43,7 +43,7 @@ const meta: Meta<typeof AssetCard> = {
 };
 
 export default meta;
-type Story = StoryObj<{ typeof AssetCard> ;
+type Story = StoryObj<typeof AssetCard>;
 
 export const Primary: Story = {};
 
@@ -106,8 +106,8 @@ export const Interactive: Story = {
   render: (args) => (
     <div className="w-full max-w-sm space-y-4">
       <AssetCard {...args} />
-      <AssetCard {...args} asset={ ...args.asset, code: "ETH", name: "Ethereum" }} />
-      <AssetCard {...args} asset={ ...args.asset, code: "XLM", name: "Stellar" }} />
+      <AssetCard {...args} asset={{ ...args.asset, code: "ETH", name: "Ethereum" }} />
+      <AssetCard {...args} asset={{ ...args.asset, code: "XLM", name: "Stellar" }} />
     </div>
   ),
 };
@@ -118,10 +118,18 @@ export const Responsive: Story = {
   },
   render: (args) => (
     <div className="flex flex-col gap-4">
-      <div className="w-full max-w-xs"><AssetCard {...args} /></div>
-      <div className="w-full max-w-sm"><AssetCard {...args} /></div>
-      <div className="w-full max-w-md"><AssetCard {...args} /></div>
-      <div className="w-full max-w-lg"><AssetCard {...args} /></div>
+      <div className="w-full max-w-xs">
+        <AssetCard {...args} />
+      </div>
+      <div className="w-full max-w-sm">
+        <AssetCard {...args} />
+      </div>
+      <div className="w-full max-w-md">
+        <AssetCard {...args} />
+      </div>
+      <div className="w-full max-w-lg">
+        <AssetCard {...args} />
+      </div>
     </div>
   ),
 };
