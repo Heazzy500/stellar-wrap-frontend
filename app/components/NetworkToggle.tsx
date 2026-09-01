@@ -199,6 +199,7 @@ export function NetworkToggle() {
   useDialogFocusManagement(showConfirmation, handleCancel, dialogRef);
 
   const isMainnet = network === NETWORKS.MAINNET;
+  const isBusy = isSwitchingDirect || isSigningSwitch;
 
   const networkColor = isMainnet ? "var(--color-theme-primary)" : "#FFA500";
   const networkColorRgb = isMainnet
