@@ -153,7 +153,7 @@ const archetypeImagePath =
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '30px' }}>
                       {archetypeImageSrc && (
-                        // eslint-disable-next-line @next/next/no-img-element
+                        // eslint-disable-next-line @next/next/no-img-element -- Vercel OG image generation (satori) requires plain <img>; Next.js <Image> is not available in edge runtime
                         <img
                           src={archetypeImageSrc}
                           alt={persona}

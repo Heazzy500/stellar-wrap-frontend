@@ -179,7 +179,7 @@ export async function GET(req: NextRequest) {
                     border: '1px solid rgba(255, 255, 255, 0.1)',
                   }}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  {/* eslint-disable-next-line @next/next/no-img-element -- Vercel OG image generation (satori) requires plain <img>; Next.js <Image> is not available in edge runtime */}
                   <img
                     src={archetypeImageSrc}
                     alt={persona}

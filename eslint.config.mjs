@@ -1,6 +1,7 @@
 import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
+import eslintComments from "@eslint-community/eslint-plugin-eslint-comments";
 
 const eslintConfig = defineConfig([
   ...nextVitals,
@@ -21,6 +22,19 @@ const eslintConfig = defineConfig([
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^_",
         },
+      ],
+    },
+  },
+  // Require a description on every eslint-disable comment so suppressions are
+  // self-documenting. New disable comments without a reason will fail linting.
+  {
+    plugins: {
+      "eslint-comments": eslintComments,
+    },
+    rules: {
+      "eslint-comments/require-description": [
+        "error",
+        { ignore: ["eslint-enable"] },
       ],
     },
   },

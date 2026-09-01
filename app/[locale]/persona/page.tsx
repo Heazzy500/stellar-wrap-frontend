@@ -261,7 +261,7 @@ export default function ArchetypeReveal(): JSX.Element {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omits `streamedDescription` and stable setters; re-running on those would cause an infinite loop
   }, [result]);
 
   const handleShareKeyDown = (platform: string) => (e: React.KeyboardEvent) => {
@@ -362,7 +362,7 @@ export default function ArchetypeReveal(): JSX.Element {
 
   useEffect(() => {
     runRevealAnimation();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally runs once on mount; runRevealAnimation is stable via useCallback
   }, []);
 
   const handleCardTap = () => {
