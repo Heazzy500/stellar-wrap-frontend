@@ -157,8 +157,14 @@ export default function LoadingScreen() {
         if (isDemoMode() || address === DEMO_STELLAR_ADDRESS) {
           await emitProgressThroughSteps();
           result = mapIndexerResultToWrapResult({
+            accountId: DEMO_ADDRESS,
             totalTransactions: 42,
+            totalVolume: 0,
+            mostActiveAsset: "XLM",
+            contractCalls: 0,
+            gasSpent: 0,
             dapps: [],
+            vibes: [],
             largestTransaction: { amount: 1000, assetCode: "XLM" },
           });
         } else if (address) {

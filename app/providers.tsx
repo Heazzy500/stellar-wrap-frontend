@@ -1,5 +1,6 @@
 "use client";
 
+import { type ReactNode, useEffect } from "react";
 import { ThemeProvider } from "./context/ThemeContext";
 import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

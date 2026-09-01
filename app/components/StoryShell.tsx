@@ -2,7 +2,7 @@
 
 import { lazy, type ReactNode, Suspense, useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Home, Share2, ChevronRight, Palette } from "lucide-react";
+import { Home, Share2, ChevronRight } from "lucide-react";
 import { useRouter } from "next/navigation";
 const MuteToggle = lazy(() => import("./MuteToggle").then((m) => ({ default: m.MuteToggle })));
 import {
@@ -208,8 +208,8 @@ export function StoryShell({ children, activeSegment = 1 }: StoryShellProps) {
             aria-expanded={isThemeSelectorOpen}
             aria-label="Open color theme picker"
           >
-            <Palette className="w-5 h-5 text-[#1DB954]" aria-hidden="true" />
-          </motion.button>
+            <ColorToggle />
+          </motion.div>
         </div>
       </div>
 
