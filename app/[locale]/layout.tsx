@@ -7,6 +7,7 @@ import { ReactNode } from "react";
 import { ThemeProvider } from "../context/ThemeContext";
 import { SkipNavigation } from "@/app/components/SkipNavigation";
 import { GlobalToaster } from "@/app/components/GlobalToaster";
+import { Footer } from "@/app/components/Footer";
 
 type Props = {
   children: ReactNode;
@@ -47,6 +48,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             {/* <-- Wrap here so everything inside has access to useTheme */}
             <GlobalToaster />
             {children}
+            <Footer />
           </ThemeProvider>
         </NextIntlClientProvider>
       </body>
